@@ -9,7 +9,6 @@ from __future__ import print_function
 
 import numpy as np
 
-from . import banks
 from matplotlib import lines
 from matplotlib import pyplot as plt
 from matplotlib import ticker

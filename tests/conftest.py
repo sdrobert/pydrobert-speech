@@ -9,15 +9,17 @@ import warnings
 import numpy as np
 import pytest
 
-from pydrobert.signal import banks
+from pydrobert.signal import compute
+from pydrobert.signal import filters
+from pydrobert.signal import scales
 
 warnings.simplefilter('error')
 
 @pytest.fixture(params=[
-    banks.LinearScaling(np.random.randint(1, 20)),
-    banks.OctaveScaling(np.random.randint(1, 20)),
-    banks.MelScaling(),
-    banks.BarkScaling(),
+    scales.LinearScaling(np.random.randint(1, 20)),
+    scales.OctaveScaling(np.random.randint(1, 20)),
+    scales.MelScaling(),
+    scales.BarkScaling(),
 ], ids=[
     'linear',
     'octave',
@@ -41,7 +43,7 @@ def num_filts(request):
     return request.param
 
 @pytest.fixture(params=[
-    lambda scale, num_filts: banks.TriangularOverlappingFilterBank(
+    lambda scale, num_filts: filters.TriangularOverlappingFilterBank(
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
@@ -49,7 +51,7 @@ def num_filts(request):
         sampling_rate=8000 if np.random.randint(2) else 16000,
         analytic=np.random.randint(2),
     ),
-    lambda scale, num_filts: banks.GaborFilterBank(
+    lambda scale, num_filts: filters.GaborFilterBank(
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
@@ -73,7 +75,7 @@ def frame_style(request):
     return request.param
 
 @pytest.fixture(params=[
-    lambda bank, frame_style: banks.STFTFrameComputer(
+    lambda bank, frame_style: compute.STFTFrameComputer(
         bank,
         frame_length_ms=np.random.randint(5, 30) if np.random.randint(2) else None,
         frame_shift_ms=np.random.randint(5, 20),
@@ -83,7 +85,7 @@ def frame_style(request):
         include_energy=np.random.randint(2),
         frame_style=frame_style
     ),
-    lambda bank, frame_style: banks.SIFrameComputer(
+    lambda bank, frame_style: compute.SIFrameComputer(
         bank,
         frame_shift_ms=np.random.randint(5, 20),
         use_power=np.random.randint(2),
