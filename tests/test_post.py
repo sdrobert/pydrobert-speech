@@ -84,3 +84,24 @@ def test_standardize_write_read(do_kaldi, with_key, temp_file_1_name):
         stand_2 = post.Standardize(temp_file_1_name)
     x_1_p_3 = stand_2.apply(x_1, axis=1)
     assert np.allclose(x_1_p_2, x_1_p_3)
+
+@pytest.mark.parametrize('buff', [
+    np.random.random(10),
+    np.random.random((2, 5)),
+    np.random.random((3, 6, 4)),
+    np.random.random((5, 4, 0, 0, 1)),
+])
+@pytest.mark.parametrize('concatenate', [True, False])
+@pytest.mark.parametrize('num_deltas', list(range(5)))
+def test_delta_shapes(buff, concatenate, num_deltas):
+    for target_axis in range(len(buff.shape) + 1 - int(concatenate)):
+        deltas = post.Deltas(
+            num_deltas, concatenate=concatenate, target_axis=target_axis)
+        for axis in range(len(buff.shape)):
+            new_shape = list(buff.shape)
+            if concatenate:
+                new_shape[target_axis] *= num_deltas + 1
+            else:
+                new_shape.insert(target_axis, num_deltas + 1)
+            assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), \
+                buff.shape

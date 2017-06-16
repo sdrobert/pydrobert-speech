@@ -50,8 +50,8 @@ class Standardize(PostProcessor):
 
     Though the exact behaviour of an instance varies according to below,
     the "goal" of this transformation is such that every feature
-    coefficient along the chosen axis has mean 0 and variance 1
-    (if `norm_var` is ``True``) across the other axes.
+    coefficient on the chosen axis has mean 0 and variance 1
+    (if `norm_var` is ``True``) over the other axes.
 
     If `rfilename` is not specified or the associated file is empty,
     coefficients are standardized locally (within the target tensor). If
@@ -379,3 +379,98 @@ class Standardize(PostProcessor):
                     )
 
 CMVN = Standardize
+
+class Deltas(PostProcessor):
+    '''Calculate feature deltas (weighted rolling averages)
+
+    Deltas are calculated by correlating the feature tensor with a 1D
+    delta filter (`Deltas.DELTA_FILTER`) along an axis (e.g. the feature
+    frame axis). The delta filter is low-pass, spreading energy along
+    the feature axis. Deltas can be cascaded to approximate higher order
+    moments.
+
+    `Deltas` will increase the size of the feature tensor when
+    `num_deltas` is positive and passed features are non-empty.
+
+    If `concatenate` is ``True``, `target_axis` specifies the axis along
+    which new deltas are appended. For example,
+
+    >>> deltas = Deltas(num_deltas=2, concatenate=True, target_axis=1)
+    >>> features_shape = list(features.shape)
+    >>> features_shape[1] *= 3
+    >>> assert deltas.apply(features).shape == tuple(features_shape)
+
+    If `concatenate` is ``False``, `target_axis` dictates the location
+    of a new axis in the resulting feature tensor that will index the
+    deltas (0 for the original features, 1 for deltas, 2 for double
+    deltas, etc.). For example:
+
+    >>> deltas = Deltas(num_deltas=2, concatenate=False, target_axis=1)
+    >>> features_shape = list(features.shape)
+    >>> features_shape.insert(1, 3)
+    >>> assert deltas.apply(features).shape == tuple(features_shape)
+
+    Parameters
+    ----------
+    num_deltas : int
+    target_axis : int, optional
+    concatenate : bool, optional
+    pad_mode : str or function, optional
+        How to pad the input sequence when correlating. Additional
+        keyword arguments will be passed to `numpy.pad`. See `numpy.pad`
+        for more details
+    '''
+
+    DELTA_FILTER = np.array((-.2, -.1, 0., .1, .2), dtype=np.float64)
+    '''The filter features are correlated with to calculate deltas'''
+
+    def __init__(
+            self, num_deltas, target_axis=-1, concatenate=True,
+            pad_mode='edge', **kwargs):
+        self._target_axis = target_axis
+        self._pad_mode = pad_mode
+        self._pad_kwargs = kwargs
+        self._concatenate = bool(concatenate)
+        self._filts = [np.ones(1, dtype=np.float64)]
+        for idx in range(num_deltas):
+            self._filts.append(
+                np.convolve(self._filts[idx], Deltas.DELTA_FILTER))
+
+    def apply(self, features, axis=-1, in_place=False):
+        if not np.prod(features.shape):
+            if not in_place:
+                features = features.copy()
+            new_shape = list(features.shape)
+            if self._concatenate:
+                new_shape[self._target_axis] *= len(self._filts)
+            else:
+                new_shape.insert(
+                    self._target_axis % (len(features.shape) + 1),
+                    len(self._filts),
+                )
+            return features.reshape(new_shape)
+        if len(self._filts) == 1:
+            if not in_place:
+                features = features.copy()
+            if self._concatenate:
+                return features
+            else:
+                feat_slice = [slice(None) for _ in range(len(features.shape))]
+                feat_slice.insert(
+                    self._target_axis % (len(feat_slice) + 1), None)
+                return features[feat_slice]
+        delta_feats = [features]
+        def _pad_lambda(z, h, l, r):
+            z = np.pad(z, (l, r), self._pad_mode, **self._pad_kwargs)
+            return np.correlate(z, h)
+        for filt in self._filts[1:]:
+            pad_left = len(filt) // 2
+            pad_right = (len(filt) - 1) // 2
+            filtered = np.apply_along_axis(
+                _pad_lambda, axis, features, filt, pad_left, pad_right)
+            assert filtered.shape == features.shape
+            delta_feats.append(filtered)
+        if self._concatenate:
+            return np.concatenate(delta_feats, self._target_axis)
+        else:
+            return np.stack(delta_feats, self._target_axis)
