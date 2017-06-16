@@ -4,7 +4,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import warnings
+
+from tempfile import NamedTemporaryFile
 
 import numpy as np
 import pytest
@@ -14,6 +17,13 @@ from pydrobert.signal import filters
 from pydrobert.signal import scales
 
 warnings.simplefilter('error')
+
+@pytest.fixture
+def temp_file_1_name():
+    temp = NamedTemporaryFile(delete=False)
+    temp.close()
+    yield temp.name
+    os.remove(temp.name)
 
 @pytest.fixture(params=[
     scales.LinearScaling(np.random.randint(1, 20)),
