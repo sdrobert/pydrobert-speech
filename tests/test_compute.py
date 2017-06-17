@@ -10,6 +10,18 @@ import pytest
 from pydrobert.signal import USE_FFTPACK
 from pydrobert.signal import compute
 
+@pytest.fixture(params=[
+    0,
+    1,
+    2 ** 10,
+], ids=[
+    'empty buffer',
+    'length 1 buffer',
+    'large buffer',
+])
+def buff(request):
+    return np.random.random(request.param)
+
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
     feats_framewise = compute.frame_by_frame_calculation(computer, buff)

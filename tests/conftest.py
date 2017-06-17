@@ -112,14 +112,3 @@ def frame_style(request):
 def computer(request, bank, frame_style):
     return request.param(bank, frame_style)
 
-@pytest.fixture(params=[
-    0,
-    1,
-    2 ** 10,
-], ids=[
-    'empty buffer',
-    'length 1 buffer',
-    'large buffer',
-])
-def buff(request):
-    return np.random.random(request.param)
