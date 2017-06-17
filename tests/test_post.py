@@ -105,3 +105,23 @@ def test_delta_shapes(buff, concatenate, num_deltas):
                 new_shape.insert(target_axis, num_deltas + 1)
             assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), \
                 buff.shape
+
+@pytest.mark.parametrize('buff', [
+    np.random.random(10),
+    np.random.random((2, 5)),
+    np.random.random((3, 6, 4)),
+    np.random.random((5, 4, 0, 0, 1)),
+])
+def test_deltas_cascade(buff):
+    num_deltas = 5
+    deltas_full = post.Deltas(num_deltas, concatenate=False, target_axis=0, pad_mode='constant')
+    deltas_step = post.Deltas(1, concatenate=False, target_axis=0, pad_mode='constant')
+    full_result = deltas_full.apply(buff)
+    last_result = full_result[0]
+    assert np.allclose(last_result, buff)
+    flipper = [slice(None)] * len(buf.shape)
+    flipper[-1] = slice(None, None, -1)
+    for idx, cur_result in enumerate(full_result[1:]):
+        step_result = deltas_step.apply(last_result)[1]
+        assert np.allclose(cur_result, step_result), idx + 1
+        last_result = cur_result[flipper]
