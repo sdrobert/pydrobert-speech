@@ -106,22 +106,62 @@ def test_delta_shapes(buff, concatenate, num_deltas):
             assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), \
                 buff.shape
 
-@pytest.mark.parametrize('buff', [
-    np.random.random(10),
-    np.random.random((2, 5)),
-    np.random.random((3, 6, 4)),
-    np.random.random((5, 4, 0, 0, 1)),
+class KaldiDeltas(object):
+    '''Replicate Kaldi delta logic for comparative purposes'''
+
+    def __init__(self, num_deltas, window=2):
+        self._scales = [np.ones(1, dtype=np.float64)]
+        for last_idx in range(num_deltas):
+            prev_scale = self._scales[last_idx]
+            cur_scale = np.zeros(
+                len(prev_scale) + window * 2, dtype=np.float64)
+            prev_offset = (len(prev_scale) - 1) // 2
+            cur_offset = prev_offset + window
+            normalizer = 0
+            for j in range(-window, window + 1):
+                normalizer += j * j
+                for k in range(-prev_offset, prev_offset + 1):
+                    cur_scale[j + k + cur_offset] += \
+                        j * prev_scale[k + prev_offset]
+            cur_scale /= normalizer
+            self._scales.append(cur_scale)
+
+    def _process(self, r, features, out_row):
+        num_frames, feat_dim = features.shape
+        assert len(out_row) == feat_dim * len(self._scales)
+        for idx, scale in enumerate(self._scales):
+            max_offset = (len(scale) - 1) // 2
+            sub_row = out_row[idx * feat_dim:(idx + 1) * feat_dim]
+            for j in range(-max_offset, max_offset + 1):
+                offset_frame = r + j
+                if offset_frame < 0:
+                    offset_frame = 0
+                elif offset_frame >= num_frames:
+                    offset_frame = num_frames - 1
+                sub_row += scale[j + max_offset] * features[offset_frame]
+
+    def apply(self, features):
+        assert len(features.shape) == 2
+        out = np.zeros(
+            (features.shape[0], features.shape[1] * len(self._scales)),
+            dtype=np.float64
+        )
+        for r, out_row in enumerate(out):
+            self._process(r, features, out_row)
+        return out
+
+@pytest.mark.parametrize('buff',[
+    np.random.random((1, 3)),
+    np.random.random((3, 1)),
+    np.random.random((20, 50)),
 ])
-def test_deltas_cascade(buff):
-    num_deltas = 5
-    deltas_full = post.Deltas(num_deltas, concatenate=False, target_axis=0, pad_mode='constant')
-    deltas_step = post.Deltas(1, concatenate=False, target_axis=0, pad_mode='constant')
-    full_result = deltas_full.apply(buff)
-    last_result = full_result[0]
-    assert np.allclose(last_result, buff)
-    flipper = [slice(None)] * len(buf.shape)
-    flipper[-1] = slice(None, None, -1)
-    for idx, cur_result in enumerate(full_result[1:]):
-        step_result = deltas_step.apply(last_result)[1]
-        assert np.allclose(cur_result, step_result), idx + 1
-        last_result = cur_result[flipper]
+@pytest.mark.parametrize('num_deltas', list(range(5)))
+@pytest.mark.parametrize('window', list(range(1, 6)))
+def test_compare_to_kaldi(buff, num_deltas, window):
+    deltas = post.Deltas(
+        num_deltas, concatenate=True, context_window=window, target_axis=1)
+    kaldi_deltas = KaldiDeltas(num_deltas, window)
+    delta_res = deltas.apply(buff, axis=0)
+    kaldi_res = kaldi_deltas.apply(buff)
+    assert np.allclose(delta_res, kaldi_res)
+
