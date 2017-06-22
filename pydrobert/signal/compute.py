@@ -654,6 +654,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             elif frequency_smoothing_pre == 'tri3':
                 self._freq_win = np.array([.33, .67, .33], dtype=np.float64)
                 self._freq_slice = slice(1, -1)
+            else:
+                raise ValueError(
+                    'Invalid frequency smoothing window: {}'.format(
+                        frequency_smoothing_pre))
         else:
             self._freq_win = None
             self._feq_slice = None
