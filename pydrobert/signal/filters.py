@@ -83,14 +83,21 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
         The center of the supported (nonzero) region of a filter in the
         frequency domain. This is not necessarily the same thing as its
         "center frequency" (the point with the maximum magnitude
-        frequency response), as filters can be asymmetrical.
+        frequency response), as filters can be asymmetrical. Does not
+        include centers induced by Hermitian Symmetry (i.e.
+        half-periodic centers when real filters)
         """
         pass
 
     @property
     @abc.abstractmethod
     def supports_hz(self):
-        """Widths of nonzero regions of filter frequency responses, in Hz"""
+        """Widths of nonzero regions of filter frequency responses, in Hz
+
+        Does not take into account additional nonzero regions induced by
+        Hermitian Symmetry (i.e. half-periodic centers when real
+        filters)
+        """
         pass
 
     @property

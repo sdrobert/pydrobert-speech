@@ -19,6 +19,12 @@ __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
+__all__ = [
+    'PostProcessor',
+    'Standardize',
+    'Deltas',
+]
+
 class PostProcessor(object, with_metaclass(abc.ABCMeta)):
     '''A container for post-processing features with a transform'''
 

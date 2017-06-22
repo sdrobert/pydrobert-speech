@@ -21,6 +21,13 @@ __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
+__all__ = [
+    'ScalingFunction',
+    'LinearScaling',
+    'OctaveScaling',
+    'MelScaling',
+    'BarkScaling',
+]
 
 class ScalingFunction(object, with_metaclass(abc.ABCMeta)):
     """Converts a frequency to some scale and back again"""

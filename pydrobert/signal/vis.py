@@ -13,13 +13,15 @@ from matplotlib import lines
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
+from pydrobert.signal.compute import LinearFilterBankFrameComputer
+
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
 def plot_frequency_response(
-        bank, axis=None, dft_size=None, half=None, title=None,
+        bank, axes=None, dft_size=None, half=None, title=None,
         x_scale='hz', y_scale='dB',
     ):
     '''Plot frequency response of filters in a filter bank
@@ -27,9 +29,8 @@ def plot_frequency_response(
     Parameters
     ----------
     bank : banks.LinearFilterBank
-    axis : matplotlib.axis.Axis, optional
-        An axis object to plot on. Default is to generate a new figure
-        and axis
+    axes : matplotlib.axes.Axes, optional
+        An Axes object to plot on. Default is to generate a new figure
     dft_size : int, optional
         The size of the Discrete Fourier Transform to plot. Defaults to
         `max(max(bank.supports), 2 * bank.sampling_rate /
@@ -55,6 +56,7 @@ def plot_frequency_response(
     Returns
     -------
     matplotlib.figure.Figure
+        The containing figure
     '''
     if not bank.num_filts:
         raise ValueError(
@@ -66,10 +68,10 @@ def plot_frequency_response(
         dft_size = max(max(bank.supports), 2 * rate / min(bank.supports_hz))
     if half is None:
         half = bank.is_real
-    if axis is None:
-        fig, axis = plt.subplots()
+    if axes is None:
+        fig, axes = plt.subplots()
     else:
-        fig = axis.get_figure()
+        fig = axes.get_figure()
     responses_colours = [
         (
             bank.get_frequency_response(filt_idx, dft_size, half=half),
@@ -92,10 +94,10 @@ def plot_frequency_response(
         x_title = 'Angular Frequency'
         x *= 2 * np.pi
         x /= dft_size
-        axis.xaxis.set_major_locator(ticker.MultipleLocator(np.pi))
-        axis.xaxis.set_minor_locator(ticker.AutoMinorLocator(2))
-        axis.xaxis.set_major_formatter(ticker.FuncFormatter(_pi_formatter))
-        axis.xaxis.set_minor_formatter(ticker.FuncFormatter(_pi_formatter))
+        axes.xaxis.set_major_locator(ticker.MultipleLocator(np.pi))
+        axes.xaxis.set_minor_locator(ticker.AutoMinorLocator(2))
+        axes.xaxis.set_major_formatter(ticker.FuncFormatter(_pi_formatter))
+        axes.xaxis.set_minor_formatter(ticker.FuncFormatter(_pi_formatter))
     elif x_scale == 'bins':
         x_title = 'DFT Bin'
     else:
@@ -162,18 +164,18 @@ def plot_frequency_response(
         responses_colours = new_responses_colours
     else:
         raise ValueError('Invalid y_scale: {}'.format(y_scale))
-    axis.set_xlim((0, max(x)))
-    axis.set_ylim((y_min, y_max))
+    axes.set_xlim((0, max(x)))
+    axes.set_ylim((y_min, y_max))
     if title:
-        axis.set_title(title)
-    axis.set_ylabel(y_title)
-    axis.set_xlabel(x_title)
+        axes.set_title(title)
+    axes.set_ylabel(y_title)
+    axes.set_xlabel(x_title)
     for response, colour in responses_colours:
-        axis.plot(x, response, color=colour)
+        axes.plot(x, response, color=colour)
     if y_scale == 'both':
         real_handle = lines.Line2D([], [], color=real_colour, label='Real')
         imag_handle = lines.Line2D([], [], color=imag_colour, label='Imag')
-        axis.legend(handles=[real_handle, imag_handle])
+        axes.legend(handles=[real_handle, imag_handle])
     return fig
 
 def _pi_formatter(val, _):
@@ -196,8 +198,192 @@ def _pi_formatter(val, _):
     else:
         return ''
 
-def compare_feature_frames(computers, signal, title=None, plot_titles=None):
-    pass
+def compare_feature_frames(
+        computers, signal, axes=None, plot_titles=None, post_ops=None,
+        title=None, **kwargs):
+    '''Compare features from frame computers via spectrogram-like heat map
+
+    Direct comparison of `FrameComputer` objects is possible because all
+    subclasses of this abstract data type share a common interpretation
+    of frame boundaries (according to `FrameComputer.frame_style`).
+
+    Additional keyword args will be passed to the plotting routine.
+
+    Parameters
+    ----------
+    computers : pydrobert.signal.compute.FrameComputer or tuple
+        One or more frame computers to compare
+    signal : array-like
+        A 1D array of the raw signal. Assumed to be valid with respect
+        to computer settings (e.g. sample rate).
+    axes : matplotlib.axes.Axes or tuple, optional
+        By default, this function creates a new figure and subplots.
+        Setting one `axes` value for every `computers` value will plot
+        feature representations from `computers` into each ordered Axes.
+        If `axes` do not belong to the same figure, a `ValueError` will
+        be raised
+    plot_titles : tuple, optional
+        An ordered list of strings specifying the titles of each
+        subplot. The default is to not display subplot titles
+    post_ops : pydrobert.signal.post.PostProcessor or tuple, optional
+        One or more post-processors to apply (in order) to each computed
+        feature representation. If a simple list of post-processors is
+        provided, each operation is applied to the default axis (the
+        feature coefficient axis). To explicitly set the axis, pairs of
+        ``(op, axis)`` can be specified in the list. No op is allowed
+        to change the shape of the feature representation
+        (e.g. `post.Deltas`), or a `ValueError` will be thrown
+    title : str, optional
+        The title of the whole figure. Default is to display no title
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The containing figure
+
+    Raises
+    ------
+    ValueError
+    '''
+    try:
+        iter(computers)
+    except TypeError:
+        computers = (computers,)
+    if not len(computers):
+        raise ValueError('Expected at least one computer')
+    if plot_titles is not None:
+        try:
+            iter(plot_titles)
+        except TypeError:
+            plot_titles = [plot_titles]
+        if len(plot_titles) != len(computers):
+            raise ValueError('Expected {} plot titles, got {}'.format(
+                len(computers), len(plot_titles)))
+    else:
+        plot_titles = [None] * len(computers)
+    if post_ops is not None:
+        try:
+            iter(post_ops)
+        except TypeError:
+            post_ops = (post_ops,)
+        if len(post_ops) == 2 and isinstance(post_ops[1], int):
+            post_ops = (post_ops,)
+    else:
+        post_ops = []
+    if axes is not None:
+        try:
+            iter(axes)
+        except TypeError:
+            axes = (axes,)
+        if len(axes) != len(computers):
+            raise ValueError('Expected {} axes, got {}'.format(
+                len(computers), len(axes)))
+        fig = axes[0].get_figure()
+        for ax in axes[1:]:
+            if ax.get_figure() != fig:
+                raise ValueError('Axes do not share the same figure')
+    elif len(computers) == 1:
+        fig, axes = plt.subplots()
+        axes = (axes,)
+    else:
+        fig, axes = plt.subplots(len(computers), sharex=True)
+    supremum_seconds = np.infty
+    num_samples = len(signal)
+    for idx, (computer, ax, plot_title) in enumerate(
+            zip(computers, axes, plot_titles)):
+        frame_length = computer.frame_length
+        frame_shift = computer.frame_shift
+        if computer.frame_style == 'causal':
+            pad_left = 0
+        else: # centered
+            pad_left = (frame_length + 1) // 2 - 1
+        total_len = num_samples + pad_left
+        num_frames = max(0, (total_len - frame_length) // frame_shift + 1)
+        # individual computers may choose to add a final frame by
+        # padding. Since this behaviour is not guaranteed, we only
+        # consider full frames
+        if not num_frames:
+            raise ValueError(
+                'The computer indexed at {} is unable to generate '
+                'a full frame from the signal'.format(idx))
+        # we use frame shifts to specify bounds (frame length is likely
+        # overlapping), with the exception of the last frame
+        sample_bounds = np.arange(num_frames + 1, dtype=float) * frame_shift
+        if pad_left:
+            # r.h.s. bound half a frame shift to right of center (or
+            # half frame right of center for last frame)
+            # l.h.s. bound half the other way (or 0 for first frame)
+            sample_bounds[1:-1] -= (frame_shift + 1) // 2 - 1
+            sample_bounds[-1] = sample_bounds[-2] + pad_left
+        else:
+            # l.h.s bound leftmost idx of each frame
+            # r.h.s. is l.h.s. plus frame shift (or frame length for
+            # last frame)
+            sample_bounds[-1] = sample_bounds[-2] + frame_length
+        seconds_bounds = sample_bounds * 1000 / computer.sampling_rate
+        supremum_seconds = min(supremum_seconds, seconds_bounds[-1])
+        feat_slice = [slice(None, num_frames), slice(None)]
+        if isinstance(computer, LinearFilterBankFrameComputer):
+            yscale_label = 'Frequency (Hz)'
+            bank = computer.bank
+            num_coeffs = bank.num_filts
+            if computer.includes_energy:
+                feat_slice[-1] = slice(1, None)
+            centers_hz = bank.centers_hz
+            supports_hz = bank.supports_hz
+            assert num_coeffs == len(centers_hz)
+            # supports may be overlapping or sparse. Instead of using
+            # supports to directly specify boundaries, we use them as
+            # weights to pick points between center frequencies (except
+            # the first and last filters, which get to extend their
+            # lower and higher bounds to their supports, respectively.
+            feature_bounds = np.empty(num_coeffs + 1)
+            feature_bounds[0] = max(0, centers_hz[0] - supports_hz[0] / 2)
+            feature_bounds[-1] = min(
+                computer.sampling_rate / 2,
+                centers_hz[-1] + supports_hz[-1] / 2
+            )
+            for high_idx in range(1, num_coeffs):
+                low_c = centers_hz[high_idx - 1]
+                high_c = centers_hz[high_idx]
+                low_s = supports_hz[high_idx - 1]
+                high_s = supports_hz[high_idx]
+                assert high_c >= low_c
+                split_c = low_c * (high_s / (low_s + high_s))
+                split_c += high_c * (low_s / (low_s + high_s))
+                feature_bounds[high_idx] = split_c
+        else:
+            # no idea how to handle. Just plot rectangular coefficients
+            num_coeffs = computer.num_coeffs
+            yscale_label = None
+            feature_bounds = np.arange(num_coeffs + 1)
+        features = computer.compute_full(signal)
+        assert features.shape[0] >= num_frames
+        assert features[feat_slice].shape[-1] == num_coeffs
+        for post_op_idx, post_op in enumerate(post_ops):
+            try:
+                apply_axis = post_op[1]
+                post_op = post_op[0]
+            except TypeError:
+                apply_axis = -1
+            new_features = post_op.apply(features, axis=apply_axis)
+            if new_features.shape != features.shape:
+                raise ValueError(
+                    'The post_op indexed at {} changed the shape of the'
+                    'features'.format(post_op_idx))
+            features = new_features
+        ax.pcolormesh(
+            seconds_bounds, feature_bounds, features[feat_slice], **kwargs)
+        if plot_title is not None:
+            ax.set_title(plot_title)
+        ax.set_xlabel('Time (seconds)')
+        if yscale_label:
+            ax.set_ylabel(yscale_label)
+    for ax in axes:
+        ax.set_xlim((0, supremum_seconds))
+    if title:
+        fig.suptitle(title)
+    return fig
 
 # def compare_representations(banks, signal, cmvn=True, names=None):
 #     '''Compare feature representations via spectrogram-like heat map

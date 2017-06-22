@@ -16,6 +16,12 @@ from pydrobert.signal import compute
 from pydrobert.signal import filters
 from pydrobert.signal import scales
 
+# throws away the user error on import if LC_ALL=C is not set
+try:
+    import pydrobert.kaldi
+except ImportError:
+    pass
+
 warnings.simplefilter('error')
 
 @pytest.fixture
