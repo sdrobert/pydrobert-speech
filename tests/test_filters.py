@@ -24,10 +24,15 @@ def test_truncated_matches_full(bank):
             challenge[
                 len(challenge) - bin_idx - len(truncated) + 1:
                 len(challenge) - bin_idx + 1] += truncated[::-1].conj()
+        bad_idx = np.where(np.logical_not(np.isclose(
+            full_response, challenge, atol=EFFECTIVE_SUPPORT_THRESHOLD)))
         assert np.allclose(
             full_response, challenge,
-            atol=EFFECTIVE_SUPPORT_THRESHOLD), \
-                '{} {}'.format(bin_idx, len(truncated))
+            atol=EFFECTIVE_SUPPORT_THRESHOLD
+        ), 'idx: {} threshold:{} full:{} challenge:{}'.format(
+            filt_idx, EFFECTIVE_SUPPORT_THRESHOLD,
+            full_response[bad_idx], challenge[bad_idx]
+        )
 
 def test_frequency_matches_impulse(bank):
     for filt_idx in range(bank.num_filts):
@@ -76,8 +81,10 @@ def test_supports_match(bank):
         )
         if bank.is_real:
             zero_mask[1:] &= zero_mask[-1:0:-1]
+        # either there's a zero or the support exceeds 2pi periodization
+        # minus one dft bin.
         assert np.any(zero_mask) or \
-            right_ang - left_ang >= (2 * np.pi - freqs[1])
+            right_ang - left_ang >= (2 * np.pi - sum(freqs[:2]))
         assert not np.all(zero_mask), dft_size
         x = bank.get_impulse_response(filt_idx, dft_size)
         # we use 2 * the effective support threshold because of the

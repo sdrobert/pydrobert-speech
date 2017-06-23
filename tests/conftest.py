@@ -73,7 +73,6 @@ def num_filts(request):
         num_filts=num_filts,
         high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
         sampling_rate=8000 if np.random.randint(2) else 16000,
-        prob_outside_edges=np.random.random() * .5 + .01,
         boundary_adjustment_mode='edges' if np.random.randint(2) else 'wrap',
     ),
 ], ids=[

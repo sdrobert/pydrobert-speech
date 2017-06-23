@@ -12,7 +12,6 @@ from six import with_metaclass
 
 from pydrobert.signal import EFFECTIVE_SUPPORT_THRESHOLD
 from pydrobert.signal.util import angular_to_hertz
-from pydrobert.signal.util import gauss_quant
 from pydrobert.signal.util import hertz_to_angular
 
 __author__ = "Sean Robertson"
@@ -428,21 +427,33 @@ class GaborFilterBank(LinearFilterBank):
     Gaussian envelope in both the time and frequency domains. They are
     defined as
 
-    .. math:: f(t) = \pi^{-1/4}\sigma^{-1/2}
-              e^{\frac{-t^2}{2\sigma^2} + i\xi t}
+    .. math::
+
+         f(t) = \pi^{-1/4}\sigma^{-1/2}
+                e^{\frac{-t^2}{2\sigma^2} + i\xi t}
 
     in the time domain and
 
-    .. math:: \widehat{f}(\omega) = \sqrt{2\sigma}\pi^{1/4}
-                            e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
+    .. math::
+
+         \widehat{f}(\omega) = \sqrt{2\sigma}\pi^{1/4}
+                               e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
 
     in the frequency domain. Though Gaussians never truly reach 0, in
     either domain, they are effectively compactly supported. Gabor
     filters are optimal with respect to their time-bandwidth product.
 
+    `scaling_function` is used to split up the frequencies between
+    `high_hz` and `low_hz` into a series of "edges." Pairs of edges
+    define the location of the filter by setting :math:`\xi` to the
+    midpoint and scaling :math:`\sigma` such that the filter's
+    Equivalent Rectangular Bandwidth (ERB) matches the distance between
+    those edges.
+
     Parameters
     ----------
     scaling_function : pydrobert.signal.ScalingFunction
+        Arrays the filters along the frequency domain
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -450,13 +461,6 @@ class GaborFilterBank(LinearFilterBank):
         The default for high_hz is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
-    prob_outside_edges : float, optional
-        The probability amplitude allowed outside the "edges" of the
-        filter's response. The probability amplitude refers to the
-        amount of the filter's L2 norm and has a standard deviation
-        ``2 ** -.5`` times that of the Gabor's frequency Gaussian. The
-        default value, .5, means that the edges of the filter define
-        its Equivalent Rectangular Bandwidth (ERB)
     boundary_adjustment_mode : {'edges', 'wrap'}, optional
         How to handle when the effective support would exceed the
         Nyquist or pass below 0Hz. 'edges' narrows the boundary filters
@@ -482,8 +486,7 @@ class GaborFilterBank(LinearFilterBank):
 
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
-            sampling_rate=16000, prob_outside_edges=.5,
-            boundary_adjustment_mode='edges'):
+            sampling_rate=16000, boundary_adjustment_mode='edges'):
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):
@@ -503,11 +506,11 @@ class GaborFilterBank(LinearFilterBank):
             scaling_function.scale_to_hertz(scale_low + scale_delta * idx)
             for idx in range(0, num_filts + 2)
         ]
-        alpha = gauss_quant(1 - prob_outside_edges / 2)
         centers_ang = []
         stds = []
         supports_ang = []
         supports = []
+        wraps_ang = []
         self._wrap_below = False
         # constants term in support calculations :/
         a = 2 * np.log(EFFECTIVE_SUPPORT_THRESHOLD)
@@ -526,7 +529,7 @@ class GaborFilterBank(LinearFilterBank):
                 assert steps <= max_steps
                 filter_resolved = True
                 center = (low + high) / 2
-                std = 2 ** .5 * alpha / (high - low)
+                std = np.sqrt(np.pi) / (high - low)
                 # diff btw center and freq bound of support
                 diff = np.sqrt((np.log(std) - a)) / std
                 supp_ang_low = center - diff
@@ -562,6 +565,7 @@ class GaborFilterBank(LinearFilterBank):
             support = int(np.ceil(2 * np.sqrt(std ** 2 * (-b - np.log(std)))))
             centers_ang.append(center)
             supports_ang.append(supp_ang_high - supp_ang_low)
+            wraps_ang.append(np.sqrt(2) * np.log(2) / std)
             supports.append(support)
             stds.append(std)
         self._centers_ang = tuple(centers_ang)
@@ -569,6 +573,8 @@ class GaborFilterBank(LinearFilterBank):
             angular_to_hertz(ang, self._rate) for ang in centers_ang)
         self._stds = tuple(stds)
         self._supports_ang = tuple(supports_ang)
+        self._wraps_hz = tuple(
+            angular_to_hertz(ang, self._rate) for ang in wraps_ang)
         self._supports_hz = tuple(
             angular_to_hertz(ang, self._rate) for ang in supports_ang)
         self._supports = tuple(supports)
@@ -649,17 +655,25 @@ class GaborFilterBank(LinearFilterBank):
     def get_truncated_response(self, filt_idx, width):
         center_ang = self._centers_ang[filt_idx]
         support_ang = self._supports_ang[filt_idx]
+        std = self._stds[filt_idx]
         lowest_ang = center_ang - support_ang / 2
         highest_ang = center_ang + support_ang / 2
         center_hz = self._centers_hz[filt_idx]
-        std = self._stds[filt_idx]
         support_hz = self._supports_hz[filt_idx]
+        wraps_hz = self._wraps_hz[filt_idx]
+        # wraps_hz is the extra support (in hertz) it takes for the
+        # Gaussian tail to reach half the EFFECTIVE_SUPPORT_THRESHOLD
+        # from its current support. If one tail overlaps the other due
+        # to periodization, the full frequency response may be greater
+        # than the threshold in regions the truncated response would
+        # not specify. We check for this possible overlap and return the
+        # full frequency response if it occurs.
+        if int(np.ceil(width * (support_hz + wraps_hz) / self._rate)) >= width:
+            return 0, self.get_frequency_response(filt_idx, width)
         low_hz = center_hz - support_hz / 2
         high_hz = center_hz + support_hz / 2
         left_idx = int(np.ceil(width * low_hz / self._rate))
         right_idx = int(width * high_hz / self._rate)
-        if 1 + right_idx - left_idx > width:
-            return 0, self.get_frequency_response(filt_idx, width)
         res = np.zeros(1 + right_idx - left_idx, dtype=np.float64)
         const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
         num_term = std ** 2 / 2
