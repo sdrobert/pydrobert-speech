@@ -9,6 +9,20 @@ import pytest
 
 from pydrobert.signal import post
 
+@pytest.fixture(params=[
+    np.float64,
+    np.float32,
+    np.int32,
+    np.int16
+], ids=[
+    'f64',
+    'f32',
+    'i32',
+    'i16',
+], scope='module')
+def dtype(request):
+    return request.param
+
 @pytest.mark.parametrize('norm_var', [True, False])
 @pytest.mark.parametrize('buff', [
     x * np.random.randint(1, 100) + np.random.randint(-10, 10)
@@ -19,14 +33,19 @@ from pydrobert.signal import post
         np.random.random((10, 4, 3)),
     ]
 ])
-def test_standardize_local(norm_var, buff):
+def test_standardize_local(norm_var, buff, dtype):
+    buff = buff.astype(dtype)
     stand = post.Standardize(norm_var=norm_var)
     for axis in range(len(buff.shape)):
+        buff_2 = buff
         other_axes = tuple(
             idx for idx in range(len(buff.shape)) if idx != axis)
+        if np.any(np.isclose(buff_2.std(axis=other_axes), 0)):
+            buff_2 = np.zeros(buff.shape, dtype=buff.dtype)
+            buff_2[0, ...] = 1
         if sum(buff.shape[idx] for idx in other_axes) == len(other_axes):
             continue
-        s_buff = stand.apply(buff, axis=axis)
+        s_buff = stand.apply(buff_2, axis=axis)
         assert np.allclose(s_buff.mean(axis=other_axes), 0)
         assert not np.allclose(s_buff, 0)
         if norm_var:
@@ -43,11 +62,17 @@ def test_standardize_local(norm_var, buff):
     np.random.random((2, 50, 2, 3)) * np.random.randint(1, 100, 3)
     + np.random.randint(-10, 10, 3),
 ])
-def test_standardize_global(norm_var, buff):
+def test_standardize_global(norm_var, buff, dtype):
+    buff = buff.astype(dtype)
+    other_axes = tuple(range(len(buff.shape) - 1))
+    if norm_var:
+        # quick fix when ints misbehave and give zero variance
+        if np.any(np.isclose(buff.std(axis=other_axes), 0)):
+            buff = np.zeros(buff.shape, dtype=buff.dtype)
+            buff[0, ...] = 1
     stand = post.Standardize(norm_var=norm_var)
     for feats in buff:
         stand.accumulate(feats)
-    other_axes = tuple(range(len(buff.shape) - 1))
     s_buff_1 = stand.apply(buff)
     assert np.allclose(s_buff_1.mean(axis=other_axes), 0)
     if norm_var:
@@ -127,6 +152,7 @@ class KaldiDeltas(object):
             self._scales.append(cur_scale)
 
     def _process(self, r, features, out_row):
+        features = features.astype(np.float64, copy=False)
         num_frames, feat_dim = features.shape
         assert len(out_row) == feat_dim * len(self._scales)
         for idx, scale in enumerate(self._scales):
@@ -148,7 +174,7 @@ class KaldiDeltas(object):
         )
         for r, out_row in enumerate(out):
             self._process(r, features, out_row)
-        return out
+        return out.astype(features.dtype, copy=False)
 
 @pytest.mark.parametrize('buff',[
     np.random.random((1, 3)),
@@ -157,7 +183,8 @@ class KaldiDeltas(object):
 ])
 @pytest.mark.parametrize('num_deltas', list(range(5)))
 @pytest.mark.parametrize('window', list(range(1, 6)))
-def test_compare_to_kaldi(buff, num_deltas, window):
+def test_compare_to_kaldi(buff, num_deltas, window, dtype):
+    buff = buff.astype(dtype)
     deltas = post.Deltas(
         num_deltas, concatenate=True, context_window=window, target_axis=1)
     kaldi_deltas = KaldiDeltas(num_deltas, window)

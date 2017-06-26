@@ -57,7 +57,9 @@ class Standardize(PostProcessor):
     Though the exact behaviour of an instance varies according to below,
     the "goal" of this transformation is such that every feature
     coefficient on the chosen axis has mean 0 and variance 1
-    (if `norm_var` is ``True``) over the other axes.
+    (if `norm_var` is ``True``) over the other axes. Features are
+    assumed to be real; the return data type after `apply` is always
+    a 64-bit float.
 
     If `rfilename` is not specified or the associated file is empty,
     coefficients are standardized locally (within the target tensor). If
@@ -143,8 +145,8 @@ class Standardize(PostProcessor):
                     self._stats.shape[1] - 1, num_coeffs)
             )
         self._stats[0, -1] += 1
-        self._stats[0, :-1] += vec
-        self._stats[1, :-1] += vec ** 2
+        self._stats[0, :-1] += vec.astype(np.float64)
+        self._stats[1, :-1] += np.square(vec, dtype=np.float64)
 
     def _accumulate_tensor(self, tensor, axis):
         # accumulate over a tensor (with a shape)
@@ -163,8 +165,9 @@ class Standardize(PostProcessor):
         self._stats[0, -1] += np.prod(tuple(
             tensor.shape[idx] for idx in other_axes
         ))
-        self._stats[0, :-1] += tensor.sum(axis=other_axes)
-        self._stats[1, :-1] += (tensor ** 2).sum(axis=other_axes)
+        self._stats[0, :-1] += tensor.sum(axis=other_axes, dtype=np.float64)
+        self._stats[1, :-1] += np.square(
+            tensor, dtype=np.float64).sum(axis=other_axes)
 
     def accumulate(self, features, axis=-1):
         '''Accumulate statistics from a feature tensor
@@ -197,8 +200,8 @@ class Standardize(PostProcessor):
                 'Expected feature vector of length {}; got {}'.format(
                     self._stats.shape[1] - 1, num_coeffs)
             )
-        if not in_place:
-            vec = vec.copy()
+        if not in_place or vec.dtype != np.float64:
+            vec = vec.astype(np.float64)
         if self.have_stats:
             count = self._stats[0, -1]
             means = self._stats[0, :-1] / count
@@ -208,13 +211,11 @@ class Standardize(PostProcessor):
                 if np.any(close_zero):
                     warnings.warn('0 variance encountered. Replacing with 1')
                     varss[close_zero] = 1
-                scales = 1 / np.sqrt(varss)
-                offsets = -means * scales
+                scales = 1 / (varss ** .5)
             else:
-                scales = np.ones(1)
-                offsets = -means
+                scales = 1
             vec *= scales
-            vec += offsets
+            vec -= means * scales
         else:
             if self._norm_var:
                 raise ValueError(
@@ -238,8 +239,8 @@ class Standardize(PostProcessor):
             idx for idx in range(len(tensor.shape))
             if idx != axis % len(tensor.shape)
         )
-        if not in_place:
-            tensor = tensor.copy()
+        if not in_place or tensor.dtype != np.float64:
+            tensor = tensor.astype(np.float64)
         if self.have_stats:
             count = self._stats[0, -1]
             means = self._stats[0, :-1] / count
@@ -263,15 +264,13 @@ class Standardize(PostProcessor):
             if np.any(close_zero):
                 warnings.warn('0 variance encountered. Replacing with 1')
                 varss[close_zero] = 1
-            scales = 1 / np.sqrt(varss)
-            offsets = -means * scales
+            scales = 1 / (varss ** .5)
         else:
             scales = np.ones(1)
-            offsets = -means
         tensor_slice = [None] * len(tensor.shape)
         tensor_slice[axis] = slice(None)
         tensor *= scales[tensor_slice]
-        tensor += offsets[tensor_slice]
+        tensor -= (means * scales)[tensor_slice]
         return tensor
 
     def apply(self, features, axis=-1, in_place=False):
@@ -393,6 +392,9 @@ class Deltas(PostProcessor):
     delta filter by enumerating over all but one axis (the "time axis"
     equivalent).
 
+    Intermediate values are calculated with 64-bit floats, then cast
+    back to the input data type.
+
     `Deltas` will increase the size of the feature tensor when
     `num_deltas` is positive and passed features are non-empty.
 
@@ -461,7 +463,7 @@ class Deltas(PostProcessor):
         self._filts = [np.ones(1, dtype=np.float64)]
         delta_filter = np.arange(1 + 2 * context_window, dtype=np.float64)
         delta_filter -= context_window
-        delta_filter /= np.sum(np.square(delta_filter))
+        delta_filter /= np.sum(delta_filter ** 2)
         for idx in range(num_deltas):
             self._filts.append(np.convolve(self._filts[idx], delta_filter))
 
@@ -481,14 +483,15 @@ class Deltas(PostProcessor):
                     feat_slice[axis_idx] = idx
                 delta_feat[feat_slice] = np.correlate(
                     np.pad(
-                        features[feat_slice],
+                        features[feat_slice].astype(np.float64, copy=False),
                         (max_offset, max_offset),
                         self._pad_mode,
                         **self._pad_kwargs
                     ),
                     filt,
                     'full'
-                )[len(filt) - 1:-len(filt) + 1]
+                )[len(filt) - 1:-len(filt) + 1].astype(
+                    features.dtype, copy=False)
             delta_feats.append(delta_feat)
         if self._concatenate:
             return np.concatenate(delta_feats, self._target_axis)
