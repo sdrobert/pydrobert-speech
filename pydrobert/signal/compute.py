@@ -301,7 +301,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self, bank, frame_length_ms=None, frame_shift_ms=10,
             frame_style=None, include_energy=False,
             pad_to_nearest_power_of_two=True,
-            window_name='rectangular', use_log=True, use_power=False):
+            window_name='hanning', use_log=True, use_power=False):
         self._rate = bank.sampling_rate
         self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
         self._log = use_log
