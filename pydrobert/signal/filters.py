@@ -421,7 +421,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return left_idx, res
 
 class GaborFilterBank(LinearFilterBank):
-    r"""Gabor filters whose "edges" align with the scale
+    r"""Gabor filters with ERBs between points from a scale
 
     Gabor filters are complex, mostly analytic filters that have a
     Gaussian envelope in both the time and frequency domains. They are
@@ -686,3 +686,114 @@ class GaborFilterBank(LinearFilterBank):
                 val = np.exp(val)
                 res[idx - left_idx] += val
         return left_idx % width, res
+
+class GammatoneFilterBank(LinearFilterBank):
+    r'''Gammatone filters with ERBs roughly between points on a scale
+
+    Gammatone filters have been used to model cochlear filtering in
+    humans and animals. A real-valued gammatone filter is defined as
+
+    .. math::
+
+         h(t) = c t^{n - 1} e^{-\alpha t} \cos(\xi t + \phi) u(t)
+
+    in the time domain, where :math:`\alpha` is the bandwidth parameter,
+    :math:`\xi` is a carrier frequency, :math:`\phi` is a phase
+    offset, :math:`n` is the order of the function, and :math:`u(t)` is
+    the step function (1 for nonnegative t, 0 for negative t). In the
+    frequency domain, the filter is defined as
+
+    .. math::
+
+         H(\omega) = \frac{c(n - 1)!}{2\alpha^n}
+                        (P(\omega) + \overline{P(-\omega)}) \\
+         P(\omega) = \frac{e^{i\phi}}{\left
+                            (1 + i\frac{\omega - \xi}{\alpha}
+                        \right)^n}
+
+    The sum of :math:`P(\omega)` is a product of the Hermitian symmetry
+    of the gammatone. We can remove the interference from the negative
+    part of the spectrum by introducing the almost-analytic complex
+    gammatone in time
+
+    .. math::
+
+         h_a(t) = c_a t^{n - 1} e^{\phi - \alpha t + i\xi t} u(t)
+
+    and in frequency
+
+    .. math::
+
+         H_a(\omega) = \frac{c_a(n - 1)!)}{\alpha^n}P(\omega)
+
+    A real-valued gammatone filterbank is created by default, though
+    the complex gammatone filterbank will be created if
+    `boundary_adjustment_mode` is set.
+
+    `scaling_function` is used to split up the frequencies between
+    `high_hz` and `low_hz` into a series of "edges." Pairs of edges
+    define the location of the filter by setting :math:`\xi` to the
+    midpoint and scaling :math:`\sigma` such that the filter's
+    Equivalent Rectangular Bandwidth (ERB) matches the distance between
+    those edges.
+
+    The :math:`\alpha` and :math:`\xi` parameters for each filter in the
+    bank are always derived from the complex gammatone response. In
+    effect, as :math:`\xi/\alpha` decreases, interferences from
+    :math:`\overline{P(-\omega)}` will push the mean energy towards 0Hz;
+    the filter bank will match the `scaling_function`.
+
+    Normalization constants are set such that the 2-norm of each filter
+    is 1. `\phi` is ignored in the complex gammatone; in the real
+    gammatone, it is set such that DC (:math:`H(0)`) is equal to 0.
+
+    Real-valued gammatone equations were mostly derived from [1]_.
+
+    Parameters
+    ----------
+    scaling_function : pydrobert.signal.ScalingFunction
+        Arrays the filters along the frequency domain
+    num_filts : int, optional
+        The number of filters in the bank
+    high_hz, low_hz : float, optional
+        The topmost and bottommost edge of the filters, respectively.
+        The default for high_hz is the Nyquist
+    sampling_rate : float, optional
+        The sampling rate (cycles/sec) of the target recordings
+    order : int, optional
+        The :math:`n` parameter in the Gammatone. Should be positive.
+        Larger orders will make the gammatone more symmetrical.
+    boundary_adjustment_mode : {'edges', 'wrap', None}, optional
+        If set (not ``None``), complex gammatones are created instead of
+        real ones. In this case, `boundary_adjustment_mode` describes
+        what to do when the effective support of a filter would exceed
+        the Nyquist or pass below 0Hz. 'edges' narrows the boundary
+        filters in frequency. 'wrap' ignores the problem. The filter
+        bank is no longer analytic if the support falls below 0Hz. If
+        not set, real gammatones are created and no adjustments are
+        made.
+
+    Attributes
+    ----------
+    is_real : bool
+    is_analytic : bool
+    num_filts : int
+    sampling_rate : float
+    centers_hz : tuple
+    supports_hz : tuple
+    supports : tuple
+    supports_ms : tuple
+
+    References
+    ----------
+    .. [1] Darling, A. M. "Properties and implementation of the
+       gammatone filter: a tutorial." Speech Hearing and Language, Work
+       in Progress, University College London, Department of Phonetics
+       and Linguistics (1991): 43-61.
+
+    See Also
+    --------
+    EFFECTIVE_SUPPORT_THRESHOLD : the absolute value below which counts
+        as zero
+    '''
+    pass
