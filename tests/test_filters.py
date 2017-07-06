@@ -36,10 +36,11 @@ def test_truncated_matches_full(bank):
 
 def test_frequency_matches_impulse(bank):
     for filt_idx in range(bank.num_filts):
+        left_hz, right_hz = bank.supports_hz[filt_idx]
         dft_size = int(max(
             # allow over- or under-sampling
             bank.supports[filt_idx] * (1 + np.random.random()),
-            2 * bank.sampling_rate / bank.supports_hz[filt_idx],
+            2 * bank.sampling_rate / (right_hz - left_hz),
         ))
         X = bank.get_frequency_response(filt_idx, dft_size)
         x = bank.get_impulse_response(filt_idx, dft_size)
@@ -58,19 +59,11 @@ def test_half_response_matches_full(bank):
 def test_supports_match(bank):
     supports = bank.supports
     supports_hz = bank.supports_hz
-    centers_hz = bank.centers_hz
     for filt_idx in range(bank.num_filts):
         support = supports[filt_idx]
-        support_hz = supports_hz[filt_idx]
-        center_hz = centers_hz[filt_idx]
-        left_ang = hertz_to_angular(
-            center_hz - support_hz / 2,
-            bank.sampling_rate,
-        )
-        right_ang = hertz_to_angular(
-            center_hz + support_hz / 2,
-            bank.sampling_rate,
-        )
+        left_hz, right_hz = supports_hz[filt_idx]
+        left_ang = hertz_to_angular(left_hz, bank.sampling_rate)
+        right_ang = hertz_to_angular(right_hz, bank.sampling_rate)
         dft_size = int(
             max(1.1 * support, 4 * np.pi / (right_ang - left_ang)))
         freqs = np.arange(dft_size, dtype='float32') / dft_size * 2 * np.pi

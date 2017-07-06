@@ -320,7 +320,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self._frame_length = max(
                 max(bank.supports),
                 # ensure at least one dft bin is nonzero per filter
-                int(np.ceil(2 * self._rate / min(bank.supports_hz))),
+                int(np.ceil(2 * self._rate / min(
+                    right - left for left, right in bank.supports_hz))),
             )
         else:
             self._frame_length = int(
@@ -669,17 +670,18 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._skip = self._max_support // 2
         else:
             self._skip = 0
+        min_support_hz = min(right - left for left, right in bank.supports_hz)
         if pad_to_nearest_power_of_two:
             self._frame_length = self._max_support + self._frame_shift - 1
             self._dft_size = int(2 ** np.ceil(np.log2(self._frame_length)))
             if self._dft_size < \
-                    int(np.ceil(2 * self._rate / min(bank.supports_hz))):
+                    int(np.ceil(2 * self._rate / min_support_hz)):
                 self._dft_size = int(2 ** np.ceil(np.log2(
-                    self._rate / min(bank.supports_hz)) + 1))
+                    self._rate / min_support_hz) + 1))
         else:
             self._frame_length = max(
                 self._max_support + 1,
-                int(np.ceil(2 * self._rate / min(bank.supports_hz)))
+                int(np.ceil(2 * self._rate / min_support_hz))
             ) + self._frame_shift - 1
             self._dft_size = self._frame_length
         self._filts = []

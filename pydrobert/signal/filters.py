@@ -76,26 +76,26 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
 
     @property
     @abc.abstractmethod
-    def centers_hz(self):
-        """Center (in Hz) of filters
-
-        The center of the supported (nonzero) region of a filter in the
-        frequency domain. This is not necessarily the same thing as its
-        "center frequency" (the point with the maximum magnitude
-        frequency response), as filters can be asymmetrical. Does not
-        include centers induced by Hermitian Symmetry (i.e.
-        half-periodic centers when real filters)
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
     def supports_hz(self):
-        """Widths of nonzero regions of filter frequency responses, in Hz
+        """Boundaries of effective support of filters, in Hz.
 
-        Does not take into account additional nonzero regions induced by
-        Hermitian Symmetry (i.e. half-periodic centers when real
-        filters)
+        Returns a tuple of length `num_filts` containing pairs of floats
+        of the low and high frequencies. Frequencies outside the span
+        have a response of approximately (with magnitude up to
+        `signal.EFFECTIVE_SUPPORT_SIGNAL`) zero.
+
+        The boundaries need not be tight, i.e. the region inside the
+        boundaries could be zero. It is more important to guarantee that
+        the region outside the boundaries is approximately zero.
+
+        The boundaries ignore the Hermitian symmetry of the filter if it
+        is real. Bounds of ``(10, 20)`` for a real filter imply that the
+        region ``(-20, -10)`` could also be nonzero.
+
+        The user is responsible for adjusting the for the periodicity
+        induced by sampling. For example, if the boundaries are
+        ``(-5, 10)`` and the filter is sampled at 15Hz, then all bins
+        of an associated DFT could be nonzero.
         """
         pass
 
@@ -235,11 +235,11 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     Attributes
     ----------
+    center_frequencies_hz : tuple
     is_real : bool
     is_analytic : bool
     num_filts : int
     sampling_rate : float
-    centers_hz : tuple
     supports_hz : tuple
     supports : tuple
     supports_ms : tuple
@@ -301,28 +301,18 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return self._rate
 
     @property
-    def centers_hz(self):
-        return tuple(
-            (high + low) / 2
-            for low, high in zip(self._vertices[:-2], self._vertices[2:])
-        )
-
-    @property
     def center_frequencies_hz(self):
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
-        point of maximum gain - of each filter. It may or may not differ
-        from `centers_hz`, which gives the midpoint of the support in
-        frequency, depending on whether the scaling function is
-        nonlinear
+        point of maximum gain - of each filter.
         """
         return self._vertices[1:-1]
 
     @property
     def supports_hz(self):
         return tuple(
-            high - low
+            (low, high)
             for low, high in zip(self._vertices[:-2], self._vertices[2:])
         )
 
@@ -473,7 +463,6 @@ class GaborFilterBank(LinearFilterBank):
     is_analytic : bool
     num_filts : int
     sampling_rate : float
-    centers_hz : tuple
     supports_hz : tuple
     supports : tuple
     supports_ms : tuple
@@ -606,7 +595,9 @@ class GaborFilterBank(LinearFilterBank):
 
     @property
     def supports_hz(self):
-        return self._supports_hz
+        return tuple(
+            (center - support / 2, center + support / 2)
+            for center, support in zip(self._centers_hz, self._supports_hz))
 
     @property
     def supports(self):

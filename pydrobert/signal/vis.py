@@ -55,7 +55,7 @@ def plot_frequency_response(
     Returns
     -------
     matplotlib.figure.Figure
-        The containing figure
+        The containing figure`
     '''
     if not bank.num_filts:
         raise ValueError(
@@ -64,8 +64,10 @@ def plot_frequency_response(
     first_colour = 'b'
     second_colour = 'g'
     if dft_size is None:
-        dft_size = int(
-            max(max(bank.supports), 2 * rate / min(bank.supports_hz)))
+        dft_size = int(max(
+            max(bank.supports),
+            2 * rate / min(right - left for left, right in bank.supports_hz),
+        ))
     if half is None:
         half = bank.is_real
     if axes is None:
@@ -422,25 +424,23 @@ def compare_feature_frames(
             num_coeffs = bank.num_filts
             if computer.includes_energy:
                 feat_slice[-1] = slice(1, None)
-            centers_hz = bank.centers_hz
             supports_hz = bank.supports_hz
-            assert num_coeffs == len(centers_hz)
+            assert num_coeffs == len(supports_hz)
+            centers_hz = tuple(
+                (left + right) / 2 for left, right in supports_hz)
             # supports may be overlapping or sparse. Instead of using
             # supports to directly specify boundaries, we use them as
             # weights to pick points between center frequencies (except
             # the first and last filters, which get to extend their
             # lower and higher bounds to their supports, respectively.
             feature_bounds = np.empty(num_coeffs + 1)
-            feature_bounds[0] = max(0, centers_hz[0] - supports_hz[0] / 2)
+            feature_bounds[0] = max(0, supports_hz[0][0])
             feature_bounds[-1] = min(
-                computer.sampling_rate / 2,
-                centers_hz[-1] + supports_hz[-1] / 2
-            )
+                computer.sampling_rate / 2, supports_hz[-1][-1])
             for high_idx in range(1, num_coeffs):
                 low_c = centers_hz[high_idx - 1]
                 high_c = centers_hz[high_idx]
-                low_s = supports_hz[high_idx - 1]
-                high_s = supports_hz[high_idx]
+                low_s, high_s = supports_hz[high_idx - 1]
                 assert high_c >= low_c
                 split_c = low_c * (high_s / (low_s + high_s))
                 split_c += high_c * (low_s / (low_s + high_s))
