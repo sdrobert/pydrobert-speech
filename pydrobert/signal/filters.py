@@ -10,7 +10,8 @@ import numpy as np
 
 from six import with_metaclass
 
-from pydrobert.signal import EFFECTIVE_SUPPORT_THRESHOLD
+import pydrobert.signal as pysig
+
 from pydrobert.signal.util import angular_to_hertz
 from pydrobert.signal.util import hertz_to_angular
 
@@ -77,7 +78,7 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
     @property
     @abc.abstractmethod
     def supports_hz(self):
-        """Boundaries of effective support of filters, in Hz.
+        """Boundaries of effective support of filter freq responses, in Hz.
 
         Returns a tuple of length `num_filts` containing pairs of floats
         of the low and high frequencies. Frequencies outside the span
@@ -102,22 +103,35 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
     @property
     @abc.abstractmethod
     def supports(self):
-        """Widths of nonzero regions of filter impulse responses, in samples"""
+        """Boundaries of effective support of filter impulse resps, in samples
+
+        Returns a tuple of length `num_filts` containing pairs of
+        integers of the first and last (effectively) nonzero samples.
+
+        The boundaries need not be tight, i.e. the region inside the
+        boundaries could be zero. It is more important to guarantee that
+        the region outside the boundaries is approximately zero.
+
+        If a filter is instantiated using a buffer that is unable to
+        fully contain the supported region, samples will wrap around the
+        boundaries of the buffer.
+
+        Noncausal filters will have start indices less than 0. These
+        samples will wrap to the end of the filter buffer when the
+        filter is instantiated.
+        """
         pass
 
     @property
     def supports_ms(self):
-        """Widths of nonzero regions of filter impulse responses, in ms"""
+        """Boundaries of effective support of filter impulse resps, in ms"""
         return tuple(s * 1000 / self.sampling_rate for s in self.supports)
 
     @abc.abstractmethod
     def get_impulse_response(self, filt_idx, width):
         """Construct filter impulse response in a fixed-width buffer
 
-        Construct the filter in the time domain. A zero-phase filter
-        (`is_zero_phase`) will be centered at index 0 and wrap around
-        the end of the filter. Otherwise, the filter starts at index
-        0.
+        Construct the filter in the time domain.
 
         Parameters
         ----------
@@ -139,7 +153,7 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
         """Construct filter frequency response in a fixed-width buffer
 
         Construct the 2pi-periodized filter in the frequency domain.
-        Zero-phase filters `is_zero_phase` are returned as 8-byte floats
+        Zero-phase filters `is_zero_phase` are returned as 8-byte float
         arrays. Otherwise, they will be 16-byte complex floats.
 
         Parameters
@@ -235,7 +249,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     Attributes
     ----------
-    center_frequencies_hz : tuple
+    centers_hz : tuple
     is_real : bool
     is_analytic : bool
     num_filts : int
@@ -301,7 +315,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return self._rate
 
     @property
-    def center_frequencies_hz(self):
+    def centers_hz(self):
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -326,9 +340,10 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
             mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
             right = hertz_to_angular(self._vertices[idx + 2], self._rate)
             K = np.sqrt(8 * (right - left) / np.pi)
-            K /= np.sqrt(EFFECTIVE_SUPPORT_THRESHOLD) * np.sqrt(mid - left)
-            K /= np.sqrt(right - mid)
-            supports.append(int(np.ceil(K)))
+            K /= np.sqrt(pysig.EFFECTIVE_SUPPORT_THRESHOLD)
+            K /= np.sqrt(mid - left) * np.sqrt(right - mid)
+            K = int(np.ceil(K))
+            supports.append((- K // 2 - 1, K // 2 + 1))
         return tuple(supports)
 
     def get_impulse_response(self, filt_idx, width):
@@ -469,7 +484,7 @@ class GaborFilterBank(LinearFilterBank):
 
     See Also
     --------
-    EFFECTIVE_SUPPORT_THRESHOLD : the absolute value below which counts
+    pysig.EFFECTIVE_SUPPORT_THRESHOLD : the absolute value below which counts
         as zero
     """
 
@@ -502,7 +517,7 @@ class GaborFilterBank(LinearFilterBank):
         wraps_ang = []
         self._wrap_below = False
         # constants term in support calculations :/
-        a = 2 * np.log(EFFECTIVE_SUPPORT_THRESHOLD)
+        a = 2 * np.log(pysig.EFFECTIVE_SUPPORT_THRESHOLD)
         b = a
         a -= np.log(2) + .5 * np.log(np.pi)
         b += .5 * np.log(np.pi)
@@ -555,7 +570,7 @@ class GaborFilterBank(LinearFilterBank):
             centers_ang.append(center)
             supports_ang.append(supp_ang_high - supp_ang_low)
             wraps_ang.append(np.sqrt(2) * np.log(2) / std)
-            supports.append(support)
+            supports.append((-support // 2 - 1, support // 2 + 1))
             stds.append(std)
         self._centers_ang = tuple(centers_ang)
         self._centers_hz = tuple(
@@ -590,7 +605,11 @@ class GaborFilterBank(LinearFilterBank):
 
     @property
     def centers_hz(self):
-        # don't be self-centered about it
+        """The point of maximum gain in each filter's frequency response, in Hz
+
+        This property gives the so-called "center frequencies" - the
+        point of maximum gain - of each filter.
+        """
         return self._centers_hz
 
     @property

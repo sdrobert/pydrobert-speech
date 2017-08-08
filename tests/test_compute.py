@@ -71,6 +71,10 @@ def test_started_makes_sense(computer):
 def test_repeated_calls_generate_same_results(computer, buff):
     assert np.allclose(
         computer.compute_full(buff), computer.compute_full(buff))
+    assert np.allclose(
+        compute.frame_by_frame_calculation(computer, buff),
+        compute.frame_by_frame_calculation(computer, buff)
+    )
 
 @pytest.mark.skipif(not USE_FFTPACK, reason='fftpack disabled')
 class TestFFTPACK(object):

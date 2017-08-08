@@ -34,6 +34,8 @@ def dtype(request):
     ]
 ])
 def test_standardize_local(norm_var, buff, dtype):
+    if np.allclose(buff, buff[:1].ravel()[0]):
+        pytest.skip()
     buff = buff.astype(dtype)
     stand = post.Standardize(norm_var=norm_var)
     for axis in range(len(buff.shape)):
@@ -64,6 +66,8 @@ def test_standardize_local(norm_var, buff, dtype):
 ])
 def test_standardize_global(norm_var, buff, dtype):
     buff = buff.astype(dtype)
+    if np.allclose(buff, buff[:1].ravel()[0]):
+        pytest.skip()
     other_axes = tuple(range(len(buff.shape) - 1))
     if norm_var:
         # quick fix when ints misbehave and give zero variance

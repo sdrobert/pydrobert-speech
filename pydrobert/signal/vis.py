@@ -65,7 +65,7 @@ def plot_frequency_response(
     second_colour = 'g'
     if dft_size is None:
         dft_size = int(max(
-            max(bank.supports),
+            max(right - left for left, right in bank.supports),
             2 * rate / min(right - left for left, right in bank.supports_hz),
         ))
     if half is None:

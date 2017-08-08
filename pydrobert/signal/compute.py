@@ -10,8 +10,7 @@ import numpy as np
 
 from six import with_metaclass
 
-from pydrobert.signal import LOG_FLOOR_VALUE
-from pydrobert.signal import USE_FFTPACK
+import pydrobert.signal as pysig
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -26,7 +25,7 @@ __all__ = [
     'frame_by_frame_calculation',
 ]
 
-if USE_FFTPACK:
+if pysig.USE_FFTPACK:
     from scipy import fftpack
 
 class FrameComputer(object, with_metaclass(abc.ABCMeta)):
@@ -318,7 +317,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._frame_style = frame_style
         if frame_length_ms is None:
             self._frame_length = max(
-                max(bank.supports),
+                max(right - left for left, right in bank.supports),
                 # ensure at least one dft bin is nonzero per filter
                 int(np.ceil(2 * self._rate / min(
                     right - left for left, right in bank.supports_hz))),
@@ -386,9 +385,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             if not self._power:
                 coeffs[0] **= .5
             if self._log:
-                coeffs[0] = np.log(max(coeffs[0], LOG_FLOOR_VALUE))
+                coeffs[0] = np.log(max(coeffs[0], pysig.LOG_FLOOR_VALUE))
             coeffs = coeffs[1:]
-        if USE_FFTPACK:
+        if pysig.USE_FFTPACK:
             is_odd = self._dft_size % 2
             buffered_frame = np.zeros(
                 self._dft_size + 2 - is_odd, dtype=np.float64)
@@ -442,7 +441,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             if self._real:
                 val *= 2
             if self._log:
-                val = np.log(max(val, LOG_FLOOR_VALUE))
+                val = np.log(max(val, pysig.LOG_FLOOR_VALUE))
             coeffs[filt_idx] = val
 
     def compute_chunk(self, chunk):
@@ -590,13 +589,8 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         length of the integration
     frame_style : {'causal', 'centered'}, optional
         Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
-        otherwise. If the bank uses zero-phase filters and `frame_style`
-        is set to ``'causal'``, a phase of half of each filter's support
-        is introduced to the filters so that they become causal. If the
-        bank uses causal filters and `frame_style` is set to
-        ``'centered'`` and the bank uses causal filters, the filters are
-        converted to zero-phase filters with forward-backward filtering
-        (squaring the frequency response).
+        otherwise. If ``'centered'`` each filter of the bank is
+        translated so that its support lies in the center of the frame
     frequency_smoothing_pre : {'db2', 'tri3'}, optional
         Prior to integration but after the non-linearity, a low-pass
         convolution over filter channels can be performed to smooth out
@@ -663,13 +657,17 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._freq_win = None
             self._feq_slice = None
         self._frame_style = frame_style
-        self._max_support = max(bank.supports)
         if frame_style == 'centered':
-            if not bank.is_zero_phase:
-                self._max_support = 2 * self._max_support - 1
+            self._max_support = max(
+                right - left for left, right in bank.supports)
             self._skip = self._max_support // 2
         else:
             self._skip = 0
+            self._max_support = 0
+            for left, right in bank.supports:
+                self._skip = max(-left, self._skip)
+                self._max_support = max(self._max_support, right)
+            self._max_support += self._skip
         min_support_hz = min(right - left for left, right in bank.supports_hz)
         if pad_to_nearest_power_of_two:
             self._frame_length = self._max_support + self._frame_shift - 1
@@ -697,23 +695,13 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 dirac_filter = np.fft.fft(dirac_filter)
             self._filts.append(dirac_filter)
         for filt_idx in range(bank.num_filts):
+            filt = bank.get_impulse_response(filt_idx, self._dft_size)
             if frame_style == 'centered':
-                if bank.is_zero_phase:
-                    filt = bank.get_impulse_response(filt_idx, self._dft_size)
-                else:
-                    # make zero-phase with forward-backward
-                    filt = bank.get_frequency_response(
-                        filt_idx, self._dft_size, half=self._real)
-                    filt = np.abs(filt) ** 2
-                    filt = self._compute_idft(filt)
-                filt = np.roll(filt, self._max_support // 2)
-                self._skip = self._max_support // 2
-            else: # causal
-                filt = bank.get_impulse_response(filt_idx, self._dft_size)
-                if bank.is_zero_phase:
-                    support = bank.supports[filt_idx]
-                    filt = np.roll(filt, support // 2)
-                self._skip = 0
+                left_samp, right_samp = bank.supports[filt_idx]
+                mid_samp = (left_samp + right_samp) // 2
+                filt = np.roll(filt, self._skip - mid_samp + 1)
+            else:
+                filt = np.roll(filt, self._skip)
             # we clamp the support in time to make the filter FIR.
             self._filts.append(self._compute_dft(filt[:self._max_support]))
         self._jump = self._dft_size - self._max_support + 1
@@ -750,7 +738,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         # given a buffer, compute its fourier transform. Always copies
         # the data
         assert len(buff) <= self._dft_size
-        if USE_FFTPACK and self._real:
+        if pysig.USE_FFTPACK and self._real:
             buffered_frame = np.zeros(
                 self._dft_size + 2 - self._dft_size % 2, dtype=np.float64)
             buffered_frame[1:len(buff) + 1] = buff
@@ -761,7 +749,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             fourier_frame = buffered_frame.view(np.complex128)
         elif self._real:
             fourier_frame = np.fft.rfft(buff, n=self._dft_size)
-        elif USE_FFTPACK:
+        elif pysig.USE_FFTPACK:
             complex_frame = np.zeros(self._dft_size, dtype=np.complex128)
             complex_frame[:len(buff)] = buff # implicit upcast if f32
             fourier_frame = fftpack.fft(complex_frame, overwrite_x=True)
@@ -774,7 +762,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         # given a buffer, compute its inverse fourier transform. Assume
         # it's ok to modify the buffer.
         assert fourier_buff.dtype == np.complex128
-        if USE_FFTPACK and self._real:
+        if pysig.USE_FFTPACK and self._real:
             fourier_buff = fourier_buff.view(np.float64)
             fourier_buff[1] = fourier_buff[0]
             if self._dft_size % 2:
@@ -784,7 +772,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             idft = fftpack.irfft(fourier_buff, overwrite_x=True)
         elif self._real:
             idft = np.fft.irfft(fourier_buff, n=self._dft_size)
-        elif USE_FFTPACK:
+        elif pysig.USE_FFTPACK:
             idft = fftpack.ifft(fourier_buff, overwrite_x=True)
         else:
             idft = np.fft.ifft(fourier_buff)
@@ -809,7 +797,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             else:
                 val = np.sum(np.abs(y_buf[coeff_idx]))
             if self._log:
-                val = np.log(max(val, LOG_FLOOR_VALUE))
+                val = np.log(max(val, pysig.LOG_FLOOR_VALUE))
             coeffs[coeff_idx] = val
 
     def compute_chunk(self, chunk):
@@ -891,8 +879,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     def finalize(self):
         if self._frame_style == 'centered':
+            reset_skip = self._max_support // 2
+        else:
+            reset_skip = max(-left for left, _ in self.bank.supports)
+        if reset_skip:
             coeffs = self.compute_chunk(np.zeros(
-                self._max_support // 2,
+                reset_skip,
                 dtype=self._chunk_dtype,
             ))
         else:
@@ -908,20 +900,15 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._x_buf.fill(0)
         self._started = False
         self._first_frame = True
-        if self._frame_style == 'centered':
-            self._skip = self._max_support // 2
-        else:
-            self._skip = 0
+        self._skip = reset_skip
         return coeffs
 
     def compute_full(self, signal):
         if self.started:
             raise ValueError('Already started computing frames')
         if self._frame_style == 'centered':
-            offset = self._max_support // 2
             first_frame_shift = self._frame_shift // 2 + 1
         else:
-            offset = 0
             first_frame_shift = self._frame_shift
         signal_len = len(signal)
         num_frames = (signal_len - first_frame_shift) // self._frame_shift + 1
@@ -940,9 +927,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         frame_shift = first_frame_shift
         frame_idx = 0
         for dft_idx in range(num_dfts):
-            end_idx = min((dft_idx + 1) * self._jump, y_len) + offset
+            end_idx = min((dft_idx + 1) * self._jump, y_len) + self._skip
             start_idx = end_idx - self._dft_size
-            num_new = end_idx - dft_idx * self._jump - offset
+            num_new = end_idx - dft_idx * self._jump - self._skip
             if start_idx < 0 or end_idx > signal_len:
                 x_k = np.pad(
                     signal[max(0, start_idx):end_idx],
