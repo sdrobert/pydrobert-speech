@@ -11,13 +11,17 @@ from pydrobert.signal.util import hertz_to_angular
 
 def test_truncated_matches_full(bank):
     for filt_idx in range(bank.num_filts):
-        dft_size = int(
-            (bank.supports[filt_idx][1] - bank.supports[filt_idx][0]) *
-            (np.abs(np.random.random()) + 1)
-        )
+        left_hz, right_hz = bank.supports_hz[filt_idx]
+        left_samp, right_samp = bank.supports[filt_idx]
+        dft_size = int(max(
+            (right_samp - left_samp) * (1 + np.random.random()),
+            2 * bank.sampling_rate / (right_hz - left_hz),
+            1,
+        ))
+        left_period = int(np.floor(left_hz / bank.sampling_rate))
+        right_period = int(np.ceil(right_hz / bank.sampling_rate))
         full_response = bank.get_frequency_response(filt_idx, dft_size)
-        bin_idx, truncated = bank.get_truncated_response(
-            filt_idx, dft_size)
+        bin_idx, truncated = bank.get_truncated_response(filt_idx, dft_size)
         challenge = np.zeros(dft_size, dtype=truncated.dtype)
         wrap = min(bin_idx + len(truncated), dft_size) - bin_idx
         challenge[bin_idx:bin_idx + wrap] = truncated[:wrap]
@@ -30,7 +34,7 @@ def test_truncated_matches_full(bank):
             full_response, challenge, atol=EFFECTIVE_SUPPORT_THRESHOLD)))
         assert np.allclose(
             full_response, challenge,
-            atol=EFFECTIVE_SUPPORT_THRESHOLD
+            atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD
         ), 'idx: {} threshold:{} full:{} challenge:{}'.format(
             filt_idx, EFFECTIVE_SUPPORT_THRESHOLD,
             full_response[bad_idx], challenge[bad_idx]
@@ -39,18 +43,25 @@ def test_truncated_matches_full(bank):
 def test_frequency_matches_impulse(bank):
     for filt_idx in range(bank.num_filts):
         left_hz, right_hz = bank.supports_hz[filt_idx]
+        left_samp, right_samp = bank.supports[filt_idx]
+        required_freq_size = 2 * bank.sampling_rate / (right_hz - left_hz)
+        required_temp_size = right_samp - left_samp
+        if required_temp_size < 5 or required_freq_size < 5:
+            # FIXME(sdrobert): this is a stopgap for when filters are
+            # *too* localized in time or frequency. This'll cause too
+            # much attenuation/gain in one domain or the other.
+            continue
         dft_size = int(max(
             # allow over- or under-sampling
-            (bank.supports[filt_idx][1] - bank.supports[filt_idx][0]) *
-                (1 + np.random.random()),
-            2 * bank.sampling_rate / (right_hz - left_hz),
+            (right_samp - left_samp),
+            2 * bank.sampling_rate / (right_hz - left_hz)
         ))
         X = bank.get_frequency_response(filt_idx, dft_size)
         x = bank.get_impulse_response(filt_idx, dft_size)
         # the absolute tolerance is so high because spectral leakage
         # will muck with the isometry. .001 is enough to say we're in
         # the right ballpark... probably
-        assert np.allclose(np.fft.ifft(X), x, atol=1e-3), len(x)
+        assert np.allclose(np.fft.ifft(X), x, atol=1e-3), (len(x), filt_idx)
 
 def test_half_response_matches_full(bank):
     for filt_idx in range(bank.num_filts):
@@ -59,42 +70,46 @@ def test_half_response_matches_full(bank):
         X = bank.get_frequency_response(filt_idx, dft_size, half=False)
         assert np.allclose(X[:len(Xh)], Xh)
 
-def test_supports_match(bank):
-    supports = bank.supports
-    supports_hz = bank.supports_hz
+def test_zero_outside_freq_support(bank):
     for filt_idx in range(bank.num_filts):
-        left_samp, right_samp = supports[filt_idx]
-        left_hz, right_hz = supports_hz[filt_idx]
-        left_ang = hertz_to_angular(left_hz, bank.sampling_rate)
-        right_ang = hertz_to_angular(right_hz, bank.sampling_rate)
-        dft_size = int(max(
-            1.1 * (right_samp - left_samp),
-            4 * np.pi / (right_ang - left_ang)
-        ))
-        freqs = np.arange(dft_size, dtype='float32') / dft_size * 2 * np.pi
-        # the "ands" cover [-1, 1] * 2pi periodization.
-        zero_mask = np.logical_or(
-            np.logical_and(freqs < left_ang, freqs > right_ang - 2 * np.pi),
-            np.logical_and(freqs > right_ang, freqs < left_ang + 2 * np.pi),
-        )
+        left_hz, right_hz = bank.supports_hz[filt_idx]
+        dft_size = int(max(1, 2 * bank.sampling_rate / (right_hz - left_hz)))
+        left_period = int(np.floor(left_hz / bank.sampling_rate))
+        right_period = int(np.ceil(right_hz / bank.sampling_rate))
+        if right_period - left_period > 2:
+            continue
+        zero_mask = np.ones(dft_size, dtype=bool)
+        for period in range(left_period, right_period + 1):
+            for idx in range(dft_size):
+                freq = (idx / dft_size + period) * bank.sampling_rate
+                zero_mask[idx] &= (freq < left_hz) | (freq > right_hz)
         if bank.is_real:
             zero_mask[1:] &= zero_mask[-1:0:-1]
-        # either there's a zero or the support exceeds 2pi periodization
-        # minus one dft bin.
-        assert np.any(zero_mask) or \
-            right_ang - left_ang >= (2 * np.pi - sum(freqs[:2]))
-        assert not np.all(zero_mask), dft_size
-        x = bank.get_impulse_response(filt_idx, dft_size)
-        # we use 2 * the effective support threshold because of the
-        # additive effect when wrapping around the buffer
-        if left_samp < 0:
-            assert np.allclose(
-                x[right_samp:left_samp],
-                0, atol=2 * EFFECTIVE_SUPPORT_THRESHOLD)
-        else:
-            assert np.allclose(
-                x[left_samp:right_samp],
-                0, atol=2 * EFFECTIVE_SUPPORT_THRESHOLD)
+        if not np.any(zero_mask):
+            continue
         X = bank.get_frequency_response(filt_idx, dft_size)
         assert np.allclose(
-            X[zero_mask], 0, atol=2 * EFFECTIVE_SUPPORT_THRESHOLD)
+            X[zero_mask], 0,
+            atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD
+        )
+
+def test_zero_outside_temp_support(bank):
+    for filt_idx in range(bank.num_filts):
+        left_samp, right_samp = bank.supports[filt_idx]
+        width = int(max(1, right_samp - left_samp))
+        left_period = int(np.floor(left_samp / width))
+        right_period = int(np.ceil(right_samp / width))
+        if right_period - left_period > 2:
+            continue
+        zero_mask = np.ones(width, dtype=bool)
+        for period in range(left_period, right_period + 1):
+            for idx in range(width):
+                t = idx + period * width
+                zero_mask[idx] &= (t < left_samp) | (t > right_samp)
+        if not np.any(zero_mask):
+            continue
+        x = bank.get_impulse_response(filt_idx, width)
+        assert np.allclose(
+            x[zero_mask], 0,
+            atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD
+        )

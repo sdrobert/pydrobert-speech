@@ -111,12 +111,13 @@ def plot_frequency_response(
             max(np.abs(response)) for response, _ in responses_colours)
         max_abs = np.log10(max(np.finfo(float).eps, max_abs))
         for filt_idx in range(len(responses_colours)):
-            response = responses_colours[filt_idx][0]
-            response[...] = np.abs(response)
+            response, colours = responses_colours[filt_idx]
+            response = np.abs(response)
             response[response <= np.finfo(float).eps] = np.nan
             response[...] = 20 * (np.log10(response) - max_abs)
             # looks better than discontinuities
             response[np.isnan(response)] = -1e10
+            responses_colours[filt_idx] = response, colours
         y_max = 0
         y_min = -20
     elif y_scale in ('pow', 'power'):
@@ -125,8 +126,9 @@ def plot_frequency_response(
         y_max = 0
         for filt_idx in range(len(responses_colours)):
             response, colour = responses_colours[filt_idx]
-            response[...] = np.abs(response) ** 2
+            response = np.abs(response) ** 2
             y_max = max(y_max, max(response))
+            responses_colours[filt_idx] = response, colour
         y_max *= 1.04
     elif y_scale in ('real', 'imag', 'imaginary', 'both'):
         if y_scale == 'real':
