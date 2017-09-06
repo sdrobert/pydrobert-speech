@@ -569,9 +569,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     Each filter in the bank is convolved with the signal. A pointwise
     nonlinearity pushes the frequency band towards zero. Most of the
     energy of the signal can be captured in a short time integration
-    (the frame shift). Though best suited to processing whole utterances
-    at once, short integration is compatable with the frame analogy if
-    the frame is assumed to be the cone of influence of the
+    (twice the frame shift). Though best suited to processing whole
+    utterances at once, short integration is compatable with the frame
+    analogy if the frame is assumed to be the cone of influence of the
     maximum-length filter.
 
     For computational purposes, each filter's impulse response is
@@ -591,14 +591,18 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
         otherwise. If ``'centered'`` each filter of the bank is
         translated so that its support lies in the center of the frame
-    frequency_smoothing_pre : {'db2', 'tri3'}, optional
-        Prior to integration but after the non-linearity, a low-pass
-        convolution over filter channels can be performed to smooth out
-        signal transients. ``'db2'`` is a 4-tap Daubechies scaling
-        function which will push energy towards the higher-frequency
-        filters. ``'tri3'`` is a 3-tap triangular filter that will keep
-        the energy distribution centered, but blurred. The default
-        is to do no frequency smoothing.
+    anti_aliasing : {'double', 'db2', 'tri3', None}, optional
+        Integrating over only the length of the frame shift leads to
+        aliasing in the final representation. The following options
+        counter this:
+        - ``'double'`` (default) integrates over twice the length of the
+          frame shift. This is the nyquist rate for the main lobe of the
+          integration window.
+        - ``'db2'`` will use a 4-tap Daubechies scaling function along
+          the frequency axis before integration, averaging out much of
+          the high-frequency information
+        - ``'tri3'`` uses a 3-tap triangular symmetric filter
+        - ``None`` performs no correction
     include_energy : bool, optional
         Append an energy coefficient as the first coefficient of each
         frame
@@ -626,7 +630,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     def __init__(
             self, bank, frame_shift_ms=10, frame_style=None,
-            frequency_smoothing_pre=None, include_energy=False,
+            anti_aliasing='double', include_energy=False,
             pad_to_nearest_power_of_two=True, use_power=False,
             use_log=True):
         self._rate = bank.sampling_rate
@@ -635,24 +639,33 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._power = use_power
         self._real = bank.is_real
         self._chunk_dtype = np.float64
+        self._integr_pad = (0, 0)
         if frame_style == None:
             frame_style = 'centered' if bank.is_zero_phase else 'causal'
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
-        if frequency_smoothing_pre:
-            if frequency_smoothing_pre == 'db2':
+        if anti_aliasing is not None:
+            if anti_aliasing == 'double':
+                if frame_style == 'centered':
+                    self._integr_pad = (
+                        (self._frame_shift - 1) // 2,
+                        self._frame_shift // 2
+                    )
+                else:
+                    self._integr_pad = (0, self._frame_shift)
+            if anti_aliasing == 'db2':
                 self._freq_win = np.array(
                     [.6830127, 1.1830127, .3169873, -.1830127],
                     dtype=np.float64
                 )
                 self._freq_slice = slice(None, -3)
-            elif frequency_smoothing_pre == 'tri3':
+            elif anti_aliasing == 'tri3':
                 self._freq_win = np.array([.33, .67, .33], dtype=np.float64)
                 self._freq_slice = slice(1, -1)
             else:
                 raise ValueError(
-                    'Invalid frequency smoothing window: {}'.format(
-                        frequency_smoothing_pre))
+                    'Invalid anti-aliasing technique: {}'.format(
+                        anti_aliasing))
         else:
             self._freq_win = None
             self._feq_slice = None
