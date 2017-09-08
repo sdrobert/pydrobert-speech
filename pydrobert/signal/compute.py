@@ -6,6 +6,8 @@ from __future__ import print_function
 
 import abc
 
+from itertools import count
+
 import numpy as np
 
 from six import with_metaclass
@@ -682,8 +684,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 filt = np.roll(filt, self._translation)
             # we clamp the support in time to make the filter FIR.
             self._filts.append(self._compute_dft(filt[:self._max_support]))
+        # we don't have to store the filtered signal, just the values
+        # that are accumulated in each frame shift
+        y_blocks = self._dft_size - self._max_support + 2 * self._frame_shift
+        y_blocks = int(np.ceil(y_blocks / self._frame_shift))
         self._y_buf = np.empty(
-            (len(self._filts), self._dft_size + 2 * self._frame_shift - 1),
+            (y_blocks, len(self._filts)),
             dtype=np.float64
         )
         super(ShortIntegrationFrameComputer, self).__init__(
@@ -740,12 +746,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             remaining_samples = self._translation - self._skip + self._x_rem
             remaining_samples += self._y_rem - drop_center
             if remaining_samples >= self._frame_shift:
-                print('padded')
                 coeffs = self.compute_chunk(np.zeros(
                     self._frame_shift + self._translation - drop_center,
                     dtype=self._ret_dtype))
         self._started = False
-        print('done')
         return coeffs
 
     def compute_full(self, signal):
@@ -804,9 +808,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 raise ValueError('Chunk must be a float type')
             self._ret_dtype = chunk.dtype
             self._x_buf.fill(0)
+            self._y_buf.fill(0)
             self._x_rem = 0
             if self._frame_style == 'centered':
-                self._y_buf.fill(0)
                 self._y_rem = self._frame_shift
             else:
                 self._y_rem = 0
@@ -832,14 +836,25 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     def _fill_y_buf(self, X_buf, y_keep):
         # using the fourier domain of the raw signal window, compute
-        # convolutions and store them in y_buf
+        # convolutions and store accumulations in y_buf
+        block_offs = self._y_rem // self._frame_shift
+        second_block_start = (block_offs + 1) * self._frame_shift - self._y_rem
         for filt_idx in range(self.num_coeffs):
             Y_buf = X_buf * self._filts[filt_idx]
-            self._y_buf[filt_idx, self._y_rem:self._y_rem + y_keep] = \
-                np.abs(self._compute_idft(Y_buf)[-y_keep:])
+            y_valid = self._compute_idft(Y_buf)[-y_keep:]
             del Y_buf
-        # print(self._y_buf[filt_idx, self._y_rem:self._y_rem + min(y_keep,10)])
-        print(y_keep)
+            for active_end, block_idx in zip(range(
+                    second_block_start,
+                    y_keep + self._frame_shift,
+                    self._frame_shift), count(block_offs)):
+                y_active = y_valid[
+                    max(0, active_end - self._frame_shift):active_end]
+                y_active /= self._frame_shift
+                if self._power:
+                    val = np.add.reduce((y_active * y_active.conj()).real)
+                else:
+                    val = np.add.reduce(abs(y_active))
+                self._y_buf[block_idx, filt_idx] += val
         self._y_rem += y_keep
 
     def _convolve(self, chunk):
@@ -855,7 +870,6 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 possible_y >= 2 * self._frame_shift:
             y_keep = min(chunk_len + self._x_rem, valid_samples_per_dft)
             chunk_to_conv = y_keep - self._x_rem
-            print('c', chunk_len, chunk_to_conv, possible_x, valid_samples_per_dft, possible_y, 2 * self._frame_shift)
             self._x_buf[:x_len - chunk_to_conv] = self._x_buf[chunk_to_conv:]
             self._x_buf[x_len - chunk_to_conv:] = chunk[:chunk_to_conv]
             self._x_rem = 0
@@ -864,7 +878,6 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._fill_y_buf(X_buf, y_keep)
             del X_buf
         else:
-            print('f', chunk_len)
             assert chunk_len < x_len
             self._x_buf[:x_len - chunk_len] = self._x_buf[chunk_len:]
             self._x_buf[x_len - chunk_len:] = chunk
@@ -919,19 +932,13 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def _compute_frame(self, coeffs):
         # compute a frame's worth of coefficients from y_rem
         assert self._y_rem >= 2 * self._frame_shift
-        print(self._y_buf[0, 0:min(10, 2 * self._frame_shift)], self._y_buf[0, max(0, 2 * self._frame_shift - 10):2 * self._frame_shift])
-        for coeff_idx in range(self.num_coeffs):
-            if self._power:
-                val = np.linalg.norm(
-                    self._y_buf[coeff_idx, :2 * self._frame_shift])
-            else:
-                val = np.sum(
-                    self._y_buf[coeff_idx, :2 * self._frame_shift])
-            if self._log:
-                val = np.log(max(val, pysig.LOG_FLOOR_VALUE))
-            coeffs[coeff_idx] = val
-        self._y_buf[:, :self._y_rem - self._frame_shift] = \
-            self._y_buf[:, self._frame_shift:self._y_rem]
+        coeffs[:] = np.add.reduce(self._y_buf[:2])
+        if self._power:
+            coeffs **= .5
+        if self._log:
+            coeffs[:] = np.log(np.maximum(coeffs, pysig.LOG_FLOOR_VALUE))
+        self._y_buf[:-1] = self._y_buf[1:]
+        self._y_buf[-1] = 0
         self._y_rem -= self._frame_shift
 
 SIFrameComputer = ShortIntegrationFrameComputer
