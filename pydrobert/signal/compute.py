@@ -568,11 +568,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     Each filter in the bank is convolved with the signal. A pointwise
     nonlinearity pushes the frequency band towards zero. Most of the
-    energy of the signal can be captured in a short time integration
-    (twice the frame shift). Though best suited to processing whole
-    utterances at once, short integration is compatable with the frame
-    analogy if the frame is assumed to be the cone of influence of the
-    maximum-length filter.
+    energy of the signal can be captured in a short time integration.
+    Though best suited to processing whole utterances at once, short
+    integration is compatable with the frame analogy if the frame is
+    assumed to be the cone of influence of the maximum-length filter.
 
     For computational purposes, each filter's impulse response is
     clamped to zero outside the support of the largest filter in the
@@ -591,18 +590,6 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
         otherwise. If ``'centered'`` each filter of the bank is
         translated so that its support lies in the center of the frame
-    anti_aliasing : {'double', 'db2', 'tri3', None}, optional
-        Integrating over only the length of the frame shift leads to
-        aliasing in the final representation. The following options
-        counter this:
-        - ``'double'`` (default) integrates over twice the length of the
-          frame shift. This is the nyquist rate for the main lobe of the
-          integration window.
-        - ``'db2'`` will use a 4-tap Daubechies scaling function along
-          the frequency axis before integration, averaging out much of
-          the high-frequency information
-        - ``'tri3'`` uses a 3-tap triangular symmetric filter
-        - ``None`` performs no correction
     include_energy : bool, optional
         Append an energy coefficient as the first coefficient of each
         frame
@@ -630,78 +617,56 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     def __init__(
             self, bank, frame_shift_ms=10, frame_style=None,
-            anti_aliasing='double', include_energy=False,
-            pad_to_nearest_power_of_two=True, use_power=False,
-            use_log=True):
+            include_energy=False, pad_to_nearest_power_of_two=True,
+            use_power=False, use_log=True):
         self._rate = bank.sampling_rate
-        self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
-        self._log = use_log
-        self._power = use_power
+        self._frame_shift = int(.001 * frame_shift_ms * self._rate)
+        self._log = bool(use_log)
+        self._power = bool(use_power)
         self._real = bank.is_real
-        self._chunk_dtype = np.float64
-        self._integr_pad = (0, 0)
+        self._ret_dtype = np.float64
+        self._x_rem, self._y_rem, self._skip = 0, 0, 0
+        self._started = False
         if frame_style == None:
             frame_style = 'centered' if bank.is_zero_phase else 'causal'
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
-        if anti_aliasing is not None:
-            if anti_aliasing == 'double':
-                if frame_style == 'centered':
-                    self._integr_pad = (
-                        (self._frame_shift - 1) // 2,
-                        self._frame_shift // 2
-                    )
-                else:
-                    self._integr_pad = (0, self._frame_shift)
-            if anti_aliasing == 'db2':
-                self._freq_win = np.array(
-                    [.6830127, 1.1830127, .3169873, -.1830127],
-                    dtype=np.float64
-                )
-                self._freq_slice = slice(None, -3)
-            elif anti_aliasing == 'tri3':
-                self._freq_win = np.array([.33, .67, .33], dtype=np.float64)
-                self._freq_slice = slice(1, -1)
-            else:
-                raise ValueError(
-                    'Invalid anti-aliasing technique: {}'.format(
-                        anti_aliasing))
-        else:
-            self._freq_win = None
-            self._feq_slice = None
         self._frame_style = frame_style
         if frame_style == 'centered':
+            # we will recenter all filters so that their zero sample
+            # is at max_support // 2
             self._max_support = max(
                 right - left for left, right in bank.supports)
-            self._skip = self._max_support // 2
+            self._translation = self._max_support // 2
         else:
-            self._skip = 0
+            # we will shift all filters by whatever the minimum value
+            # makes them all supported above/equal 0. We treat all that
+            # translated space as nonzero for the sake of the
+            # overlap-add algorithm
+            self._translation = 0
             self._max_support = 0
             for left, right in bank.supports:
-                self._skip = max(-left, self._skip)
+                self._translation = max(-left, self._translation)
                 self._max_support = max(self._max_support, right)
-            self._max_support += self._skip
+            self._max_support += self._translation
         min_support_hz = min(right - left for left, right in bank.supports_hz)
+        self._frame_length = self._max_support + self._frame_shift - 1
+        self._dft_size = max(
+            self._frame_length,
+            # make sure the effective support is represented in at least
+            # one dft bin
+            int(np.ceil(2 * self._rate / min_support_hz)),
+        )
         if pad_to_nearest_power_of_two:
-            self._frame_length = self._max_support + self._frame_shift - 1
-            self._dft_size = int(2 ** np.ceil(np.log2(self._frame_length)))
-            if self._dft_size < \
-                    int(np.ceil(2 * self._rate / min_support_hz)):
-                self._dft_size = int(2 ** np.ceil(np.log2(
-                    self._rate / min_support_hz) + 1))
-        else:
-            self._frame_length = max(
-                self._max_support + 1,
-                int(np.ceil(2 * self._rate / min_support_hz))
-            ) + self._frame_shift - 1
-            self._dft_size = self._frame_length
+            self._dft_size = int(2 ** np.ceil(np.log2(self._dft_size)))
+        self._x_buf = np.empty(self._dft_size, dtype=np.float64)
         self._filts = []
         if include_energy:
             # this is a hacky way to make sure we get an accurate energy
             # coefficient - dirac deltas return the signal or a
             # translation of it
             dirac_filter = np.zeros(self._dft_size, dtype=np.float64)
-            dirac_filter[self._skip] = 1
+            dirac_filter[self._translation] = 1
             if self._real:
                 dirac_filter = np.fft.rfft(dirac_filter)
             else:
@@ -712,18 +677,15 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             if frame_style == 'centered':
                 left_samp, right_samp = bank.supports[filt_idx]
                 mid_samp = (left_samp + right_samp) // 2
-                filt = np.roll(filt, self._skip - mid_samp + 1)
+                filt = np.roll(filt, self._translation - mid_samp + 1)
             else:
-                filt = np.roll(filt, self._skip)
+                filt = np.roll(filt, self._translation)
             # we clamp the support in time to make the filter FIR.
             self._filts.append(self._compute_dft(filt[:self._max_support]))
-        self._jump = self._dft_size - self._max_support + 1
-        assert self._jump > 0
-        self._x_len = self._dft_size + self._frame_shift - 1
-        self._x_buf = np.zeros(self._x_len)
-        self._x_rem = 0
-        self._started = False
-        self._first_frame = True
+        self._y_buf = np.empty(
+            (len(self._filts), self._dft_size + 2 * self._frame_shift - 1),
+            dtype=np.float64
+        )
         super(ShortIntegrationFrameComputer, self).__init__(
             bank, include_energy=include_energy)
 
@@ -746,6 +708,169 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     @property
     def started(self):
         return self._started
+
+    def compute_chunk(self, chunk):
+        self._compute_preamble(chunk)
+        chunk = self._handle_skip(chunk)
+        coeffs = np.empty(
+            (
+                (self._x_rem + self._y_rem + len(chunk)) // self._frame_shift,
+                self.num_coeffs,
+            ),
+            dtype=self._ret_dtype,
+        )
+        num_frames = 0
+        while len(chunk):
+            chunk = self._convolve(chunk)
+            while self._y_rem >= 2 * self._frame_shift:
+                self._compute_frame(coeffs[num_frames, :])
+                num_frames += 1
+        return coeffs[:num_frames, :]
+
+    def finalize(self):
+        coeffs = np.empty((0, self.num_coeffs), dtype=self._ret_dtype)
+        if self._started:
+            # half a window of integration was provided at the start of
+            # computations to y_rem so that integration remains
+            # centered.
+            if self._frame_style == 'centered':
+                drop_center = self._frame_shift
+            else:
+                drop_center = 0
+            remaining_samples = self._translation - self._skip + self._x_rem
+            remaining_samples += self._y_rem - drop_center
+            if remaining_samples >= self._frame_shift:
+                print('padded')
+                coeffs = self.compute_chunk(np.zeros(
+                    self._frame_shift + self._translation - drop_center,
+                    dtype=self._ret_dtype))
+        self._started = False
+        print('done')
+        return coeffs
+
+    def compute_full(self, signal):
+        if self._started:
+            raise ValueError('Already started computing frames')
+        # the only big things we do to save time are copying from x_buf
+        # and keeping the largest number of coefficients possible
+        self._compute_preamble(signal)
+        signal_len = len(signal)
+        coeffs = np.empty(
+            (signal_len // self._frame_shift, self.num_coeffs),
+            dtype=self._ret_dtype
+        )
+        valid_samples_per_dft = self._dft_size - self._max_support + 1
+        num_dfts = int(np.ceil(signal_len / valid_samples_per_dft))
+        num_frames = 0
+        for dft_idx in range(num_dfts):
+            end_idx = min(
+                (dft_idx + 1) * valid_samples_per_dft,
+                signal_len
+            ) + self._skip
+            start_idx = end_idx - self._dft_size
+            y_keep = end_idx - dft_idx * valid_samples_per_dft - self._skip
+            if start_idx < 0 or end_idx > signal_len:
+                x_offs = max(0, -start_idx)
+                seg_offs = max(0, start_idx)
+                seg_len = min(end_idx, signal_len) - max(0, start_idx)
+                self._x_buf[:x_offs] = 0
+                self._x_buf[x_offs:x_offs + seg_len] = signal[seg_offs:end_idx]
+                self._x_buf[x_offs + seg_len:] = 0
+                X_buf = self._compute_dft(self._x_buf)
+            else:
+                X_buf = self._compute_dft(signal[start_idx:end_idx])
+            self._fill_y_buf(X_buf, y_keep)
+            del X_buf
+            while self._y_rem >= 2 * self._frame_shift:
+                self._compute_frame(coeffs[num_frames, :])
+                num_frames += 1
+        x_len = len(self._x_buf)
+        self._x_buf[:max(0, x_len - signal_len)] = 0
+        self._x_buf[max(0, x_len - signal_len):] = \
+            signal[signal_len -min(signal_len, x_len):]
+        finalize_coeffs = self.finalize()
+        assert finalize_coeffs.shape[0] + num_frames == coeffs.shape[0]
+        coeffs[num_frames:, :] = finalize_coeffs[:1, :]
+        return coeffs
+
+    def _compute_preamble(self, chunk):
+        # check for data type consistency, handle stuff if just started
+        if self._started:
+            if chunk.dtype != self._ret_dtype:
+                raise ValueError(
+                    'Chunk does not share a type with previous chunks')
+        else:
+            if not np.issubdtype(chunk.dtype, np.float):
+                raise ValueError('Chunk must be a float type')
+            self._ret_dtype = chunk.dtype
+            self._x_buf.fill(0)
+            self._x_rem = 0
+            if self._frame_style == 'centered':
+                self._y_buf.fill(0)
+                self._y_rem = self._frame_shift
+            else:
+                self._y_rem = 0
+            self._skip = self._translation
+            self._started = True
+
+    def _handle_skip(self, chunk):
+        # 'skip' refers to some number of samples at the beginning of
+        # the utterance that won't count towards frames. We add them
+        # to x_buf, but do not increment x_rem
+        if not self._skip:
+            return chunk
+        assert not self._x_rem
+        consumed = min(self._skip, len(chunk))
+        x_len = len(self._x_buf)
+        if consumed < x_len:
+            self._x_buf[:x_len - consumed] = self._x_buf[consumed:]
+            self._x_buf[x_len - consumed:] = chunk[:consumed]
+        else:
+            self._x_buf[:] = chunk[consumed - x_len:consumed]
+        self._skip -= consumed
+        return chunk[consumed:]
+
+    def _fill_y_buf(self, X_buf, y_keep):
+        # using the fourier domain of the raw signal window, compute
+        # convolutions and store them in y_buf
+        for filt_idx in range(self.num_coeffs):
+            Y_buf = X_buf * self._filts[filt_idx]
+            self._y_buf[filt_idx, self._y_rem:self._y_rem + y_keep] = \
+                np.abs(self._compute_idft(Y_buf)[-y_keep:])
+            del Y_buf
+        # print(self._y_buf[filt_idx, self._y_rem:self._y_rem + min(y_keep,10)])
+        print(y_keep)
+        self._y_rem += y_keep
+
+    def _convolve(self, chunk):
+        # we convolve in two scenarios. Either we have enough samples
+        # to calculate frame coefficients or the number of samples we
+        # have maxes out the dft 
+        chunk_len = len(chunk)
+        possible_x = chunk_len + self._x_rem
+        possible_y = possible_x + self._y_rem
+        x_len = len(self._x_buf)
+        valid_samples_per_dft = self._dft_size - self._max_support + 1
+        if possible_x >= valid_samples_per_dft or \
+                possible_y >= 2 * self._frame_shift:
+            y_keep = min(chunk_len + self._x_rem, valid_samples_per_dft)
+            chunk_to_conv = y_keep - self._x_rem
+            print('c', chunk_len, chunk_to_conv, possible_x, valid_samples_per_dft, possible_y, 2 * self._frame_shift)
+            self._x_buf[:x_len - chunk_to_conv] = self._x_buf[chunk_to_conv:]
+            self._x_buf[x_len - chunk_to_conv:] = chunk[:chunk_to_conv]
+            self._x_rem = 0
+            chunk = chunk[chunk_to_conv:]
+            X_buf = self._compute_dft(self._x_buf)
+            self._fill_y_buf(X_buf, y_keep)
+            del X_buf
+        else:
+            print('f', chunk_len)
+            assert chunk_len < x_len
+            self._x_buf[:x_len - chunk_len] = self._x_buf[chunk_len:]
+            self._x_buf[x_len - chunk_len:] = chunk
+            self._x_rem += chunk_len
+            chunk = chunk[:0]
+        return chunk
 
     def _compute_dft(self, buff):
         # given a buffer, compute its fourier transform. Always copies
@@ -791,187 +916,23 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             idft = np.fft.ifft(fourier_buff)
         return idft
 
-    def _compute_frame(self, y_buf, coeffs):
-        # given a frame shift's worth of convolved coefficients and a
-        # vector to put coefficients, compute them
-        if self._freq_win is not None:
-            samples = y_buf[int(self.includes_energy):]
-            samples = np.apply_along_axis(
-                lambda col: np.convolve(
-                    col, self._freq_win)[self._freq_slice],
-                0,
-                samples,
-            )
-            y_buf[int(self.includes_energy):] = samples
-            del samples
+    def _compute_frame(self, coeffs):
+        # compute a frame's worth of coefficients from y_rem
+        assert self._y_rem >= 2 * self._frame_shift
+        print(self._y_buf[0, 0:min(10, 2 * self._frame_shift)], self._y_buf[0, max(0, 2 * self._frame_shift - 10):2 * self._frame_shift])
         for coeff_idx in range(self.num_coeffs):
             if self._power:
-                val = np.linalg.norm(y_buf[coeff_idx], ord=2) ** 2
+                val = np.linalg.norm(
+                    self._y_buf[coeff_idx, :2 * self._frame_shift])
             else:
-                val = np.sum(np.abs(y_buf[coeff_idx]))
+                val = np.sum(
+                    self._y_buf[coeff_idx, :2 * self._frame_shift])
             if self._log:
                 val = np.log(max(val, pysig.LOG_FLOOR_VALUE))
             coeffs[coeff_idx] = val
-
-    def compute_chunk(self, chunk):
-        self._chunk_dtype = chunk.dtype
-        # on entry:
-        #  x_buf contains the past dft_size samples. x_rem is the
-        #  number of which haven't been convolved yet (r.h.s. of x_buf).
-        chunk_len = len(chunk)
-        if self._skip and chunk_len:
-            assert not self._x_rem
-            consumed = min(self._skip, chunk_len)
-            if consumed < self._x_len:
-                self._x_buf[:self._x_len - consumed] = self._x_buf[consumed:]
-                self._x_buf[self._x_len - consumed:] = chunk[:consumed]
-            else:
-                self._x_buf[:] = chunk[consumed - self._x_len:consumed]
-            self._skip -= consumed
-            chunk_len -= consumed
-            chunk = chunk[consumed:]
-        total_samples = chunk_len + self._x_rem
-        centered_first = self._frame_style == 'centered' and self._first_frame
-        if centered_first:
-            frame_shift = self._frame_shift // 2 + 1
-        else:
-            frame_shift = self._frame_shift
-        num_frames = (total_samples - frame_shift) // self._frame_shift + 1
-        y_len = max(0, (num_frames - 1) * self._frame_shift + frame_shift)
-        coeffs = np.empty((num_frames, self.num_coeffs), dtype=chunk.dtype)
-        num_dfts = int(np.ceil(y_len / self._jump))
-        y_buf = np.empty(
-            (self.num_coeffs, self._jump + self._frame_shift - 1),
-            dtype=np.float64 if self._real else np.complex128,
-        )
-        frame_idx = 0
-        unprocessed = 0
-        for dft_idx in range(num_dfts):
-            end_idx = min((dft_idx + 1) * self._jump, y_len)
-            num_new = end_idx - dft_idx * self._jump
-            # start_idx can be very negative for the first few frames.
-            # this just means we're using more of our history buffer
-            start_idx = end_idx - self._dft_size
-            if start_idx < self._x_rem:
-                x_k = np.concatenate([
-                    self._x_buf[
-                        start_idx - self._x_rem:
-                        min(end_idx - self._x_rem, 0) + self._x_len
-                    ],
-                    chunk[:max(0, end_idx - self._x_rem)]
-                ])
-            else:
-                x_k = chunk[start_idx - self._x_rem:end_idx - self._x_rem]
-            assert len(x_k) == self._dft_size
-            X_k = self._compute_dft(x_k)
-            for filt_idx in range(self.num_coeffs):
-                Y_k = X_k * self._filts[filt_idx]
-                y_k = self._compute_idft(Y_k)
-                y_buf[filt_idx, unprocessed:unprocessed + num_new] = \
-                    y_k[-num_new:]
-            unprocessed += num_new
-            while unprocessed >= frame_shift:
-                self._compute_frame(y_buf[:, :frame_shift], coeffs[frame_idx])
-                frame_idx += 1
-                unprocessed -= frame_shift
-                y_buf[
-                    :, :unprocessed
-                ] = y_buf[:, frame_shift:frame_shift + unprocessed]
-                self._first_frame = False
-                frame_shift = self._frame_shift
-                centered_first = False
-        assert unprocessed == 0 and frame_idx == num_frames
-        self._x_rem = total_samples - y_len
-        if chunk_len >= self._x_len:
-            self._x_buf[:] = chunk[-self._x_len:]
-        elif chunk_len > 0:
-            self._x_buf[:self._x_len - chunk_len] = self._x_buf[chunk_len:]
-            self._x_buf[self._x_len - chunk_len:] = chunk
-        self._started = True
-        return coeffs
-
-    def finalize(self):
-        if self._frame_style == 'centered':
-            reset_skip = self._max_support // 2
-        else:
-            reset_skip = max(-left for left, _ in self.bank.supports)
-        if reset_skip:
-            coeffs = self.compute_chunk(np.zeros(
-                reset_skip,
-                dtype=self._chunk_dtype,
-            ))
-        else:
-            coeffs = np.empty((0, self.num_coeffs), dtype=self._chunk_dtype)
-        if self._x_rem >= self._frame_shift // 2 + 1:
-            coeffs_2 = self.compute_chunk(np.zeros(
-                self._frame_shift - self._x_rem,
-                dtype=self._chunk_dtype,
-            ))
-            assert coeffs_2.shape[0] == 1 and not self._x_rem
-            coeffs = np.concatenate([coeffs, coeffs_2])
-        self._x_rem = 0
-        self._x_buf.fill(0)
-        self._started = False
-        self._first_frame = True
-        self._skip = reset_skip
-        return coeffs
-
-    def compute_full(self, signal):
-        if self.started:
-            raise ValueError('Already started computing frames')
-        if self._frame_style == 'centered':
-            first_frame_shift = self._frame_shift // 2 + 1
-        else:
-            first_frame_shift = self._frame_shift
-        signal_len = len(signal)
-        num_frames = (signal_len - first_frame_shift) // self._frame_shift + 1
-        y_len = max(
-            0, (num_frames - 1) * self._frame_shift + first_frame_shift)
-        if signal_len - y_len >= self._frame_shift // 2 + 1:
-            num_frames += 1
-            y_len += self._frame_shift
-        num_dfts = int(np.ceil(y_len / self._jump))
-        coeffs = np.empty((num_frames, self.num_coeffs), dtype=signal.dtype)
-        y_buf = np.empty(
-            (self.num_coeffs, self._jump + self._frame_shift - 1),
-            dtype=np.float64 if self._real else np.complex128,
-        )
-        unprocessed = 0
-        frame_shift = first_frame_shift
-        frame_idx = 0
-        for dft_idx in range(num_dfts):
-            end_idx = min((dft_idx + 1) * self._jump, y_len) + self._skip
-            start_idx = end_idx - self._dft_size
-            num_new = end_idx - dft_idx * self._jump - self._skip
-            if start_idx < 0 or end_idx > signal_len:
-                x_k = np.pad(
-                    signal[max(0, start_idx):end_idx],
-                    (
-                        max(0, -start_idx),
-                        max(0, end_idx - max(start_idx, signal_len)),
-                    ),
-                    'constant',
-                )
-            else:
-                x_k = signal[start_idx:end_idx]
-            assert len(x_k) == self._dft_size
-            X_k = self._compute_dft(x_k)
-            for filt_idx in range(self.num_coeffs):
-                Y_k = X_k * self._filts[filt_idx]
-                y_k = self._compute_idft(Y_k)
-                y_buf[filt_idx, unprocessed:unprocessed + num_new] = \
-                    y_k[-num_new:]
-            unprocessed += num_new
-            while unprocessed >= frame_shift:
-                self._compute_frame(y_buf[:, :frame_shift], coeffs[frame_idx])
-                frame_idx += 1
-                unprocessed -= frame_shift
-                y_buf[
-                    :, :unprocessed
-                ] = y_buf[:, frame_shift:frame_shift + unprocessed]
-                frame_shift = self._frame_shift
-        assert not unprocessed and frame_idx == num_frames
-        return coeffs
+        self._y_buf[:, :self._y_rem - self._frame_shift] = \
+            self._y_buf[:, self._frame_shift:self._y_rem]
+        self._y_rem -= self._frame_shift
 
 SIFrameComputer = ShortIntegrationFrameComputer
 

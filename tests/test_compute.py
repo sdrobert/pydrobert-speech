@@ -26,8 +26,11 @@ def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
     feats_framewise = compute.frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), \
+        (
+            feats_full.shape[0],
             np.where(
-                np.logical_not(np.isclose(feats_full, feats_framewise)))[0]
+                np.logical_not(np.isclose(feats_full, feats_framewise)))[0],
+        )
 
 def test_chunk_sizes_dont_matter_to_result(computer, buff):
     feats = compute.frame_by_frame_calculation(computer, buff)

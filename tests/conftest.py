@@ -118,7 +118,6 @@ def frame_style(request):
         pad_to_nearest_power_of_two=np.random.randint(2),
         include_energy=np.random.randint(2),
         frame_style=frame_style,
-        frequency_smoothing_pre=np.random.choice(('db2', 'tri3', None)),
     ),
 ], ids=[
     'stft',
