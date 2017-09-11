@@ -718,20 +718,50 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def compute_chunk(self, chunk):
         self._compute_preamble(chunk)
         chunk = self._handle_skip(chunk)
-        coeffs = np.empty(
-            (
-                (self._x_rem + self._y_rem + len(chunk)) // self._frame_shift,
-                self.num_coeffs,
-            ),
-            dtype=self._ret_dtype,
-        )
-        num_frames = 0
-        while len(chunk):
-            chunk = self._convolve(chunk)
+        chunk_len = len(chunk)
+        valid_samples_per_dft = self._dft_size - self._max_support + 1
+        num_raw = self._x_rem + chunk_len
+        num_dfts = num_raw // valid_samples_per_dft
+        num_frames = max(0, (num_raw + self._y_rem) // self._frame_shift - 1)
+        if num_frames:
+            num_processed = (num_frames + 1) * self._frame_shift
+        else:
+            num_processed = self._y_rem
+        if num_processed - self._y_rem > num_dfts * valid_samples_per_dft:
+            num_dfts += 1
+        coeffs = np.empty((num_frames, self.num_coeffs), dtype=self._ret_dtype)
+        cur_frame, chunk_copied = 0, 0
+        for dft_idx in range(num_dfts):
+            end_idx = min(
+                (dft_idx + 1) * valid_samples_per_dft - self._x_rem,
+                chunk_len
+            )
+            y_keep = end_idx - dft_idx * valid_samples_per_dft + self._x_rem
+            start_idx = end_idx - self._dft_size
+            if start_idx < 0:
+                chunk_to_copy = end_idx - chunk_copied
+                assert chunk_to_copy < self._dft_size
+                self._x_buf[:self._dft_size - chunk_to_copy] = \
+                    self._x_buf[chunk_to_copy:]
+                self._x_buf[self._dft_size - chunk_to_copy:] = \
+                    chunk[chunk_copied:end_idx]
+                chunk_copied = end_idx
+                cur_buf = self._x_buf
+            else:
+                cur_buf = chunk[start_idx:end_idx]
+            X_buf = self._compute_dft(cur_buf)
+            self._fill_y_buf(X_buf, y_keep)
+            del X_buf
             while self._y_rem >= 2 * self._frame_shift:
-                self._compute_frame(coeffs[num_frames, :])
-                num_frames += 1
-        return coeffs[:num_frames, :]
+                self._compute_frame(coeffs[cur_frame, :])
+                cur_frame += 1
+        assert cur_frame == num_frames, (cur_frame, num_frames)
+        if chunk_len - chunk_copied:
+            chunk_to_copy = min(self._dft_size, chunk_len - chunk_copied)
+            self._x_buf[:-chunk_to_copy] = self._x_buf[chunk_to_copy:]
+            self._x_buf[-chunk_to_copy:] = chunk[-chunk_to_copy:]
+        self._x_rem = max(0, num_raw - num_dfts * valid_samples_per_dft)
+        return coeffs
 
     def finalize(self):
         coeffs = np.empty((0, self.num_coeffs), dtype=self._ret_dtype)
@@ -755,47 +785,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def compute_full(self, signal):
         if self._started:
             raise ValueError('Already started computing frames')
-        # the only big things we do to save time are copying from x_buf
-        # and keeping the largest number of coefficients possible
-        self._compute_preamble(signal)
-        signal_len = len(signal)
-        coeffs = np.empty(
-            (signal_len // self._frame_shift, self.num_coeffs),
-            dtype=self._ret_dtype
-        )
-        valid_samples_per_dft = self._dft_size - self._max_support + 1
-        num_dfts = int(np.ceil(signal_len / valid_samples_per_dft))
-        num_frames = 0
-        for dft_idx in range(num_dfts):
-            end_idx = min(
-                (dft_idx + 1) * valid_samples_per_dft,
-                signal_len
-            ) + self._skip
-            start_idx = end_idx - self._dft_size
-            y_keep = end_idx - dft_idx * valid_samples_per_dft - self._skip
-            if start_idx < 0 or end_idx > signal_len:
-                x_offs = max(0, -start_idx)
-                seg_offs = max(0, start_idx)
-                seg_len = min(end_idx, signal_len) - max(0, start_idx)
-                self._x_buf[:x_offs] = 0
-                self._x_buf[x_offs:x_offs + seg_len] = signal[seg_offs:end_idx]
-                self._x_buf[x_offs + seg_len:] = 0
-                X_buf = self._compute_dft(self._x_buf)
-            else:
-                X_buf = self._compute_dft(signal[start_idx:end_idx])
-            self._fill_y_buf(X_buf, y_keep)
-            del X_buf
-            while self._y_rem >= 2 * self._frame_shift:
-                self._compute_frame(coeffs[num_frames, :])
-                num_frames += 1
-        x_len = len(self._x_buf)
-        self._x_buf[:max(0, x_len - signal_len)] = 0
-        self._x_buf[max(0, x_len - signal_len):] = \
-            signal[signal_len -min(signal_len, x_len):]
-        finalize_coeffs = self.finalize()
-        assert finalize_coeffs.shape[0] + num_frames == coeffs.shape[0]
-        coeffs[num_frames:, :] = finalize_coeffs[:1, :]
-        return coeffs
+        return np.concatenate([
+            self.compute_chunk(signal),
+            self.finalize()
+        ])
 
     def _compute_preamble(self, chunk):
         # check for data type consistency, handle stuff if just started
