@@ -125,7 +125,11 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
     @property
     def supports_ms(self):
         """Boundaries of effective support of filter impulse resps, in ms"""
-        return tuple(s * 1000 / self.sampling_rate for s in self.supports)
+        return tuple(
+            (
+                s[0] * 1000 / self.sampling_rate,
+                s[1] * 1000 / self.sampling_rate,
+            ) for s in self.supports)
 
     @abc.abstractmethod
     def get_impulse_response(self, filt_idx, width):
