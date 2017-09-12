@@ -27,8 +27,6 @@ __all__ = [
     'frame_by_frame_calculation',
 ]
 
-if pysig.USE_FFTPACK:
-    from scipy import fftpack
 
 class FrameComputer(object, with_metaclass(abc.ABCMeta)):
     """Construct features from a signal from fixed-length segments
@@ -390,6 +388,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                 coeffs[0] = np.log(max(coeffs[0], pysig.LOG_FLOOR_VALUE))
             coeffs = coeffs[1:]
         if pysig.USE_FFTPACK:
+            from scipy import fftpack
             is_odd = self._dft_size % 2
             buffered_frame = np.zeros(
                 self._dft_size + 2 - is_odd, dtype=np.float64)
@@ -850,39 +849,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 self._y_buf[block_idx, filt_idx] += val
         self._y_rem += y_keep
 
-    def _convolve(self, chunk):
-        # we convolve in two scenarios. Either we have enough samples
-        # to calculate frame coefficients or the number of samples we
-        # have maxes out the dft 
-        chunk_len = len(chunk)
-        possible_x = chunk_len + self._x_rem
-        possible_y = possible_x + self._y_rem
-        x_len = len(self._x_buf)
-        valid_samples_per_dft = self._dft_size - self._max_support + 1
-        if possible_x >= valid_samples_per_dft or \
-                possible_y >= 2 * self._frame_shift:
-            y_keep = min(chunk_len + self._x_rem, valid_samples_per_dft)
-            chunk_to_conv = y_keep - self._x_rem
-            self._x_buf[:x_len - chunk_to_conv] = self._x_buf[chunk_to_conv:]
-            self._x_buf[x_len - chunk_to_conv:] = chunk[:chunk_to_conv]
-            self._x_rem = 0
-            chunk = chunk[chunk_to_conv:]
-            X_buf = self._compute_dft(self._x_buf)
-            self._fill_y_buf(X_buf, y_keep)
-            del X_buf
-        else:
-            assert chunk_len < x_len
-            self._x_buf[:x_len - chunk_len] = self._x_buf[chunk_len:]
-            self._x_buf[x_len - chunk_len:] = chunk
-            self._x_rem += chunk_len
-            chunk = chunk[:0]
-        return chunk
-
     def _compute_dft(self, buff):
         # given a buffer, compute its fourier transform. Always copies
         # the data
         assert len(buff) <= self._dft_size
         if pysig.USE_FFTPACK and self._real:
+            from scipy import fftpack
             buffered_frame = np.zeros(
                 self._dft_size + 2 - self._dft_size % 2, dtype=np.float64)
             buffered_frame[1:len(buff) + 1] = buff
@@ -894,6 +866,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         elif self._real:
             fourier_frame = np.fft.rfft(buff, n=self._dft_size)
         elif pysig.USE_FFTPACK:
+            from scipy import fftpack
             complex_frame = np.zeros(self._dft_size, dtype=np.complex128)
             complex_frame[:len(buff)] = buff # implicit upcast if f32
             fourier_frame = fftpack.fft(complex_frame, overwrite_x=True)
@@ -907,6 +880,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         # it's ok to modify the buffer.
         assert fourier_buff.dtype == np.complex128
         if pysig.USE_FFTPACK and self._real:
+            from scipy import fftpack
             fourier_buff = fourier_buff.view(np.float64)
             fourier_buff[1] = fourier_buff[0]
             if self._dft_size % 2:
@@ -917,6 +891,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         elif self._real:
             idft = np.fft.irfft(fourier_buff, n=self._dft_size)
         elif pysig.USE_FFTPACK:
+            from scipy import fftpack
             idft = fftpack.ifft(fourier_buff, overwrite_x=True)
         else:
             idft = np.fft.ifft(fourier_buff)
