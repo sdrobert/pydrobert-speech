@@ -24,6 +24,7 @@ except ImportError:
 
 warnings.simplefilter('error')
 
+# fixtures
 @pytest.fixture
 def temp_file_1_name():
     temp = NamedTemporaryFile(delete=False)

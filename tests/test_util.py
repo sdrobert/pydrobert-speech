@@ -138,16 +138,15 @@ def tdir():
     with TemporaryDirectory() as a:
         yield a
 
-@pytest.mark.importorskip('pydrobert.kaldi')
 @pytest.mark.parametrize('key', [True, False])
 def test_read_kaldi(tdir, key):
-    from pydrobert.kaldi import tables
+    kaldi = pytest.importorskip('pydrobert.kaldi')
     rxfilename = 'ark:{}'.format(os.path.join(tdir, 'foo.ark'))
     key_1 = 'lions'
     key_2 = 'tigers'
     buff_1 = np.random.random((100, 10))
     buff_2 = np.random.random((1000, 2))
-    with tables.open(rxfilename, 'dm', 'w') as table:
+    with kaldi.tables.open(rxfilename, 'dm', 'w') as table:
         table.write(key_1, buff_1)
         table.write(key_2, buff_2)
     if key:
@@ -157,10 +156,7 @@ def test_read_kaldi(tdir, key):
         buff_3 = util.read_signal(rxfilename, dtype='dm')
         assert np.allclose(buff_1, buff_3)
 
-@pytest.mark.parametrize('use_scipy', [
-    pytest.param(True, marks=pytest.mark.importorskip('scipy.io')),
-    False,
-])
+@pytest.mark.parametrize('use_scipy', [True, False])
 @pytest.mark.parametrize('channels', [1, 2], ids=['mono', 'stereo'])
 @pytest.mark.parametrize('sampwidth', [2, 4])
 def test_read_wave(tdir, use_scipy, channels, sampwidth):
@@ -179,15 +175,15 @@ def test_read_wave(tdir, use_scipy, channels, sampwidth):
     wave_file.writeframes(wave_bytes)
     wave_file.close()
     if use_scipy:
+        pytest.importorskip('scipy')
         wave_buffer_2 = util._scipy_io_read_signal(rfilename, None, None)
     else:
         wave_buffer_2 = util._wave_read_signal(rfilename, None, None)
     assert np.allclose(wave_buffer_1, wave_buffer_2)
 
-@pytest.mark.importorskip('h5py')
 @pytest.mark.parametrize('key', [True, False])
 def test_read_hdf5(tdir, key):
-    import h5py
+    h5py = pytest.importorskip('h5py')
     rfilename = os.path.join(tdir, 'foo.hdf5')
     h5py_file = h5py.File(rfilename, 'w')
     h5py_file.create_group('a/b/c')

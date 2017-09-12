@@ -283,7 +283,7 @@ class Standardize(PostProcessor):
             return self._apply_vector(features, in_place)
 
     def save(self, wfilename, key=None):
-        '''Save accumulated statistics to file
+        r'''Save accumulated statistics to file
 
         If `wfilename` begins with ``r'^(ark|scp)(,\w+)*:'``, statistics
         will be saved as a Kaldi script/archive. Otherwise, statistics

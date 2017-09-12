@@ -7,8 +7,7 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from pydrobert.signal import USE_FFTPACK
-from pydrobert.signal import compute
+import pydrobert.signal as pysig
 
 @pytest.fixture(params=[
     0,
@@ -24,7 +23,7 @@ def buff(request):
 
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
-    feats_framewise = compute.frame_by_frame_calculation(computer, buff)
+    feats_framewise = pysig.compute.frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), \
         (
             feats_full.shape[0],
@@ -33,7 +32,7 @@ def test_framewise_matches_full(computer, buff):
         )
 
 def test_chunk_sizes_dont_matter_to_result(computer, buff):
-    feats = compute.frame_by_frame_calculation(computer, buff)
+    feats = pysig.compute.frame_by_frame_calculation(computer, buff)
     feats_chunks = []
     while len(buff):
         next_len = np.random.randint(len(buff) + 1)
@@ -75,22 +74,22 @@ def test_repeated_calls_generate_same_results(computer, buff):
     assert np.allclose(
         computer.compute_full(buff), computer.compute_full(buff))
     assert np.allclose(
-        compute.frame_by_frame_calculation(computer, buff),
-        compute.frame_by_frame_calculation(computer, buff)
+        pysig.compute.frame_by_frame_calculation(computer, buff),
+        pysig.compute.frame_by_frame_calculation(computer, buff)
     )
 
-@pytest.mark.skipif(not USE_FFTPACK, reason='fftpack disabled')
 class TestFFTPACK(object):
 
     def setup_method(self):
-        self._orig_USE_FFTPACK = USE_FFTPACK
+        pytest.importorskip('scipy')
+        self._orig_USE_FFTPACK = pysig.USE_FFTPACK
 
     def test_computations_same_between_numpy_scipy(self, computer, buff):
-        USE_FFTPACK = False
+        pysig.USE_FFTPACK = False
         np_feats = computer.compute_full(buff)
-        USE_FFTPACK = True
+        pysig.USE_FFTPACK = True
         scipy_feats = computer.compute_full(buff)
         assert np.allclose(np_feats, scipy_feats)
 
     def teardown_method(self):
-        USE_FFTPACK = self._orig_USE_FFTPACK
+        pysig.USE_FFTPACK = self._orig_USE_FFTPACK
