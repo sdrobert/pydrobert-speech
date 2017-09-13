@@ -270,8 +270,11 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Whether the DFT should be a padded to a power of two for
         computational efficiency
-    window_name : {'rectangular', 'bartlett', 'blackman', 'hamming', 'hanning'}
-        The name of the window used in step 1.
+    window_name : { 'rectangular', 'bartlett', 'blackman',
+                    'hamming', 'hanning', 'gamma'}
+        The name of the window used in step 1. The default, if
+        ``frame_style == 'centered'``, is ``'hanning'``, otherwise it's
+        ``'gamma'``.
     use_log : bool, optional
         Whether to take the log of the sum from 3b.
     use_power : bool, optional
@@ -300,7 +303,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self, bank, frame_length_ms=None, frame_shift_ms=10,
             frame_style=None, include_energy=False,
             pad_to_nearest_power_of_two=True,
-            window_name='hanning', use_log=True, use_power=False):
+            window_name=None, use_log=True, use_power=False):
         self._rate = bank.sampling_rate
         self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
         self._log = use_log
@@ -326,6 +329,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self._frame_length = int(
                 0.001 * frame_length_ms * bank.sampling_rate)
         self._buf = np.empty(self._frame_length, dtype=np.float64)
+        if window_name is None:
+            window_name = 'hanning' if frame_style == 'centered' else 'gamma'
         if window_name == 'rectangular':
             self._window = np.ones(self._frame_length, dtype=float)
         elif window_name == 'bartlett' or window_name == 'triangular':
@@ -336,6 +341,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self._window = np.hamming(self._frame_length)
         elif window_name == 'hanning':
             self._window = np.hanning(self._frame_length)
+        elif window_name == 'gamma':
+            self._window = pysig.filters.gamma_window(self._frame_length)
         else:
             raise ValueError('Invalid window name: "{}"'.format(window_name))
         if pad_to_nearest_power_of_two:

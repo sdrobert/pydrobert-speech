@@ -12,7 +12,7 @@ import pydrobert.signal as pysig
 @pytest.fixture(params=[
     0,
     1,
-    2 ** 10,
+    2 ** 8,
 ], ids=[
     'empty buffer',
     'length 1 buffer',

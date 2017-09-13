@@ -1021,3 +1021,55 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
                 right -= h_0 / d_0
                 h_0 = np.abs(self._h(right, idx))
         return (int(np.floor(offset)), int(np.ceil(right) + offset))
+
+# windows
+
+def gamma_window(M, order=4, peak=.75):
+    r'''A lowpass filter based on the Gamma function
+
+    A Gamma function is defined as:
+
+    .. math:: p(t; \alpha, n) \defeq t^{n - 1} e^{-\alpha t} u(t)
+
+    Where :math:`n` is the order of the function, :math:`\alpha` controls the
+    bandwidth of the filter, and :math:`u` is the step function.
+
+    This function returns a window based off a reflected Gamma function.
+    :math:`\alpha` is chosen such that the maximum value of the window aligns
+    with `peak`. The window is clipped to the support ``[0, M]``. For reasonable
+    values of `peak` (i.e. in the last quarter of samples), the majority of the
+    support should lie in this interval anyways.
+
+    Arguments
+    ---------
+    M : int
+        The number of points in the output window. If zero or less, an empty
+        array is returned
+    order : int
+    peak : int or float
+        If ``0 < peak < 1``, `peak` is a ratio; the maximum value will be at
+        ``peak * M``. If ``peak > 1`` it is considered the sample index
+        directly. `peak` is ignored when ``order == 1``
+
+    Returns
+    -------
+    array-like
+        The window in a 1D float64 array of shape ``(M,)``
+    '''
+    if M <= 0:
+        return np.array([], dtype=float)
+    elif M == 1:
+        return np.array([1], dtype=float)
+    if peak < 1:
+        peak = peak * M
+    ret = np.arange(M, dtype=float)
+    if order > 1:
+        alpha = (order - 1) / (M - peak)
+        offs = 1
+    else:
+        # align alpha roughly with a support in M
+        alpha = 5 / M
+        offs = 0
+    ln_c = order * np.log(alpha) - np.log(np.math.factorial(order - 1))
+    ret[offs:] = ret[offs:] ** (order - 1) * np.exp(-alpha * ret[offs:] + ln_c)
+    return ret[::-1]
