@@ -17,9 +17,11 @@ import pydrobert.signal as pysig
     'empty buffer',
     'length 1 buffer',
     'large buffer',
-])
+], scope="module")
 def buff(request):
-    return np.random.random(request.param)
+    b = np.random.random(request.param)
+    b.flags.writeable = False
+    return b
 
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
@@ -55,7 +57,8 @@ def test_zero_samples_generate_zero_features(computer):
     assert computer.finalize().shape == (0, computer.num_coeffs)
 
 def test_finalize_twice_generates_no_coefficients(computer):
-    buff = np.empty(computer.frame_length * 2, np.float64)
+    buff = np.random.random(computer.frame_length * 2)
+    buff.flags.writeable = False
     coeffs = np.concatenate([
         computer.compute_chunk(buff),
         computer.finalize()

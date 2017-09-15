@@ -331,20 +331,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._buf = np.empty(self._frame_length, dtype=np.float64)
         if window_name is None:
             window_name = 'hanning' if frame_style == 'centered' else 'gamma'
-        if window_name == 'rectangular':
-            self._window = np.ones(self._frame_length, dtype=float)
-        elif window_name == 'bartlett' or window_name == 'triangular':
-            self._window = np.bartlett(self._frame_length)
-        elif window_name == 'blackman':
-            self._window = np.blackman(self._frame_length)
-        elif window_name == 'hamming':
-            self._window = np.hamming(self._frame_length)
-        elif window_name == 'hanning':
-            self._window = np.hanning(self._frame_length)
-        elif window_name == 'gamma':
-            self._window = pysig.filters.gamma_window(self._frame_length)
-        else:
-            raise ValueError('Invalid window name: "{}"'.format(window_name))
+        self._window = _build_window(window_name, self._frame_length)
         if pad_to_nearest_power_of_two:
             self._dft_size = int(2 ** np.ceil(np.log2(self._frame_length)))
         else:
@@ -604,6 +591,11 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Pad the DFTs used in computation to a power of two for
         efficient computation
+    window_name : { 'rectangular', 'bartlett', 'blackman',
+                    'hamming', 'hanning', 'gamma'}
+        The name of the window used to weigh integration. The default, if
+        ``frame_style == 'centered'``, is ``'hanning'``, otherwise it's
+        ``'gamma'``.
     use_power : bool, optional
         Whether the pointwise linearity is the signal's power or
         magnitude
@@ -626,7 +618,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def __init__(
             self, bank, frame_shift_ms=10, frame_style=None,
             include_energy=False, pad_to_nearest_power_of_two=True,
-            use_power=False, use_log=True):
+            window_name=None, use_power=False, use_log=True):
         self._rate = bank.sampling_rate
         self._frame_shift = int(.001 * frame_shift_ms * self._rate)
         self._log = bool(use_log)
@@ -640,6 +632,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
         self._frame_style = frame_style
+        if window_name is None:
+            window_name = 'hanning' if frame_style == 'centered' else 'gamma'
+        window = _build_window(window_name, 2 * self._frame_shift)
+        self._window = window.reshape(2, self._frame_shift)
         if frame_style == 'centered':
             # we will recenter all filters so that their zero sample
             # is at max_support // 2
@@ -691,11 +687,13 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             # we clamp the support in time to make the filter FIR.
             self._filts.append(self._compute_dft(filt[:self._max_support]))
         # we don't have to store the filtered signal, just the values
-        # that are accumulated in each frame shift
+        # that are accumulated in each frame shift. Since integration windows
+        # are not in general uniform, we add an index for taking the dot
+        # product of the first and second half of the window
         y_blocks = self._dft_size - self._max_support + 2 * self._frame_shift
         y_blocks = int(np.ceil(y_blocks / self._frame_shift))
         self._y_buf = np.empty(
-            (y_blocks, len(self._filts)),
+            (y_blocks, 2, len(self._filts)),
             dtype=np.float64
         )
         super(ShortIntegrationFrameComputer, self).__init__(
@@ -841,19 +839,23 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         for filt_idx in range(self.num_coeffs):
             Y_buf = X_buf * self._filts[filt_idx]
             y_valid = self._compute_idft(Y_buf)[-y_keep:]
+            if self._power:
+                y_valid[:] = y_valid * y_valid.conj()
+            else:
+                y_valid[:] = np.abs(y_valid)
             del Y_buf
-            for active_end, block_idx in zip(range(
+            for block_end, block_idx in zip(range(
                     second_block_start,
                     y_keep + self._frame_shift,
                     self._frame_shift), count(block_offs)):
-                y_active = y_valid[
-                    max(0, active_end - self._frame_shift):active_end]
-                y_active /= self._frame_shift
-                if self._power:
-                    val = np.add.reduce((y_active * y_active.conj()).real)
-                else:
-                    val = np.add.reduce(abs(y_active))
-                self._y_buf[block_idx, filt_idx] += val
+                active_end = min(block_end, y_keep)
+                active_start = max(0, block_end - self._frame_shift)
+                y_active = y_valid[active_start:block_end].real
+                window_start = max(0, self._frame_shift - block_end)
+                window_end = self._frame_shift - block_end + active_end
+                window_active = self._window[:, window_start:window_end]
+                self._y_buf[block_idx, :, filt_idx] += np.sum(
+                    y_active * window_active, axis=1)
         self._y_rem += y_keep
 
     def _compute_dft(self, buff):
@@ -907,9 +909,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def _compute_frame(self, coeffs):
         # compute a frame's worth of coefficients from y_rem
         assert self._y_rem >= 2 * self._frame_shift
-        coeffs[:] = np.add.reduce(self._y_buf[:2])
-        if self._power:
-            coeffs **= .5
+        coeffs[:] = np.sum(self._y_buf[:2], axis=(0, 1))
         if self._log:
             coeffs[:] = np.log(np.maximum(coeffs, pysig.LOG_FLOOR_VALUE))
         self._y_buf[:-1] = self._y_buf[1:]
@@ -955,3 +955,25 @@ def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
         signal = signal[chunk_size:]
     coeffs.append(computer.finalize())
     return np.concatenate(coeffs)
+
+def _build_window(window_name, length):
+    if window_name == 'rectangular':
+        window = np.ones(length, dtype=float)
+        window /= length
+    elif window_name == 'bartlett' or window_name == 'triangular':
+        window = np.bartlett(length)
+        window /= max(1, length - 1) / 2
+    elif window_name == 'blackman':
+        window = np.blackman(length)
+        window /= 0.42 * max(1, length - 1)
+    elif window_name == 'hamming':
+        window = np.hamming(length)
+        window /= 0.54 * max(1, length - 1)
+    elif window_name == 'hanning':
+        window = np.hanning(length)
+        window /= 0.5 * max(1, length - 1)
+    elif window_name == 'gamma':
+        window = pysig.filters.gamma_window(length)
+    else:
+        raise ValueError('Invalid window name: "{}"'.format(window_name))
+    return window
