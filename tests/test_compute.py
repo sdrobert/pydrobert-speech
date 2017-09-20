@@ -7,7 +7,8 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-import pydrobert.signal as pysig
+from pydrobert.signal import config
+from pydrobert.signal.compute import frame_by_frame_calculation
 
 @pytest.fixture(params=[
     0,
@@ -25,7 +26,7 @@ def buff(request):
 
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
-    feats_framewise = pysig.compute.frame_by_frame_calculation(computer, buff)
+    feats_framewise = frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), \
         (
             feats_full.shape[0],
@@ -34,7 +35,7 @@ def test_framewise_matches_full(computer, buff):
         )
 
 def test_chunk_sizes_dont_matter_to_result(computer, buff):
-    feats = pysig.compute.frame_by_frame_calculation(computer, buff)
+    feats = frame_by_frame_calculation(computer, buff)
     feats_chunks = []
     while len(buff):
         next_len = np.random.randint(len(buff) + 1)
@@ -77,22 +78,22 @@ def test_repeated_calls_generate_same_results(computer, buff):
     assert np.allclose(
         computer.compute_full(buff), computer.compute_full(buff))
     assert np.allclose(
-        pysig.compute.frame_by_frame_calculation(computer, buff),
-        pysig.compute.frame_by_frame_calculation(computer, buff)
+        frame_by_frame_calculation(computer, buff),
+        frame_by_frame_calculation(computer, buff)
     )
 
 class TestFFTPACK(object):
 
     def setup_method(self):
         pytest.importorskip('scipy')
-        self._orig_USE_FFTPACK = pysig.USE_FFTPACK
+        self._orig_USE_FFTPACK = config.USE_FFTPACK
 
     def test_computations_same_between_numpy_scipy(self, computer, buff):
-        pysig.USE_FFTPACK = False
+        config.USE_FFTPACK = False
         np_feats = computer.compute_full(buff)
-        pysig.USE_FFTPACK = True
+        config.USE_FFTPACK = True
         scipy_feats = computer.compute_full(buff)
         assert np.allclose(np_feats, scipy_feats)
 
     def teardown_method(self):
-        pysig.USE_FFTPACK = self._orig_USE_FFTPACK
+        config.USE_FFTPACK = self._orig_USE_FFTPACK

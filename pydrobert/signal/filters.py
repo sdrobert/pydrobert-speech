@@ -10,8 +10,7 @@ import numpy as np
 
 from six import with_metaclass
 
-import pydrobert.signal as pysig
-
+from pydrobert.signal import config
 from pydrobert.signal.util import angular_to_hertz
 from pydrobert.signal.util import hertz_to_angular
 
@@ -344,7 +343,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
             mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
             right = hertz_to_angular(self._vertices[idx + 2], self._rate)
             K = np.sqrt(8 * (right - left) / np.pi)
-            K /= np.sqrt(pysig.EFFECTIVE_SUPPORT_THRESHOLD)
+            K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
             K /= np.sqrt(mid - left) * np.sqrt(right - mid)
             K = int(np.ceil(K))
             supports.append((- K // 2 - 1, K // 2 + 1))
@@ -522,7 +521,7 @@ class GaborFilterBank(LinearFilterBank):
         wraps_ang = []
         self._wrap_below = False
         # constants term in support calculations :/
-        a = 2 * np.log(pysig.EFFECTIVE_SUPPORT_THRESHOLD)
+        a = 2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
         b = a
         a -= np.log(2) + .5 * np.log(np.pi)
         b += .5 * np.log(np.pi)
@@ -817,7 +816,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         b = np.log(np.math.factorial(2 * order - 2))
         a += (2 * order - 1) * np.log(2) - b
         b *= -.5
-        log_eps = np.log(pysig.EFFECTIVE_SUPPORT_THRESHOLD)
+        log_eps = np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
         for low, high in zip(edges[:-2], edges[2:]):
             self._alphas.append(0)
             self._xis.append(0)
@@ -1005,7 +1004,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         c = self._cs[idx]
         offset = self._offsets[idx]
         n = self._order
-        eps = pysig.EFFECTIVE_SUPPORT_THRESHOLD
+        eps = config.EFFECTIVE_SUPPORT_THRESHOLD
         if n == 1:
             right = int(np.ceil((np.log(c) - np.log(eps) / alpha)))
         else:

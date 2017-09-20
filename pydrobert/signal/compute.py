@@ -12,7 +12,8 @@ import numpy as np
 
 from six import with_metaclass
 
-import pydrobert.signal as pysig
+from pydrobert.signal import config
+from pydrobert.signal.filters import gamma_window
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -379,9 +380,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             if not self._power:
                 coeffs[0] **= .5
             if self._log:
-                coeffs[0] = np.log(max(coeffs[0], pysig.LOG_FLOOR_VALUE))
+                coeffs[0] = np.log(max(coeffs[0], config.LOG_FLOOR_VALUE))
             coeffs = coeffs[1:]
-        if pysig.USE_FFTPACK:
+        if config.USE_FFTPACK:
             from scipy import fftpack
             is_odd = self._dft_size % 2
             buffered_frame = np.zeros(
@@ -436,7 +437,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             if self._real:
                 val *= 2
             if self._log:
-                val = np.log(max(val, pysig.LOG_FLOOR_VALUE))
+                val = np.log(max(val, config.LOG_FLOOR_VALUE))
             coeffs[filt_idx] = val
 
     def compute_chunk(self, chunk):
@@ -862,7 +863,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         # given a buffer, compute its fourier transform. Always copies
         # the data
         assert len(buff) <= self._dft_size
-        if pysig.USE_FFTPACK and self._real:
+        if config.USE_FFTPACK and self._real:
             from scipy import fftpack
             buffered_frame = np.zeros(
                 self._dft_size + 2 - self._dft_size % 2, dtype=np.float64)
@@ -874,7 +875,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             fourier_frame = buffered_frame.view(np.complex128)
         elif self._real:
             fourier_frame = np.fft.rfft(buff, n=self._dft_size)
-        elif pysig.USE_FFTPACK:
+        elif config.USE_FFTPACK:
             from scipy import fftpack
             complex_frame = np.zeros(self._dft_size, dtype=np.complex128)
             complex_frame[:len(buff)] = buff # implicit upcast if f32
@@ -888,7 +889,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         # given a buffer, compute its inverse fourier transform. Assume
         # it's ok to modify the buffer.
         assert fourier_buff.dtype == np.complex128
-        if pysig.USE_FFTPACK and self._real:
+        if config.USE_FFTPACK and self._real:
             from scipy import fftpack
             fourier_buff = fourier_buff.view(np.float64)
             fourier_buff[1] = fourier_buff[0]
@@ -899,7 +900,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             idft = fftpack.irfft(fourier_buff, overwrite_x=True)
         elif self._real:
             idft = np.fft.irfft(fourier_buff, n=self._dft_size)
-        elif pysig.USE_FFTPACK:
+        elif config.USE_FFTPACK:
             from scipy import fftpack
             idft = fftpack.ifft(fourier_buff, overwrite_x=True)
         else:
@@ -911,7 +912,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         assert self._y_rem >= 2 * self._frame_shift
         coeffs[:] = np.sum(self._y_buf[:2], axis=(0, 1))
         if self._log:
-            coeffs[:] = np.log(np.maximum(coeffs, pysig.LOG_FLOOR_VALUE))
+            coeffs[:] = np.log(np.maximum(coeffs, config.LOG_FLOOR_VALUE))
         self._y_buf[:-1] = self._y_buf[1:]
         self._y_buf[-1] = 0
         self._y_rem -= self._frame_shift
@@ -973,7 +974,7 @@ def _build_window(window_name, length):
         window = np.hanning(length)
         window /= 0.5 * max(1, length - 1)
     elif window_name == 'gamma':
-        window = pysig.filters.gamma_window(length)
+        window = gamma_window(length)
     else:
         raise ValueError('Invalid window name: "{}"'.format(window_name))
     return window

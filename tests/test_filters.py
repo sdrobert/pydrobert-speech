@@ -7,7 +7,7 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from pydrobert.signal import EFFECTIVE_SUPPORT_THRESHOLD
+from pydrobert.signal.config import EFFECTIVE_SUPPORT_THRESHOLD
 from pydrobert.signal.filters import gamma_window
 from pydrobert.signal.util import hertz_to_angular
 
