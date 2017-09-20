@@ -14,7 +14,7 @@ import abc
 
 import numpy as np
 
-from six import with_metaclass
+from pydrobert.signal import AliasedFactory
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -29,7 +29,7 @@ __all__ = [
     'BarkScaling',
 ]
 
-class ScalingFunction(object, with_metaclass(abc.ABCMeta)):
+class ScalingFunction(AliasedFactory):
     """Converts a frequency to some scale and back again"""
 
     @abc.abstractmethod
@@ -59,6 +59,8 @@ class LinearScaling(ScalingFunction):
     slope_hz : float
     """
 
+    aliases = {'linear', 'uniform'}
+
     def __init__(self, low_hz, slope_hz=1.):
         self.low_hz = low_hz
         self.slope_hz = slope_hz
@@ -87,6 +89,8 @@ class OctaveScaling(ScalingFunction):
     ValueError
         If `low_hz` is non-positive
     """
+
+    aliases = {'octave'}
 
     def __init__(self, low_hz):
         if low_hz <= 0:
@@ -119,6 +123,8 @@ class MelScaling(ScalingFunction):
     .. [2] O'Shaughnessy, D. (1987). Speech communication: human and
        machine. Addison-Wesley Pub. Co.
     """
+
+    aliases = {'mel'}
 
     def scale_to_hertz(self, scale):
         return 700. * (np.exp(scale / 1127.) - 1.)
@@ -153,6 +159,8 @@ class BarkScaling(ScalingFunction):
        tonotopic sensory scale. The Journal of the Acoustical Society of
        America, 88, 97-100.
     """
+
+    aliases = {'bark'}
 
     def scale_to_hertz(self, scale):
         bark = None

@@ -8,9 +8,10 @@ import abc
 
 import numpy as np
 
-from six import with_metaclass
-
+from pydrobert.signal import AliasedFactory
+from pydrobert.signal import alias_factory_subclass_from_arg
 from pydrobert.signal import config
+from pydrobert.signal.scales import ScalingFunction
 from pydrobert.signal.util import angular_to_hertz
 from pydrobert.signal.util import hertz_to_angular
 
@@ -19,7 +20,7 @@ __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
-class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
+class LinearFilterBank(AliasedFactory):
     """A collection of linear, time invariant filters
 
     A ``LinearFilterBank`` instance is expected to provide factory
@@ -40,20 +41,17 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
     supports_ms : tuple
     """
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def is_real(self):
         """Whether the filters are real or complex"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def is_analytic(self):
         """Whether the filters are (approximately) analytic"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def is_zero_phase(self):
         """Whether the filters are zero phase or not
 
@@ -62,20 +60,17 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
         """
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def num_filts(self):
         """Number of filters in the bank"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def sampling_rate(self):
         """Number of samples in a second of a target recording"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def supports_hz(self):
         """Boundaries of effective support of filter freq responses, in Hz.
 
@@ -99,8 +94,7 @@ class LinearFilterBank(object, with_metaclass(abc.ABCMeta)):
         """
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def supports(self):
         """Boundaries of effective support of filter impulse resps, in samples
 
@@ -231,12 +225,15 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     The vertices of the filters are sampled uniformly along the passed
     scale. If the scale is nonlinear, the triangles will be
-    asymmetrical. With mel-scaling, these filters are designed to
+    asymmetrical. With mel scaling, these filters are designed to
     resemble the ones used in [1]_ and [2]_.
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction
+    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+        Dictates the layout of filters in the Fourier domain. Can be
+        a ScalingFunction or something compatible with
+        `pydrobert.signal.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -275,9 +272,13 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
            Cambridge University Engineering Department
     """
 
+    aliases = {'tri', 'triangular'}
+
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
             sampling_rate=16000, analytic=False):
+        scaling_function = alias_factory_subclass_from_arg(
+            ScalingFunction, scaling_function)
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):
@@ -460,8 +461,10 @@ class GaborFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction
-        Arrays the filters along the frequency domain
+    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+        Dictates the layout of filters in the Fourier domain. Can be
+        a ScalingFunction or something compatible with
+        `pydrobert.signal.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -488,13 +491,17 @@ class GaborFilterBank(LinearFilterBank):
 
     See Also
     --------
-    EFFECTIVE_SUPPORT_THRESHOLD : the absolute value below which counts
-        as zero
+    pydrobert.signal.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
+        value below which counts as zero
     """
+
+    aliases = {'gabor'}
 
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
             sampling_rate=16000, boundary_adjustment_mode='wrap'):
+        scaling_function = alias_factory_subclass_from_arg(
+            ScalingFunction, scaling_function)
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):
@@ -735,8 +742,10 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction
-        Arrays the filters along the frequency domain
+    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+        Dictates the layout of filters in the Fourier domain. Can be
+        a ScalingFunction or something compatible with
+        `pydrobert.signal.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -771,14 +780,18 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     See Also
     --------
-    EFFECTIVE_SUPPORT_THRESHOLD : the absolute value below which counts
-        as zero
+    pydrobert.signal.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
+        value below which counts as zero
     '''
+
+    aliases = {'gammatone'}
 
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
             sampling_rate=16000, order=4, max_centered=False,
             boundary_adjustment_mode='wrap'):
+        scaling_function = alias_factory_subclass_from_arg(
+            ScalingFunction, scaling_function)
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):

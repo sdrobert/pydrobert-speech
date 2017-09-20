@@ -10,9 +10,10 @@ from itertools import count
 
 import numpy as np
 
-from six import with_metaclass
-
+from pydrobert.signal import AliasedFactory
+from pydrobert.signal import alias_factory_subclass_from_arg
 from pydrobert.signal import config
+from pydrobert.signal.filters import LinearFilterBank
 from pydrobert.signal.filters import gamma_window
 
 __author__ = "Sean Robertson"
@@ -29,7 +30,7 @@ __all__ = [
 ]
 
 
-class FrameComputer(object, with_metaclass(abc.ABCMeta)):
+class FrameComputer(AliasedFactory):
     """Construct features from a signal from fixed-length segments
 
     A signal is treated as a (possibly overlapping) time series of
@@ -65,8 +66,7 @@ class FrameComputer(object, with_metaclass(abc.ABCMeta)):
     started : bool
     """
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def frame_style(self):
         """Dictates how the signal is split into frames
 
@@ -82,14 +82,12 @@ class FrameComputer(object, with_metaclass(abc.ABCMeta)):
         """
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def sampling_rate(self):
         """Number of samples in a second of a target recording"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def frame_length(self):
         """Number of samples which dictate a feature vector
 
@@ -102,8 +100,7 @@ class FrameComputer(object, with_metaclass(abc.ABCMeta)):
         """Number of milliseconds of audio which dictate a feature vector"""
         return self.frame_length * 1000 / self.sampling_rate
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def frame_shift(self):
         """Number of samples absorbed between successive frame computations"""
         pass
@@ -113,14 +110,12 @@ class FrameComputer(object, with_metaclass(abc.ABCMeta)):
         """Number of milliseconds between succecssive frame computations"""
         return self.frame_shift * 1000 / self.sampling_rate
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def num_coeffs(self):
         """Number of coefficients returned per frame"""
         pass
 
-    @property
-    @abc.abstractmethod
+    @abc.abstractproperty
     def started(self):
         """Whether computations for a signal have started
 
@@ -187,8 +182,7 @@ class FrameComputer(object, with_metaclass(abc.ABCMeta)):
         """
         return frame_by_frame_calculation(self, signal)
 
-class LinearFilterBankFrameComputer(
-        FrameComputer, with_metaclass(abc.ABCMeta)):
+class LinearFilterBankFrameComputer(FrameComputer):
     '''Frame computers whose features are derived from linear filter banks
 
     Computers based on linear filter banks have a predictable number of
@@ -198,7 +192,10 @@ class LinearFilterBankFrameComputer(
 
     Parameters
     ----------
-    bank : LinearFilterBank
+    bank : pydrobert.signal.filters.LinearFilterBank, dict, or str
+        Each filter in the bank corresponds to a coefficient in a
+        frame vector. Can be a LinearFilterBank or something compatible
+        with `pydrobert.signal.alias_factory_subclass_from_arg`
     include_energy : bool, optional
         Whether to include a coefficient based on the energy of the
         signal within the frame. If ``True``, the energy coefficient
@@ -206,12 +203,12 @@ class LinearFilterBankFrameComputer(
 
     Attributes
     ----------
-    bank : LinearFilterBank
+    bank : pydrobert.signal.filters.LinearFilterBank
     includes_energy : bool
     '''
 
     def __init__(self, bank, include_energy=False):
-        self._bank = bank
+        self._bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._include_energy = bool(include_energy)
 
     @property
@@ -254,9 +251,6 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     Parameters
     ----------
     bank : LinearFilterBank
-        Dictates the filters used to process the STFT. Each filter
-        corresponds to one coefficient. `sampling_rate` is also dictated
-        by this
     frame_length_ms : float, optional
         The length of a frame, in milliseconds. Defaults to the length
         of the largest filter in the bank
@@ -266,8 +260,6 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
         otherwise.
     include_energy : bool, optional
-        Append an energy coefficient as the first coefficient of each
-        frame
     pad_to_nearest_power_of_two : bool, optional
         Whether the DFT should be a padded to a power of two for
         computational efficiency
@@ -283,12 +275,14 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
 
     Attributes
     ----------
+    bank : pydrobert.signal.filters.LinearFilterBank
     frame_style : {'causal', 'centered'}
     sampling_rate : float
     frame_length : int
     frame_length_ms : float
     frame_shift : int
     frame_shift_ms : float
+    includes_energy : bool
     num_coeffs : int
     started : bool
 
@@ -300,11 +294,14 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
            Cambridge University Engineering Department
     """
 
+    aliases = {'stft'}
+
     def __init__(
             self, bank, frame_length_ms=None, frame_shift_ms=10,
             frame_style=None, include_energy=False,
             pad_to_nearest_power_of_two=True,
             window_name=None, use_log=True, use_power=False):
+        bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
         self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
         self._log = use_log
@@ -578,7 +575,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     Parameters
     ----------
-    bank : LinearFilterBank
+    bank : pydrobert.signal.filters.LinearFilterBank
     frame_shift_ms : float, optional
         The offset between successive frames, in milliseconds. Also the
         length of the integration
@@ -587,8 +584,6 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         otherwise. If ``'centered'`` each filter of the bank is
         translated so that its support lies in the center of the frame
     include_energy : bool, optional
-        Append an energy coefficient as the first coefficient of each
-        frame
     pad_to_nearest_power_of_two : bool, optional
         Pad the DFTs used in computation to a power of two for
         efficient computation
@@ -605,7 +600,6 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     Attributes
     ----------
-    bank : LinearFilterBank
     frame_style : {'causal', 'centered'}
     sampling_rate : float
     frame_length : int
@@ -614,12 +608,16 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     frame_shift_ms : float
     num_coeffs : int
     started : bool
+    includes_energy : bool
     """
+
+    aliases = {'si'}
 
     def __init__(
             self, bank, frame_shift_ms=10, frame_style=None,
             include_energy=False, pad_to_nearest_power_of_two=True,
             window_name=None, use_power=False, use_log=True):
+        bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
         self._frame_shift = int(.001 * frame_shift_ms * self._rate)
         self._log = bool(use_log)
