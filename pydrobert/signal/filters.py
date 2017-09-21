@@ -1036,52 +1036,127 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
 # windows
 
-def gamma_window(M, order=4, peak=.75):
+class WindowFunction(AliasedFactory):
+    '''A real linear filter, usually lowpass'''
+
+    @abc.abstractmethod
+    def get_impulse_response(self, width):
+        '''Write the filter into a numpy array of fixed width'''
+        pass
+
+class BartlettWindow(WindowFunction):
+    '''A unit-normalized triangular window
+
+    See Also
+    --------
+    numpy.bartlett
+    '''
+
+    aliases = {'bartlett', 'triangular', 'tri'}
+
+    def get_impulse_response(self, width):
+        window = np.bartlett(width)
+        window /= max(1, width - 1) / 2
+        return window
+
+class BlackmanWindow(WindowFunction):
+    '''A unit-normalized Blackman window
+
+    See Also
+    --------
+    numpy.blackman
+    '''
+
+    aliases = {'blackman', 'black'}
+
+    def get_impulse_response(self, width):
+        window = np.blackman(width)
+        window /= 0.42 * max(1, width - 1)
+        return window
+
+class HammingWindow(WindowFunction):
+    '''A unit-normalized Hamming window
+
+    See Also
+    --------
+    numpy.hamming
+    '''
+
+    aliases = {'hamming'}
+
+    def get_impulse_response(self, width):
+        window = np.hamming(width)
+        window /= 0.54 * max(1, width - 1)
+        return window
+
+class HannWindow(WindowFunction):
+    '''A unit-normalized Hann window
+
+    See Also
+    --------
+    numpy.hanning
+    '''
+
+    aliases = {'hanning', 'hann'}
+
+    def get_impulse_response(self, width):
+        window = np.hanning(width)
+        window /= 0.5 * max(1, width - 1)
+        return window
+
+class GammaWindow(WindowFunction):
     r'''A lowpass filter based on the Gamma function
 
     A Gamma function is defined as:
 
     .. math:: p(t; \alpha, n) \defeq t^{n - 1} e^{-\alpha t} u(t)
 
-    Where :math:`n` is the order of the function, :math:`\alpha` controls the
-    bandwidth of the filter, and :math:`u` is the step function.
+    Where :math:`n` is the order of the function, :math:`\alpha`
+    controls the bandwidth of the filter, and :math:`u` is the step
+    function.
 
     This function returns a window based off a reflected Gamma function.
-    :math:`\alpha` is chosen such that the maximum value of the window aligns
-    with `peak`. The window is clipped to the support ``[0, M]``. For reasonable
-    values of `peak` (i.e. in the last quarter of samples), the majority of the
-    support should lie in this interval anyways.
+    :math:`\alpha` is chosen such that the maximum value of the window
+    aligns with `peak`. The window is clipped to the width. For
+    reasonable values of `peak` (i.e. in the last quarter of samples),
+    the majority of the support should lie in this interval anyways.
 
     Arguments
     ---------
-    M : int
-        The number of points in the output window. If zero or less, an empty
-        array is returned
     order : int
-    peak : int or float
-        If ``0 < peak < 1``, `peak` is a ratio; the maximum value will be at
-        ``peak * M``. If ``peak > 1`` it is considered the sample index
-        directly. `peak` is ignored when ``order == 1``
+    peak : float
+        ``peak * width``, where ``width`` is the length of the window
+        in samples, is where the approximate maximal value of the window
+        lies
 
-    Returns
-    -------
-    array-like
-        The window in a 1D float64 array of shape ``(M,)``
+    Attributes
+    ----------
+    order : int
+    peak : int
     '''
-    if M <= 0:
-        return np.array([], dtype=float)
-    elif M == 1:
-        return np.array([1], dtype=float)
-    if peak < 1:
-        peak = peak * M
-    ret = np.arange(M, dtype=float)
-    if order > 1:
-        alpha = (order - 1) / (M - peak)
-        offs = 1
-    else:
-        # align alpha roughly with a support in M
-        alpha = 5 / M
-        offs = 0
-    ln_c = order * np.log(alpha) - np.log(np.math.factorial(order - 1))
-    ret[offs:] = ret[offs:] ** (order - 1) * np.exp(-alpha * ret[offs:] + ln_c)
-    return ret[::-1]
+
+    aliases = {'gamma'}
+
+    def __init__(self, order=4, peak=.75):
+        self.order = order
+        self.peak = peak
+
+    def get_impulse_response(self, width):
+        if width <= 0:
+            return np.array([], dtype=float)
+        elif width == 1:
+            return np.array([1], dtype=float)
+        peak = self.peak * width
+        ret = np.arange(width - 1, -1, -1, dtype=float)
+        if self.order > 1:
+            alpha = (self.order - 1) / (width - peak)
+            offs = width - 1
+        else:
+            # align alpha roughly with a support in M
+            alpha = 5 / width
+            offs = width
+        ln_c = self.order * np.log(alpha)
+        ln_c -= np.log(np.math.factorial(self.order - 1))
+        ret[:offs] = ret[:offs] ** (self.order - 1) * np.exp(
+            -alpha * ret[:offs] + ln_c)
+        return ret

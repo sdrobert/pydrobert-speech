@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from pydrobert.signal.config import EFFECTIVE_SUPPORT_THRESHOLD
-from pydrobert.signal.filters import gamma_window
+from pydrobert.signal.filters import GammaWindow
 from pydrobert.signal.util import hertz_to_angular
 
 def test_truncated_matches_full(bank):
@@ -121,7 +121,8 @@ def test_zero_outside_temp_support(bank):
 @pytest.mark.parametrize('order', [2, 4])
 def test_gamma_window_peak_matches(window_size, peak_ratio, order):
     expected_max_idx = window_size * peak_ratio
-    window = gamma_window(window_size, order=order, peak=peak_ratio)
+    window = GammaWindow(order=order, peak=peak_ratio).get_impulse_response(
+        window_size)
     # if expected_max_idx is a fraction, we don't know what side the peak will
     # fall on a priori because the gamma function does not have symmetric
     # curvature

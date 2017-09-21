@@ -13,8 +13,10 @@ import numpy as np
 from pydrobert.signal import AliasedFactory
 from pydrobert.signal import alias_factory_subclass_from_arg
 from pydrobert.signal import config
+from pydrobert.signal.filters import GammaWindow
+from pydrobert.signal.filters import HannWindow
 from pydrobert.signal.filters import LinearFilterBank
-from pydrobert.signal.filters import gamma_window
+from pydrobert.signal.filters import WindowFunction
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -263,11 +265,12 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Whether the DFT should be a padded to a power of two for
         computational efficiency
-    window_name : { 'rectangular', 'bartlett', 'blackman',
-                    'hamming', 'hanning', 'gamma'}
-        The name of the window used in step 1. The default, if
-        ``frame_style == 'centered'``, is ``'hanning'``, otherwise it's
-        ``'gamma'``.
+    window_function : pydrobert.signal.filters.WindowFunction, dict, or str
+        The window used in step 1. Can be a WindowFunction or something
+        compatible with
+        `pydrobert.signal.alias_factory_subclass_from_arg`. Defaults to
+        `pydrobert.signal.filters.GammaWindow` when ``frame_style`` is
+        ``'causal'``, otherwise `pydrobert.signal.filters.HannWindow`.
     use_log : bool, optional
         Whether to take the log of the sum from 3b.
     use_power : bool, optional
@@ -300,7 +303,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self, bank, frame_length_ms=None, frame_shift_ms=10,
             frame_style=None, include_energy=False,
             pad_to_nearest_power_of_two=True,
-            window_name=None, use_log=True, use_power=False):
+            window_function=None, use_log=True, use_power=False):
         bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
         self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
@@ -327,9 +330,15 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             self._frame_length = int(
                 0.001 * frame_length_ms * bank.sampling_rate)
         self._buf = np.empty(self._frame_length, dtype=np.float64)
-        if window_name is None:
-            window_name = 'hanning' if frame_style == 'centered' else 'gamma'
-        self._window = _build_window(window_name, self._frame_length)
+        if window_function is None:
+            if frame_style == 'causal':
+                window_function = GammaWindow()
+            else:
+                window_function = HannWindow()
+        else:
+            window_function = alias_factory_subclass_from_arg(
+                WindowFunction, window_function)
+        self._window = window_function.get_impulse_response(self._frame_length)
         if pad_to_nearest_power_of_two:
             self._dft_size = int(2 ** np.ceil(np.log2(self._frame_length)))
         else:
@@ -587,11 +596,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Pad the DFTs used in computation to a power of two for
         efficient computation
-    window_name : { 'rectangular', 'bartlett', 'blackman',
-                    'hamming', 'hanning', 'gamma'}
-        The name of the window used to weigh integration. The default, if
-        ``frame_style == 'centered'``, is ``'hanning'``, otherwise it's
-        ``'gamma'``.
+    window_function : pydrobert.signal.filters.WindowFunction, dict, or str
+        The window used to weigh integration. Can be a WindowFunction or
+        something compatible with
+        `pydrobert.signal.alias_factory_subclass_from_arg`. Defaults to
+        `pydrobert.signal.filters.GammaWindow` when ``frame_style`` is
+        ``'causal'``, otherwise `pydrobert.signal.filters.HannWindow`.
     use_power : bool, optional
         Whether the pointwise linearity is the signal's power or
         magnitude
@@ -616,7 +626,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def __init__(
             self, bank, frame_shift_ms=10, frame_style=None,
             include_energy=False, pad_to_nearest_power_of_two=True,
-            window_name=None, use_power=False, use_log=True):
+            window_function=None, use_power=False, use_log=True):
         bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
         self._frame_shift = int(.001 * frame_shift_ms * self._rate)
@@ -631,9 +641,15 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
         self._frame_style = frame_style
-        if window_name is None:
-            window_name = 'hanning' if frame_style == 'centered' else 'gamma'
-        window = _build_window(window_name, 2 * self._frame_shift)
+        if window_function is None:
+            if frame_style == 'causal':
+                window_function = GammaWindow()
+            else:
+                window_function = HannWindow()
+        else:
+            window_function = alias_factory_subclass_from_arg(
+                WindowFunction, window_function)
+        window = window_function.get_impulse_response(2 * self._frame_shift)
         self._window = window.reshape(2, self._frame_shift)
         if frame_style == 'centered':
             # we will recenter all filters so that their zero sample
@@ -955,24 +971,3 @@ def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
     coeffs.append(computer.finalize())
     return np.concatenate(coeffs)
 
-def _build_window(window_name, length):
-    if window_name == 'rectangular':
-        window = np.ones(length, dtype=float)
-        window /= length
-    elif window_name == 'bartlett' or window_name == 'triangular':
-        window = np.bartlett(length)
-        window /= max(1, length - 1) / 2
-    elif window_name == 'blackman':
-        window = np.blackman(length)
-        window /= 0.42 * max(1, length - 1)
-    elif window_name == 'hamming':
-        window = np.hamming(length)
-        window /= 0.54 * max(1, length - 1)
-    elif window_name == 'hanning':
-        window = np.hanning(length)
-        window /= 0.5 * max(1, length - 1)
-    elif window_name == 'gamma':
-        window = gamma_window(length)
-    else:
-        raise ValueError('Invalid window name: "{}"'.format(window_name))
-    return window
