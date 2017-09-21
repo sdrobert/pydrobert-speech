@@ -12,7 +12,7 @@ from re import match
 
 import numpy as np
 
-from six import with_metaclass
+from pydrobert.signal import AliasedFactory
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -22,10 +22,11 @@ __copyright__ = "Copyright 2017 Sean Robertson"
 __all__ = [
     'PostProcessor',
     'Standardize',
+    'CMVN',
     'Deltas',
 ]
 
-class PostProcessor(object, with_metaclass(abc.ABCMeta)):
+class PostProcessor(AliasedFactory):
     '''A container for post-processing features with a transform'''
 
     @abc.abstractmethod
@@ -78,8 +79,9 @@ class Standardize(PostProcessor):
     rfilename : str, optional
     key : str, optional
         Different stats can be stored/retrieved from the same file using
-        key/value pairs. If `key` is set, `rfilename` is assumed to store
-        key/value pairs, and the stats associated with `key` are loaded.
+        key/value pairs. If `key` is set, `rfilename` is assumed to
+        store key/value pairs, and the stats associated with `key` are
+        loaded.
     norm_var : bool, optional
 
     Attributes
@@ -97,6 +99,8 @@ class Standardize(PostProcessor):
     .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
            Toolkit. ASRU
     '''
+
+    aliases = {'standardize', 'normalize', 'unit', 'cmvn'}
 
     BOGUS_KEY = 'stats'
     '''Key used when stats are written to a kaldi table without a key'''
@@ -452,6 +456,8 @@ class Deltas(PostProcessor):
         keyword arguments will be passed to `numpy.pad`. See `numpy.pad`
         for more details
     '''
+
+    aliases = {'deltas'}
 
     def __init__(
             self, num_deltas, target_axis=-1, concatenate=True,

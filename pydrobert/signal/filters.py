@@ -20,6 +20,21 @@ __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
+__all__ = [
+    'LinearFilterBank',
+    'TriangularOverlappingFilterBank',
+    'GaborFilterBank',
+    'ComplexGammatoneFilterBank',
+    'WindowFunction',
+    'BartlettWindow',
+    'BlackmanWindow',
+    'HammingWindow',
+    'HannWindow',
+    'GammaWindow',
+]
+
+# banks
+
 class LinearFilterBank(AliasedFactory):
     """A collection of linear, time invariant filters
 

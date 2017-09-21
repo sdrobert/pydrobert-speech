@@ -27,7 +27,9 @@ __all__ = [
     'FrameComputer',
     'LinearFilterBankFrameComputer',
     'ShortTimeFourierTransformFrameComputer',
+    'STFTFrameComputer',
     'ShortIntegrationFrameComputer',
+    'SIFrameComputer',
     'frame_by_frame_calculation',
 ]
 
