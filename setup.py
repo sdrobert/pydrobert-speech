@@ -10,6 +10,11 @@ from codecs import open
 from os import path
 from setuptools import setup
 
+__author__ = "Sean Robertson"
+__email__ = "sdrobert@cs.toronto.edu"
+__license__ = "Apache 2.0"
+__copyright__ = "Copyright 2017 Sean Robertson"
+
 if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[:2] < (3, 4):
     raise RuntimeError("Python version 2.7 or >= 3.4 required.")
 
@@ -22,9 +27,9 @@ setup(
     description='Signal processing with Python',
     long_description=LONG_DESCRIPTION,
     url='https://github.com/sdrobert/pydrobert-signal',
-    author='Sean Robertson',
-    author_email='sdrobert@cs.toronto.edu',
-    license='Apache 2.0',
+    author=__author__,
+    author_email=__email__,
+    license=__license__,
     namespace_packages=['pydrobert'],
     packages=['pydrobert', 'pydrobert.signal'],
     classifiers=[
@@ -49,5 +54,12 @@ setup(
     ],
     extras_require={
         'vis': ['matplotlib'],
+        'kaldi': ['pydrobert-kaldi'],
     },
+    entry_points={
+        'console_scripts': [
+            'compute-feats-from-kaldi-tables = pydrobert.signal.command_line:c'
+            'ompute_feats_from_kaldi_tables [kaldi]',
+        ]
+    }
 )

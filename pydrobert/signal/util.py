@@ -1,5 +1,6 @@
 """Miscellaneous utility functions"""
 
+from builtins import str as text
 from re import match
 
 import numpy as np
@@ -125,7 +126,7 @@ def _kaldi_read_signal(rfilename, dtype, key, **kwargs):
         key = 0
     if dtype is None:
         dtype = 'bm'
-    if isinstance(key, str):
+    if isinstance(key, str) or isinstance(key, text):
         with tables.open(rfilename, dtype, mode='r+', **kwargs) as table:
             return table[key]
     else:
@@ -139,7 +140,7 @@ def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
     from scipy.io import wavfile
     if key is not None:
         raise TypeError("'key' is an invalid keyword argument for wave files")
-    rate, data = wavfile.read(rfilename, **kwargs)
+    _, data = wavfile.read(rfilename, **kwargs)
     if dtype:
         data = data.astype(dtype)
     return data
@@ -305,3 +306,31 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     else:
         data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     return data
+
+def alias_factory_subclass_from_arg(factory_class, arg):
+    '''Boilerplate for getting an instance of an AliasedFactory
+
+    Rather than an instance itself, a function could receive the
+    arguments to initialize an AliasedFactory with ``from_alias``.
+    This function uses the following strategy to try and do so::
+
+    1. If ``arg`` is an instance of ``factory_class``, return ``arg``
+    2. If ``arg`` is a string, use it as the alias
+    3. a. Copy ``arg`` to a dictionary
+       b. Pop the key ``'alias'`` and treat the rest as keyword arguments
+       c. If the key ``'alias'`` is not found, try ``'name'``
+
+    This function is intentionally limited in order to work nicely with
+    JSON config files.
+    '''
+    if isinstance(arg, factory_class):
+        return arg
+    elif isinstance(arg, str) or isinstance(arg, text):
+        return factory_class.from_alias(arg)
+    else:
+        arg = dict(arg)
+        try:
+            alias = arg.pop('alias')
+        except KeyError:
+            alias = arg.pop('name')
+        return factory_class.from_alias(alias, **arg)

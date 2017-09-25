@@ -64,36 +64,15 @@ class AliasedFactory(object, with_metaclass(abc.ABCMeta)):
         ValueError
             Alias can't be found
         '''
-        found = []
-        for subcls in chain(cls.__subclasses__()[::-1], [cls]):
-            if alias in subcls.aliases:
-                return subcls(*args, **kwargs)
+        stack = [cls]
+        pushed_children = set()
+        while stack:
+            parent = stack.pop()
+            if parent not in pushed_children:
+                children = parent.__subclasses__()
+                stack.append(parent)
+                stack.extend(children)
+                pushed_children.add(parent)
+            elif alias in parent.aliases:
+                return parent(*args, **kwargs)
         raise ValueError('Cannot find subclass with alias "{}"'.format(alias))
-
-def alias_factory_subclass_from_arg(factory_class, arg):
-    '''Boilerplate for getting an instance of an AliasedFactory
-
-    Rather than an instance itself, a function could receive the
-    arguments to initialize an AliasedFactory with ``from_alias``.
-    This function uses the following strategy to try and do so::
-
-    1. If ``arg`` is an instance of ``factory_class``, return ``arg``
-    2. If ``arg`` is a string, use it as the alias
-    3. a. Copy ``arg`` to a dictionary
-       b. Pop the key ``'alias'`` and treat the rest as keyword arguments
-       c. If the key ``'alias'`` is not found, try ``'name'``
-
-    This function is intentionally limited in order to work nicely with
-    JSON config files.
-    '''
-    if isinstance(arg, factory_class):
-        return arg
-    elif isinstance(arg, str):
-        return factory_class.from_alias(arg)
-    else:
-        arg = dict(arg)
-        try:
-            alias = arg.pop('alias')
-        except KeyError:
-            alias = arg.pop('name')
-        return factory_class.from_alias(alias, **arg)

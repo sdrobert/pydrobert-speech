@@ -9,9 +9,9 @@ import abc
 import numpy as np
 
 from pydrobert.signal import AliasedFactory
-from pydrobert.signal import alias_factory_subclass_from_arg
 from pydrobert.signal import config
 from pydrobert.signal.scales import ScalingFunction
+from pydrobert.signal.util import alias_factory_subclass_from_arg
 from pydrobert.signal.util import angular_to_hertz
 from pydrobert.signal.util import hertz_to_angular
 
