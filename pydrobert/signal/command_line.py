@@ -9,7 +9,10 @@ import json
 import logging
 import sys
 
+from os import path
+
 from pydrobert.signal.compute import FrameComputer
+from pydrobert.signal.post import CMVN
 from pydrobert.signal.util import alias_factory_subclass_from_arg
 
 __author__ = "Sean Robertson"
@@ -79,6 +82,86 @@ def kaldi_vlog_level_cmd_decorator(func):
         return ret
     return _new_cmd
 
+def _get_stderr_help_parser(description):
+    
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
+    )
+
+    return parser
+
+def _kaldi_argparse_boilerplate(descr, parent, args):
+    '''Boilerplate surrounding argument creation for kaldi-like scripts
+
+    Arguments
+    ---------
+    descr : str
+        Passed to the parser
+    parent : argparse.ArgumentParser
+        The parent parser from which all arguments are taken. Parent
+        should not have help flag
+    args
+        The arguments to parse
+
+    Returns
+    ------
+    tuple or None
+        If there was an error, returns None. Otherwise, a pair of
+        (namespace, logger)
+    '''
+    prog_name = path.basename(sys.argv[0])
+    class _StdErrHelpAction(argparse.Action):
+        def __init__(self, *args, **kwargs):
+            self.logger = None
+            super(_StdErrHelpAction, self).__init__(*args, **kwargs)
+        def __call__(self, parser, *args, **kwargs):
+            parser.print_help(file=sys.stderr)
+            parser.exit()
+    logging.captureWarnings(True)
+    stderr_handler = logging.StreamHandler()
+    stderr_handler.setFormatter(logging.Formatter(
+        '%(levelname)s (' + prog_name + '[0.0]:%(funcName)s():'
+        '%(filename)s:%(lineno)d) %(message)s'
+    ))
+    i_logger = logging.getLogger('{}.{}.init'.format(__name__, prog_name))
+    i_logger.addHandler(stderr_handler)
+    parser = argparse.ArgumentParser(
+        description=descr,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False, parents=[parent],
+    )
+    parser.add_argument(
+        '-h', '--help', action=_StdErrHelpAction, default=argparse.SUPPRESS,
+        nargs=0,
+    )
+    parser.add_argument(
+        '-v', '--verbose', type=int, choices=[x for x in range(-3, 10)],
+        default=0, help='Verbose level (higher->more logging). ',
+    )
+    try:
+        namespace = parser.parse_args(args)
+    except SystemExit:
+        i_logger.error("Failed to parse arguments")
+        return None
+    try:
+        from pydrobert.kaldi.logging import KaldiLogger
+    except ImportError:
+        i_logger.error('Unable to import pydrobert.kaldi.')
+        return None
+    old_logger_class = logging.getLoggerClass()
+    logging.setLoggerClass(KaldiLogger)
+    k_logger = logging.getLogger('{}.{}'.format(__name__, prog_name))
+    logging.setLoggerClass(old_logger_class)
+    k_logger.addHandler(stderr_handler)
+    i_logger.removeHandler(stderr_handler)
+    if namespace.verbose <= 1:
+        k_logger.setLevel(namespace.verbose * -10 + 20)
+    else:
+        k_logger.setLevel(11 - namespace.verbose)
+    return namespace, k_logger
+
 @kaldi_vlog_level_cmd_decorator
 def compute_feats_from_kaldi_tables(args=None):
     '''Store features from a kaldi archive in a kaldi archive
@@ -89,30 +172,8 @@ def compute_feats_from_kaldi_tables(args=None):
     .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
            Toolkit. ASRU
     '''
-    logging.captureWarnings(True)
-    stderr_handler = logging.StreamHandler()
-    stderr_handler.setFormatter(logging.Formatter(
-        '%(levelname)s (compute-feats-from-kaldi-tables[0.0]:%(funcName)s():'
-        '%(filename)s:%(lineno)d) %(message)s'
-    ))
-    # temporarily use a regular logger to parse arguments and import kaldi
-    logger = logging.getLogger(
-        __name__ + '.compute_feats_from_kaldi_tables.init')
-    logger.addHandler(stderr_handler)
-    # we need to always output help info to stderr to be consistent
-    # with kaldi's logging
-    class _StdErrHelpAction(argparse.Action):
-        def __init__(self, *args, **kwargs):
-            self.logger = None
-            super(_StdErrHelpAction, self).__init__(*args, **kwargs)
-        def __call__(self, parser, *args, **kwargs):
-            parser.print_help(file=sys.stderr)
-            parser.exit()
-    parser = argparse.ArgumentParser(
-        description=compute_feats_from_kaldi_tables.__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-    )
+    # parse arguments
+    parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         'wav_rspecifier', help='Input wave table rspecifier')
     parser.add_argument(
@@ -130,39 +191,15 @@ def compute_feats_from_kaldi_tables(args=None):
         '--channel', type=int, default=-1,
         help='Channel to draw audio from. Default is to assume mono'
     )
-    parser.add_argument(
-        '-v', '--verbose', type=int, choices=[x for x in range(-3, 10)],
-        default=0, help='Verbose level (higher->more logging). ',
+    ret = _kaldi_argparse_boilerplate(
+        compute_feats_from_kaldi_tables.__doc__,
+        parser,
+        args,
     )
-    parser.add_argument(
-        '-h', '--help', action=_StdErrHelpAction, default=argparse.SUPPRESS,
-        nargs=0)
-    try:
-        namespace = parser.parse_args(args)
-    except SystemExit as error:
-        logger.error("Failed to parse arguments")
-        return error.code
-    # import pydrobert-kaldi and make a logger with KaldiLogger wrapper
-    try:
-        from pydrobert.kaldi import tables
-        from pydrobert.kaldi.logging import KaldiLogger
-        from pydrobert.kaldi.logging import register_logger_for_kaldi
-        logging.setLoggerClass(KaldiLogger)
-        k_logger = logging.getLogger(
-            __name__ + '.compute_feats_from_kaldi_tables')
-    except ImportError:
-        logger.error('Unable to import pydorbert.kaldi. Please install')
-        return 1
-    finally:
-        logging.setLoggerClass(logging.Logger)
-        logger.removeHandler(stderr_handler)
-    logger = k_logger
-    register_logger_for_kaldi(logger.name)
-    logger.addHandler(stderr_handler)
-    if namespace.verbose <= 1:
-        logger.setLevel(namespace.verbose * -10 + 20)
+    if ret is None:
+        return 0
     else:
-        logger.setLevel(11 - namespace.verbose)
+        namespace, logger = ret
     # construct the computer
     try:
         computer = alias_factory_subclass_from_arg(
@@ -170,6 +207,7 @@ def compute_feats_from_kaldi_tables(args=None):
     except ValueError:
         logger.error('Failed to build computer:', exc_info=True)
         return 1
+    from pydrobert.kaldi import tables
     # open tables
     try:
         wav_reader = tables.open(
@@ -227,3 +265,4 @@ def compute_feats_from_kaldi_tables(args=None):
     feat_writer.close()
     wav_reader.close()
     return 0 if num_success else 1
+
