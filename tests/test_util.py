@@ -140,13 +140,13 @@ def tdir():
 
 @pytest.mark.parametrize('key', [True, False])
 def test_read_kaldi(tdir, key):
-    kaldi = pytest.importorskip('pydrobert.kaldi')
+    kaldi = pytest.importorskip('pydrobert.kaldi.io')
     rxfilename = 'ark:{}'.format(os.path.join(tdir, 'foo.ark'))
     key_1 = 'lions'
     key_2 = 'tigers'
     buff_1 = np.random.random((100, 10))
     buff_2 = np.random.random((1000, 2))
-    with kaldi.tables.open(rxfilename, 'dm', 'w') as table:
+    with kaldi.open(rxfilename, 'dm', 'w') as table:
         table.write(key_1, buff_1)
         table.write(key_2, buff_2)
     if key:

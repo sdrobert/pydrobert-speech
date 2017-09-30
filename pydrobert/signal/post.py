@@ -7,12 +7,12 @@ from __future__ import print_function
 import abc
 import warnings
 
-from os.path import exists
-from re import match
+from itertools import count
 
 import numpy as np
 
 from pydrobert.signal import AliasedFactory
+from pydrobert.signal.util import read_signal
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -66,72 +66,83 @@ class Standardize(PostProcessor):
     coefficients are standardized locally (within the target tensor). If
     `rfilename` is specified, feature coefficients are standardized
     according to the sufficient statistics collected in the file. The
-    latter implementation is based off [1]_.
-
-    If `rfilename` begins with the regex ``r'^(ark|scp)(,\w+)*:'``, the
-    file is assumed to be a Kaldi archive or script. `Standardize` will
-    attempt to import `pydrobert.kaldi.tables` in order to open it
-    (see pydrobert-kaldi_ for more details). Otherwise, it will be
-    saved/loaded in Numpy (``.npy``) format.
+    latter implementation is based off [1]_. The statistics will be
+    loaded with `read_signal`.
 
     Parameters
     ----------
     rfilename : str, optional
-    key : str, optional
-        Different stats can be stored/retrieved from the same file using
-        key/value pairs. If `key` is set, `rfilename` is assumed to
-        store key/value pairs, and the stats associated with `key` are
-        loaded.
-    norm_var : bool, optional
+    norm_var : bool
+
+    Additional keyword arguments can be passed to the initializer if
+    rfilename is set. They will be passed on to `read_signal`
 
     Attributes
     ----------
     have_stats : bool
 
-    Raises
-    ------
-    ImportError
-    KeyError
+    See Also
+    --------
+    pydrobert.signal.util.read_signal
+        Describes the strategy used for loading signals
 
     References
     ----------
-    .. _pydrobert-kaldi: https://github.com/sdrobert/pydrobert-kaldi
     .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
            Toolkit. ASRU
     '''
 
     aliases = {'standardize', 'normalize', 'unit', 'cmvn'}
 
-    BOGUS_KEY = 'stats'
-    '''Key used when stats are written to a kaldi table without a key'''
-
-    def __init__(self, rfilename=None, key=None, norm_var=True):
+    def __init__(self, rfilename=None, norm_var=True, **kwargs):
         self._stats = None
         self._norm_var = bool(norm_var)
-        if rfilename and match(r'^(ark|scp)(,\w+)*:', rfilename):
-            from pydrobert.kaldi import tables
-            if key:
-                with tables.open(rfilename, 'bm', 'r+') as stats_file:
-                    self._stats = stats_file[key]
+        if rfilename is not None:
+            if 'dtype' in kwargs:
+                self._stats = read_signal(rfilename, **kwargs)
             else:
-                # Assume its the first entry
-                with tables.open(rfilename, 'bm') as stats_file:
-                    self._stats = next(stats_file)
-        elif rfilename:
-            npy_stats = np.load(rfilename, fix_imports=True)
-            if key:
-                for entry in npy_stats:
-                    if entry['key'] == key:
-                        self._stats = entry['value'][:, :entry['num']]
+                for dtype in (np.float64, np.float32, 'dm', 'fm'):
+                    try:
+                        self._stats = read_signal(
+                            rfilename, dtype=dtype, **kwargs)
                         break
+                    except (IOError, ValueError, ImportError, TypeError):
+                        pass
                 if self._stats is None:
-                    raise KeyError(key)
-            elif len(npy_stats.dtype):
-                # assume a dictionary was stored here, but we weren't
-                # given a key. Read the first one
-                self._stats = npy_stats[0]['value'][:, :npy_stats[0]['num']]
+                    raise IOError(
+                        'Unable to load stats from {}'.format(rfilename))
+                if len(self._stats.shape) == 1:
+                    # stats were likely stored as simple binary. Need
+                    # to make sure we've cast to the right kind of
+                    # float. Probably a non-issue if we saved the data
+                    # ourselves
+                    self._sanitize_stats()
+        elif kwargs:
+            raise TypeError(
+                'Invalid keyword arguments: {}'.format(tuple(kwargs)))
+        super(Standardize, self).__init__()
+
+    def _sanitize_stats(self, checked_other_float=False):
+        self._stats = self._stats.reshape((2, -1))
+        valid = np.isclose(np.round(self._stats[0, -1]), self._stats[0, -1])
+        valid &= np.all(self._stats >= 0)
+        if not valid and checked_other_float:
+            raise IOError(
+                'Could not properly load statistics. Try specifying '
+                'additional parameters in init (see docstring)')
+        elif not valid:
+            if self._stats.dtype not in (np.float32, np.float64):
+                raise ValueError(
+                    'Statistics were loaded with a weird data type ({}) and '
+                    'are invalid. Make sure the arguments you passed to '
+                    'the init are correct'.format(self._stats.dtype))
+            elif self._stats.dtype == np.float32:
+                self._stats = np.frombuffer(
+                    self._stats.tobytes(), dtype=np.float64)
             else:
-                self._stats = npy_stats
+                self._stats = np.frombuffer(
+                    self._stats.tobytes(), dtype=np.float32).astype(np.float64)
+            self._sanitize_stats(True)
 
     @property
     def have_stats(self):
@@ -286,106 +297,56 @@ class Standardize(PostProcessor):
         else:
             return self._apply_vector(features, in_place)
 
-    def save(self, wfilename, key=None):
+    def save(self, wfilename, key=None, compress=False, overwrite=True):
         r'''Save accumulated statistics to file
 
-        If `wfilename` begins with ``r'^(ark|scp)(,\w+)*:'``, statistics
-        will be saved as a Kaldi script/archive. Otherwise, statistics
-        are saved in Numpy (``.npy``) format.
+        If `wfilename` ends in `.npy`, stats will be written using
+        `np.save`.
 
-        If `key` is not set, statistics are stored directly to
-        `wfilename`, overwriting anything that's already there.
+        If `wfilename` ends in `.npz`, stats will be written to a numpy
+        archive. If `overwrite` is `False`, other key-values will be
+        loaded first if possible, then resaved. If `key` is set, data
+        will be indexed by `key` in the archive. Otherwise, the data
+        will be stored at the first unused key of the pattern
+        ``'arr_\d+'``. If `compress` is `True`,
+        `numpy.savez_compressed` will be used over `numpy.savez`.
 
-        If `key` is set and the file is *not* a Kaldi script/archive,
-        `save` will attempt to overwrite only the statistics for that
-        key (if the file is written in key-value pairs). Kaldi
-        scripts/archives will always be overwritten, since there is no
-        way to check if it is safe to read them ahead of time (for
-        example, "reading" stdout).
+        Otherwise, data will be written using `np.ndarray.tofile`
 
         Parameters
         ----------
         wfilename : str
         key : str, optional
+        compress : bool
+        overwrite : bool
 
         Raises
         ------
-        ImportError
-            If `wfilename` is a Kaldi table but `pydrobert.kaldi.tables`
-            cannot be imported
         ValueError
             If no stats have been accumulated
         '''
         if not self.have_stats:
             raise ValueError('No stats have been accumulated to save')
-        kaldi_table = match(r'^(ark|scp)(,\w+)*:', wfilename)
-        if kaldi_table:
-            from pydrobert.kaldi import tables
-            if tables.KaldiDataType.BaseMatrix.is_double:
-                kaldi_dtype = np.float64
-            else:
-                kaldi_dtype = np.float32
-        if key is None:
-            if kaldi_table:
-                with tables.open(wfilename, 'bm', 'w') as file_obj:
-                    file_obj.write(
-                        Standardize.BOGUS_KEY,
-                        self._stats.astype(kaldi_dtype),
-                    )
-            else:
-                with open(wfilename, 'wb') as file_obj:
-                    np.save(
-                        file_obj,
-                        self._stats,
-                        fix_imports=True,
-                    )
-        else:
-            all_stats = dict()
-            if not kaldi_table and exists(wfilename):
+        if wfilename.endswith('.npy'):
+            np.save(wfilename, self._stats)
+        elif wfilename.endswith('.npz'):
+            array = dict()
+            if overwrite:
                 try:
-                    past_stats_obj = np.load(wfilename, fix_imports=True)
-                    if past_stats_obj.dtype.fields is None or \
-                            'key' not in past_stats_obj.dtype.fields or \
-                            'value' not in past_stats_obj.dtype.fields or \
-                            'num' not in past_stats_obj.dtype.fields:
-                        raise IOError()
-                    for key_value in past_stats_obj:
-                        key_2 = key_value['key']
-                        value = key_value['value'][:key_value['num']]
-                        all_stats[key_2] = value
+                    array = np.load(wfilename)
                 except IOError:
-                    # were unable to load expected key/value object. No
-                    # biggie
                     pass
-            all_stats[key] = self._stats
-            all_stats = list(all_stats.items())
-            all_stats.sort()
-            if kaldi_table:
-                with tables.open(wfilename, 'bm', 'w') as file_obj:
-                    for key, value in all_stats:
-                        file_obj.write(key, value.astype(kaldi_dtype))
+            if key is None:
+                for key in ('arr_{}'.format(v) for v in count(0)):
+                    if key not in array:
+                        break
+            array[key] = self._stats
+            if compress:
+                np.savez_compressed(wfilename, **array)
             else:
-                max_key_len = 0
-                max_num = 0
-                for key, value in all_stats:
-                    max_key_len = max(len(key), max_key_len)
-                    max_num = max(value.shape[1], max_num)
-                dt = np.dtype([
-                    ('key', np.unicode, max_key_len),
-                    ('value', np.float64, (2, max_num)),
-                    ('num', np.uint16),
-                ])
-                stat_obj = np.empty(len(all_stats), dtype=dt)
-                for idx, (key, value) in enumerate(all_stats):
-                    stat_obj[idx]['key'] = key
-                    stat_obj[idx]['value'][:, :value.shape[1]] = value
-                    stat_obj[idx]['num'] = value.shape[1]
-                with open(wfilename, 'wb') as file_obj:
-                    np.save(
-                        file_obj,
-                        stat_obj,
-                        fix_imports=True,
-                    )
+                np.savez(wfilename, **array)
+        else:
+            self._stats.tofile(wfilename)
 
 CMVN = Standardize
 

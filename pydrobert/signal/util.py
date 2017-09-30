@@ -120,21 +120,21 @@ def circshift_fourier(filt, shift, start_idx=0, dft_size=None, copy=True):
             ) % dft_size))
         return filt
 
-def _kaldi_read_signal(rfilename, dtype, key, **kwargs):
-    from pydrobert.kaldi import tables
+def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
+    from pydrobert.kaldi.io import open as io_open
     if key is None:
         key = 0
     if dtype is None:
         dtype = 'bm'
     if isinstance(key, str) or isinstance(key, text):
-        with tables.open(rfilename, dtype, mode='r+', **kwargs) as table:
+        with io_open(rfilename, dtype, mode='r+', **kwargs) as table:
             return table[key]
     else:
-        with tables.open(rfilename, dtype, mode='r', **kwargs) as table:
+        with io_open(rfilename, dtype, mode='r', **kwargs) as table:
             for idx in range(key):
                 if not table.move():
                     raise IndexError('table index out of range')
-            return table.value
+            return table.value()
 
 def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
     from scipy.io import wavfile
@@ -213,6 +213,14 @@ def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
         data = data.astype(dtype)
     return data
 
+def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
+    from pydrobert.kaldi.io import io_open
+    if dtype is None:
+        dtype = 'bm'
+    with io_open(rfilename, mode='r', **kwargs) as inp_stream:
+        data = inp_stream.read(dtype)
+    return data
+
 def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
     if key is not None:
         raise TypeError(
@@ -230,30 +238,39 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     a signal of some sort, the way it goes about doing so depends on
     the setting of `rfilename`, processed in the following order:
 
-    If `rfilename` starts with the regular expression
-    ``r'^(ark|scp)(,\w+)*:'``, the file is treated as a Kaldi
-    archive/script. The package `pydrobert.kaldi` will be imported to
-    handle reading.
-
-    If `rfilename` ends with `.wav`, the file is assumed to be a wave
-    file. The function will rely on the `scipy` package to load the
-    file if `scipy` can be imported. Otherwise, it uses the standard
-    `wave` package. The type of data encondings each package can handle
-    varies, though neither can handle compressed data.
-
-    If `rfilename` ends with `.hdf5`, the file is assumed to be an
-    HDF5 file. HDF5 and h5py must be installed on the host system to
-    read this way.
-
-    If `rfilename` ends with `.npy`, the file is assumed to be a binary
-    in Numpy format.
-
-    If `rfilename` ends with `.npz`, the file is assumed to be an
-    archive in numpy format.
-
-    Otherwise, the routine `numpy.fromfile` will be used to load the
-    data. `numpy.tofile` does not keep track of shape data, so any
-    read data will be 1D.
+    1.  If `rfilename` starts with the regular expression
+        ``r'^(ark|scp)(,\w+)*:'``, the file is treated as a Kaldi table
+        and opened with the kaldi data type `dtype` (defaults to
+        `BaseMatrix`). The package `pydrobert.kaldi` will be imported
+        to handle reading. If `key` is set, the value associated with
+        that key is retrieved. Otherwise the first listed value is
+        returned.
+    2.  If `rfilename` ends with `.wav`, the file is assumed to be a
+        wave file. The function will rely on the `scipy` package to load
+        the file if `scipy` can be imported. Otherwise, it uses the
+        standard `wave` package. The type of data encodings each package
+        can handle varies, though neither can handle compressed data.
+    3.  If `rfilename` ends with `.hdf5`, the file is assumed to be an
+        HDF5 file. HDF5 and h5py must be installed on the host system to
+        read this way. If `key` is set, the data will assumed to be
+        indexed by `key` on the archive. Otherwise, a depth-first search
+        of the archive will be performed for the first data set. If set,
+        data will be cast to as the numpy data type `dtype`
+    4.  If `rfilename` ends with `.npy`, the file is assumed to be a
+        binary in Numpy format. If set, the result will be cast as
+        the numpy data type `dtype`.
+    5.  If `rfilename` ends with `.npz`, the file is assumed to be an
+        archive in numpy format. If `key` is swet, the data indexed by
+        `key` will be loaded. Otherwise the data indexed by the key
+        ``'arr_0'`` will be loaded. If set, the result will be cast as
+        the numpy data type `dtype`.
+    6.  If `pydrobert.kaldi` can be imported, it will try to read an
+        object of kaldi data type `dtype` (defaults to `BaseMatrix`)
+        from a basic kaldi input stream. If this fails, we continue
+        to step 7.
+    7.  Otherwise, the routine `numpy.fromfile` will be used to load the
+        data (of type `dtype`, if provided). `numpy.tofile` does not
+        keep track of shape data, so any read data will be 1D.
 
     Additional keyword arguments are passed along to the associated
     open or read operation.
@@ -262,23 +279,7 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     ----------
     rfilename : str
     dtype : object, optional
-        For Kaldi archives/scripts, this is a value in the enum
-        `pydrobert.kaldi.tables.KaldiDataType` (if not provided, the
-        base matrix is assumed). If `numpy.fromfile` is used, it is
-        passed as a keyword argument to the routine (default is float).
-        Otherwise, the resulting array will be cast to `dtype` before
-        returning
     key : object, optional
-        For Kaldi archives/scripts, `key` is used to retrieve the data
-        as the corresponding value: a `key` of type `str` is assumed to
-        be a random access key, while a `key` of type `int` is assumed
-        to index the value in a sequential read. For HDF5 files, `key`
-        is used to access the dataset with square brackets from the
-        root `h5py.File` object. Likewise for a numpy archive. Other
-        read styles will raise a `TypeError` if `key` is set. The
-        default behaviour for read styles with keys is to take the first
-        data set available. In the case of an HDF5 file, this is through
-        a depth-first search
 
     Returns
     -------
@@ -291,7 +292,7 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     IOError
     """
     if match(r'^(ark|scp)(,\w+)*:', rfilename):
-        data = _kaldi_read_signal(rfilename, dtype, key, **kwargs)
+        data = _kaldi_table_read_signal(rfilename, dtype, key, **kwargs)
     elif rfilename.endswith('.wav'):
         try:
             data = _scipy_io_read_signal(rfilename, dtype, key, **kwargs)
@@ -304,7 +305,10 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     elif rfilename.endswith('.npz'):
         data = _numpy_archive_read_signal(rfilename, dtype, key, **kwargs)
     else:
-        data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
+        try:
+            data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
+        except (ImportError, IOError):
+            data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     return data
 
 def alias_factory_subclass_from_arg(factory_class, arg):

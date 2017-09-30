@@ -86,14 +86,7 @@ def test_standardize_global(norm_var, buff, dtype):
     s_buff_2 = stand.apply(buff[0])
     assert np.allclose(s_buff_1[0], s_buff_2)
 
-@pytest.mark.parametrize('do_kaldi', [
-    pytest.param(True, marks=pytest.mark.importorskip('pydrobert.kaldi')),
-    False,
-])
-@pytest.mark.parametrize('with_key', [True, False])
-def test_standardize_write_read(do_kaldi, with_key, temp_file_1_name):
-    if do_kaldi:
-        temp_file_1_name = 'ark:' + temp_file_1_name
+def test_standardize_write_read(temp_file_1_name):
     stand_1 = post.Standardize()
     x_1 = np.random.random((2, 3, 4))
     x_2 = np.random.random((1, 3, 5)) + np.random.randint(-10, 10)
@@ -101,16 +94,12 @@ def test_standardize_write_read(do_kaldi, with_key, temp_file_1_name):
     stand_1.accumulate(x_1, axis=1)
     stand_1.accumulate(x_2, axis=1)
     x_1_p_1 = stand_1.apply(x_1, axis=1)
-    stand_1.save(temp_file_1_name, key='a')
+    stand_1.save(temp_file_1_name)
     stand_1.accumulate(x_3, axis=1)
     x_1_p_2 = stand_1.apply(x_1, axis=1)
     assert not np.allclose(x_1_p_1, x_1_p_2)
-    if with_key:
-        stand_1.save(temp_file_1_name, key='b')
-        stand_2 = post.Standardize(temp_file_1_name, key='b')
-    else:
-        stand_1.save(temp_file_1_name)
-        stand_2 = post.Standardize(temp_file_1_name)
+    stand_1.save(temp_file_1_name)
+    stand_2 = post.Standardize(temp_file_1_name)
     x_1_p_3 = stand_2.apply(x_1, axis=1)
     assert np.allclose(x_1_p_2, x_1_p_3)
 
