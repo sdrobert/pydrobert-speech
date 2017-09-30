@@ -152,6 +152,7 @@ def _kaldi_argparse_boilerplate(descr, parent, args):
         description=descr,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False, parents=[parent],
+        fromfile_prefix_chars='@', # for kaldi-like config files
     )
     parser.add_argument(
         '-h', '--help', action=_StdErrHelpAction, default=argparse.SUPPRESS,
