@@ -12,7 +12,6 @@ import sys
 from os import path
 
 from pydrobert.signal.compute import FrameComputer
-from pydrobert.signal.post import CMVN
 from pydrobert.signal.util import alias_factory_subclass_from_arg
 
 __author__ = "Sean Robertson"
@@ -43,8 +42,40 @@ def nonneg_int_type(string):
         assert val >= 0
     except (ValueError, AssertionError):
         raise argparse.ArgumentTypeError(
-            '{} is not a nonnegative integer'.format(val))
+            '{} is not a nonnegative integer'.format(string))
     return val
+
+def kaldi_rspecifier_type(string):
+    '''Make sure string is a valid rspecifier
+
+    Raises
+    ------
+    ImportError
+        If pydrobert-kaldi is not installed
+    '''
+    from pydrobert.kaldi.io.enums import TableType
+    from pydrobert.kaldi.io.util import parse_kaldi_input_path
+    table_type, _, _, _ = parse_kaldi_input_path(string)
+    if table_type == TableType.NotATable:
+        raise argparse.ArgumentTypeError(
+            '{} is not a valid rspecifier'.format(string))
+    return string
+
+def kaldi_wspecifier_type(string):
+    '''Make sure string is a valid wspecifier
+
+    Raises
+    ------
+    ImportError
+        If pydrobert-kaldi is not installed
+    '''
+    from pydrobert.kaldi.io.enums import TableType
+    from pydrobert.kaldi.io.util import parse_kaldi_output_path
+    table_type, _, _, _ = parse_kaldi_output_path(string)
+    if table_type == TableType.NotATable:
+        raise argparse.ArgumentTypeError(
+            '{} is not a valid wspecifier'.format(string))
+    return string
 
 def kaldi_vlog_level_cmd_decorator(func):
     '''Decorator to rename, then revert, level names according to Kaldi [1]_
@@ -81,16 +112,6 @@ def kaldi_vlog_level_cmd_decorator(func):
                 logging.addLevelName(level, name)
         return ret
     return _new_cmd
-
-def _get_stderr_help_parser(description):
-    
-    parser = argparse.ArgumentParser(
-        description=description,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        add_help=False,
-    )
-
-    return parser
 
 def _kaldi_argparse_boilerplate(descr, parent, args):
     '''Boilerplate surrounding argument creation for kaldi-like scripts
@@ -175,9 +196,13 @@ def compute_feats_from_kaldi_tables(args=None):
     # parse arguments
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
-        'wav_rspecifier', help='Input wave table rspecifier')
+        'wav_rspecifier', type=kaldi_rspecifier_type,
+        help='Input wave table rspecifier'
+    )
     parser.add_argument(
-        'feats_wspecifier', help='Output feature table wspecifier')
+        'feats_wspecifier', type=kaldi_wspecifier_type,
+        help='Output feature table wspecifier'
+    )
     parser.add_argument(
         'computer_config', type=json_type,
         help='JSON file or string to configure a '
@@ -207,10 +232,10 @@ def compute_feats_from_kaldi_tables(args=None):
     except ValueError:
         logger.error('Failed to build computer:', exc_info=True)
         return 1
-    from pydrobert.kaldi import tables
+    from pydrobert.kaldi.io import open as io_open
     # open tables
     try:
-        wav_reader = tables.open(
+        wav_reader = io_open(
             namespace.wav_rspecifier, 'wm', value_style='bsd')
     except IOError:
         logger.error(
@@ -218,7 +243,7 @@ def compute_feats_from_kaldi_tables(args=None):
         )
         return 1
     try:
-        feat_writer = tables.open(namespace.feats_wspecifier, 'bm')
+        feat_writer = io_open(namespace.feats_wspecifier, 'bm')
     except IOError:
         logger.error(
             'Could not open the feat table {} for writing'.format(
