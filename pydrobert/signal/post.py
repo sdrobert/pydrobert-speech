@@ -409,13 +409,18 @@ class Deltas(PostProcessor):
     ----------
     num_deltas : int
     target_axis : int, optional
-    concatenate : bool, optional
+    concatenate : bool
     context_window : int, optional
         The length of the filter to either side of the window. Positive
     pad_mode : str or function, optional
         How to pad the input sequence when correlating. Additional
         keyword arguments will be passed to `numpy.pad`. See `numpy.pad`
         for more details
+
+    Attributes
+    ----------
+    num_deltas : int
+    concatenate : bool
     '''
 
     aliases = {'deltas'}
@@ -426,7 +431,8 @@ class Deltas(PostProcessor):
         self._target_axis = target_axis
         self._pad_mode = pad_mode
         self._pad_kwargs = kwargs
-        self._concatenate = bool(concatenate)
+        self.concatenate = bool(concatenate)
+        self.num_deltas = num_deltas
         self._filts = [np.ones(1, dtype=np.float64)]
         delta_filter = np.arange(1 + 2 * context_window, dtype=np.float64)
         delta_filter -= context_window
