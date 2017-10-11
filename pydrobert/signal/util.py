@@ -307,7 +307,7 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     else:
         try:
             data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
-        except (ImportError, IOError):
+        except (ImportError, IOError, ValueError):
             data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     return data
 
