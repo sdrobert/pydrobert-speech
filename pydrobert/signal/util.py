@@ -214,7 +214,7 @@ def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
     return data
 
 def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
-    from pydrobert.kaldi.io import io_open
+    from pydrobert.kaldi.io import open as io_open
     if dtype is None:
         dtype = 'bm'
     with io_open(rfilename, mode='r', **kwargs) as inp_stream:

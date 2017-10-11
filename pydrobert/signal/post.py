@@ -123,9 +123,14 @@ class Standardize(PostProcessor):
         super(Standardize, self).__init__()
 
     def _sanitize_stats(self, checked_other_float=False):
-        self._stats = self._stats.reshape((2, -1))
-        valid = np.isclose(np.round(self._stats[0, -1]), self._stats[0, -1])
-        valid &= np.all(self._stats >= 0)
+        try:
+            self._stats = self._stats.reshape((2, -1))
+            valid = np.isclose(
+                np.round(self._stats[0, -1]), self._stats[0, -1])
+            valid &= np.all(self._stats >= 0)
+        except ValueError:
+            # in this case we couldn't reshape to (2, -1).
+            valid = False
         if not valid and checked_other_float:
             raise IOError(
                 'Could not properly load statistics. Try specifying '
@@ -466,7 +471,8 @@ class Deltas(PostProcessor):
                 )[len(filt) - 1:-len(filt) + 1].astype(
                     features.dtype, copy=False)
             delta_feats.append(delta_feat)
-        if self._concatenate:
+        if self.concatenate:
             return np.concatenate(delta_feats, self._target_axis)
         else:
             return np.stack(delta_feats, self._target_axis)
+

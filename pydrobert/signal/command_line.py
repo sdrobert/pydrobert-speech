@@ -244,7 +244,7 @@ def compute_feats_from_kaldi_tables(args=None):
         )
         return 1
     try:
-        feat_writer = io_open(namespace.feats_wspecifier, 'bm')
+        feat_writer = io_open(namespace.feats_wspecifier, 'bm', mode='w')
     except IOError:
         logger.error(
             'Could not open the feat table {} for writing'.format(
@@ -259,7 +259,7 @@ def compute_feats_from_kaldi_tables(args=None):
                 ''.format(utt_id, duration)
             )
             continue
-        elif samp_freq != computer.bank.sample_rate_hz:
+        elif samp_freq != computer.bank.sampling_rate:
             logger.warn(
                 'Sample frequency mismatch for file {}: you specified {:.2f} '
                 'but data has {:.2f}: producing no output'
