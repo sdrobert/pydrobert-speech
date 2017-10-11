@@ -415,19 +415,20 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             val = 0
             while consumed < trunc_len:
                 if conjugate:
+                    print(half_len, trunc_len, consumed, start_idx)
                     seg_len = min(
                         start_idx + trunc_len - consumed,
                         half_len - 2 + half_len % 2
                     ) - start_idx
                     seg_len = max(0, seg_len)
-                    assert seg_len > 0
-                    val += self._nonlin_op(
-                        half_spect[
-                            -2 + half_len % 2 - start_idx:
-                            -2 + half_len % 2 - start_idx - seg_len:
-                            -1
-                        ].conj() * truncated_filt[consumed:consumed + seg_len]
-                    )
+                    if seg_len:
+                        val += self._nonlin_op(
+                            half_spect[
+                                -2 + half_len % 2 - start_idx:
+                                -2 + half_len % 2 - start_idx - seg_len:
+                                -1
+                            ].conj() * truncated_filt[consumed:consumed + seg_len]
+                        )
                     start_idx -= half_len - 2 + half_len % 2
                 else:
                     seg_len = min(start_idx + trunc_len - consumed, half_len)
@@ -440,6 +441,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                             ] * truncated_filt[consumed:consumed + seg_len]
                         )
                     start_idx -= half_len
+                conjugate = not conjugate
                 consumed += seg_len
                 start_idx = max(0, start_idx)
             if self._real:
