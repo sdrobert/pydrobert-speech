@@ -415,7 +415,6 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             val = 0
             while consumed < trunc_len:
                 if conjugate:
-                    print(half_len, trunc_len, consumed, start_idx)
                     seg_len = min(
                         start_idx + trunc_len - consumed,
                         half_len - 2 + half_len % 2
