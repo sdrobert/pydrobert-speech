@@ -184,7 +184,9 @@ def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
                     data = cur_group
                     break
                 else:
-                    for name in cur_group.keys()[::-1]:
+                    keys = list(cur_group.keys())
+                    keys.sort(reverse=True)
+                    for name in keys:
                         group_stack.append(cur_group[name])
             if data is None:
                 raise IOError('Could not find any dataset')
@@ -307,7 +309,7 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     else:
         try:
             data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
-        except (ImportError, IOError, ValueError):
+        except:
             data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     return data
 

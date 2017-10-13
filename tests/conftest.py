@@ -23,6 +23,9 @@ except ImportError:
     pass
 
 warnings.simplefilter('error')
+# annoying scipy errors. Not mah fault!
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 # fixtures
 @pytest.fixture
