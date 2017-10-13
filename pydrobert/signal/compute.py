@@ -384,7 +384,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         assert len(frame) == self._frame_length
         assert len(coeffs) == self.num_coeffs
         if self.includes_energy:
-            coeffs[0] = np.inner(frame, frame)
+            coeffs[0] = np.inner(frame, frame) / self._frame_length
             if not self._power:
                 coeffs[0] **= .5
             if self._log:
@@ -557,7 +557,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             pad_right = 0
         if pad_left or pad_right:
             signal = np.pad(signal, (pad_left, pad_right), 'reflect')
-        coeffs = np.empty((num_frames, self.num_coeffs), dtype=signal.dtype)
+        coeffs = np.zeros((num_frames, self.num_coeffs), dtype=signal.dtype)
         for frame_idx in range(num_frames):
             frame_left = frame_idx * frame_shift
             self._compute_frame(
