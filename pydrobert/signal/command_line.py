@@ -12,6 +12,7 @@ import sys
 from os import path
 
 from pydrobert.signal.compute import FrameComputer
+from pydrobert.signal.pre import PreProcessor
 from pydrobert.signal.util import alias_factory_subclass_from_arg
 
 __author__ = "Sean Robertson"
@@ -217,6 +218,11 @@ def compute_feats_from_kaldi_tables(args=None):
         '--channel', type=int, default=-1,
         help='Channel to draw audio from. Default is to assume mono'
     )
+    parser.add_argument(
+        '--preprocess', type=json_type, default=tuple(),
+        help='JSON list of configurations for pydrobert.signal.pre.PreProcessor'
+        ' objects. Audio will be preprocessed in the same order as the list'
+    )
     ret = _kaldi_argparse_boilerplate(
         compute_feats_from_kaldi_tables.__doc__,
         parser,
@@ -233,8 +239,21 @@ def compute_feats_from_kaldi_tables(args=None):
     except ValueError:
         logger.error('Failed to build computer:', exc_info=True)
         return 1
-    from pydrobert.kaldi.io import open as io_open
+    # construct the preprocessors (if any)
+    preprocessors = []
+    try:
+        if isinstance(namespace.preprocess, dict):
+            preprocessors.append(alias_factory_subclass_from_arg(
+                PreProcessor, namespace.preprocess))
+        else:
+            for element in namespace.preprocess:
+                preprocessors.append(alias_factory_subclass_from_arg(
+                    PreProcessor, element))
+    except ValueError:
+        logger.error('Failed to build preprocessor:', exc_info=True)
+        return 1
     # open tables
+    from pydrobert.kaldi.io import open as io_open
     try:
         wav_reader = io_open(
             namespace.wav_rspecifier, 'wm', value_style='bsd')
@@ -280,7 +299,9 @@ def compute_feats_from_kaldi_tables(args=None):
                     utt_id, buff.shape[0], namespace.channel)
             )
             continue
-        buff = buff[cur_chan]
+        buff = buff[cur_chan].astype(np.float64, copy=False)
+        for preprocessor in preprocessors:
+            buff = preprocessor.apply(buff, in_place=True)
         feats = computer.compute_full(buff)
         feat_writer.write(utt_id, feats)
         if num_utts % 10 == 0:
