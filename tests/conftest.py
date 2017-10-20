@@ -69,6 +69,14 @@ def num_filts(request):
         sampling_rate=8000 if np.random.randint(2) else 16000,
         analytic=np.random.randint(2),
     ),
+    lambda scale, num_filts: filters.Fbank(
+        scale,
+        low_hz=np.random.randint(20, 60),
+        num_filts=num_filts,
+        high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
+        sampling_rate=8000 if np.random.randint(2) else 16000,
+        analytic=np.random.randint(2),
+    ),
     lambda scale, num_filts: filters.GaborFilterBank(
         scale,
         low_hz=np.random.randint(20, 60),
@@ -88,6 +96,7 @@ def num_filts(request):
     ),
 ], ids=[
     'triangular',
+    'fbank',
     'gabor',
     'gammatone',
 ])

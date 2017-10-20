@@ -241,7 +241,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
     The vertices of the filters are sampled uniformly along the passed
     scale. If the scale is nonlinear, the triangles will be
     asymmetrical. With mel scaling, these filters are designed to
-    resemble the ones used in [1]_ and [2]_.
+    resemble the ones used in [1]_ and [2]_, though squared. See Fbank.
 
     Parameters
     ----------
@@ -443,6 +443,71 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
             else:
                 res[idx - left_idx] = (right - hz) / (right - mid)
         return left_idx, res
+
+class Fbank(TriangularOverlappingFilterBank):
+    """The triangular filter bank with a frequency response that is rooted
+
+    In a standard mel-filterbank spectrogram, the power spectrum is
+    calculated before filtering. This module's spectrogram takes the
+    power spectrum after filtering. To recreate the frequency response
+    of the alternate order, we can take the pointwise square root of the
+    frequency response.
+
+    The pointwise square root generates a filterbank in its own right.
+    The filters' frequency response is more bell-shaped, and the filter
+    takes longer to decay in time.
+    """
+
+    aliases = {'fbank'}
+
+    @property
+    def supports(self):
+        # A given filter is bound above for t > 0 by
+        # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
+        #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
+        supports = []
+        for idx in range(len(self._vertices) - 2):
+            left = hertz_to_angular(self._vertices[idx], self._rate)
+            mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
+            right = hertz_to_angular(self._vertices[idx + 2], self._rate)
+            K = right - left + 2 * ((right - mid) * (mid - left)) ** 2
+            K /= config.EFFECTIVE_SUPPORT_THRESHOLD ** 2 * np.pi
+            K /= (right - mid) * (mid - left)
+            K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
+            K /= np.sqrt(mid - left) * np.sqrt(right - mid)
+            K **= .3333
+            K = int(np.ceil(K))
+            supports.append((- K // 2 - 1, K // 2 + 1))
+        return tuple(supports)
+
+    def get_frequency_response(self, filt_idx, width, half=False):
+        res = super(Fbank, self).get_frequency_response(
+            filt_idx, width, half=half)
+        res **= .5
+        return res
+
+    def get_truncated_response(self, filt_idx, width):
+        left_idx, res = super(Fbank, self).get_truncated_response(
+            filt_idx, width)
+        res **= .5
+        return left_idx, res
+
+    def get_impulse_response(self, filt_idx, width):
+        # TODO(sdrobert): I think the correct equation is 
+        # (i - 1)(\sqrt{c - l}e^{irt}erf((i - 1)\sqrt{(r - c)t/2})
+        #     - \sqrt{r - c}e^{ilt}erf((i - 1)\sqrt{(c - l)t/2})) /
+        #   \sqrt{2^5 t^3 (c - l)(r - c) \pi}
+        # but it doesn't match with the frequency response. Maybe
+        # since erf is approximated? For the time being, I'll just
+        # invert the frequency response
+        if self.is_analytic:
+            freq_response = self.get_frequency_response(
+                filt_idx, width, half=False)
+            return np.fft.ifft(freq_response)
+        else:
+            freq_response = self.get_frequency_response(
+                filt_idx, width, half=True)
+            return np.fft.irfft(freq_response, n=width)
 
 class GaborFilterBank(LinearFilterBank):
     r"""Gabor filters with ERBs between points from a scale
