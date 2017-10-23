@@ -518,14 +518,13 @@ class GaborFilterBank(LinearFilterBank):
 
     .. math::
 
-         f(t) = \pi^{-1/4}\sigma^{-1/2}
-                e^{\frac{-t^2}{2\sigma^2} + i\xi t}
+         f(t) = C e^{\frac{-t^2}{2\sigma^2} + i\xi t}
 
     in the time domain and
 
     .. math::
 
-         \widehat{f}(\omega) = \sqrt{2\sigma}\pi^{1/4}
+         \widehat{f}(\omega) = \sqrt{2}\pi\sigma^{3/2} C
                                e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
 
     in the frequency domain. Though Gaussians never truly reach 0, in
@@ -535,9 +534,10 @@ class GaborFilterBank(LinearFilterBank):
     `scaling_function` is used to split up the frequencies between
     `high_hz` and `low_hz` into a series of "edges." Pairs of edges
     define the location of the filter by setting :math:`\xi` to the
-    midpoint and scaling :math:`\sigma` such that the filter's
-    Equivalent Rectangular Bandwidth (ERB) matches the distance between
-    those edges.
+    midpoint and scaling :math:`\sigma`. Scaling is such that, if
+    the filters max out at 1, the first intersection of subsequent
+    filters' response matches the filters' Equivalent Rectangular
+    Bandwidths (erb == True) or their 3dB bandwidths (erb == False).
 
     Parameters
     ----------
@@ -552,6 +552,11 @@ class GaborFilterBank(LinearFilterBank):
         The default for high_hz is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
+    scale_l2_norm : bool
+        Whether to scale the l2 norm of each filter to 1. Otherwise the
+        frequency response of each filter will max out at an absolute value of
+        1.
+    erb : bool
     boundary_adjustment_mode : {'edges', 'wrap'}, optional
         How to handle when the effective support would exceed the
         Nyquist or pass below 0Hz. 'edges' narrows the boundary filters
@@ -568,6 +573,8 @@ class GaborFilterBank(LinearFilterBank):
     supports_hz : tuple
     supports : tuple
     supports_ms : tuple
+    scaled_l2_norm : bool
+    erb : bool
 
     See Also
     --------
@@ -579,9 +586,12 @@ class GaborFilterBank(LinearFilterBank):
 
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
-            sampling_rate=16000, boundary_adjustment_mode='wrap'):
+            sampling_rate=16000, scale_l2_norm=False, erb=False,
+            boundary_adjustment_mode='wrap'):
         scaling_function = alias_factory_subclass_from_arg(
             ScalingFunction, scaling_function)
+        self._scale_l2_norm = scale_l2_norm
+        self._erb = erb
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):
@@ -607,11 +617,17 @@ class GaborFilterBank(LinearFilterBank):
         supports = []
         wraps_ang = []
         self._wrap_below = False
-        # constants term in support calculations :/
-        a = 2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
-        b = a
-        a -= np.log(2) + .5 * np.log(np.pi)
-        b += .5 * np.log(np.pi)
+        t_support_const = 2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
+        f_support_const = t_support_const
+        if scale_l2_norm:
+            f_support_const -= np.log(2) + .5 * np.log(np.pi)
+            t_support_const += .5 * np.log(np.pi)
+        else:
+            t_support_const += np.log(2) + np.log(np.pi)
+        if erb:
+            bandwidth_const = np.sqrt(np.pi)
+        else:
+            bandwidth_const = 2 * np.sqrt(3 / 10 * np.log(10))
         last_low = 0
         last_high = 0
         for low, high in zip(edges[:-2], edges[2:]):
@@ -624,10 +640,17 @@ class GaborFilterBank(LinearFilterBank):
                 assert steps <= max_steps
                 filter_resolved = True
                 center = (low + high) / 2
-                std = np.sqrt(np.pi) / (high - low)
+                # expect intersections at (low + center) / 2 and
+                # (high + center) / 2
+                std = 2 * bandwidth_const / (high - low)
                 # diff btw center and freq bound of support
-                diff = np.sqrt((np.log(std) - a)) / std
-                wrap_diff = np.sqrt((np.log(std) - a - np.log(2)))
+                if scale_l2_norm:
+                    diff = np.sqrt((np.log(std) - f_support_const)) / std
+                    wrap_diff = np.sqrt(
+                        (np.log(std) - f_support_const - np.log(2))) / std
+                else:
+                    diff = np.sqrt(-f_support_const) / std
+                    wrap_diff = np.sqrt(-f_support_const - np.log(2)) / std
                 supp_ang_low = center - diff
                 supp_ang_high = center + diff
                 # if we translate the scale by the full difference, we
@@ -658,7 +681,12 @@ class GaborFilterBank(LinearFilterBank):
                 steps += 1
             last_low = low
             last_high = high
-            support = int(np.ceil(2 * np.sqrt(std ** 2 * (-b - np.log(std)))))
+            if scale_l2_norm:
+                support = int(np.ceil(
+                    2 * std * np.sqrt((-t_support_const - np.log(std)))))
+            else:
+                support = int(np.ceil(
+                    2 * std * np.sqrt((-t_support_const - 2 * np.log(std)))))
             centers_ang.append(center)
             supports_ang.append(supp_ang_high - supp_ang_low)
             wraps_ang.append(2 * wrap_diff - supports_ang[-1])
@@ -714,11 +742,22 @@ class GaborFilterBank(LinearFilterBank):
     def supports(self):
         return self._supports
 
+    @property
+    def scaled_l2_norm(self):
+        return self._scale_l2_norm
+
+    @property
+    def erb(self):
+        return self._erb
+
     def get_impulse_response(self, filt_idx, width):
         center_ang = self._centers_ang[filt_idx]
         std = self._stds[filt_idx]
         res = np.zeros(width, dtype=np.complex128)
-        const_term = -.25 * np.log(np.pi) - .5 * np.log(std)
+        if self._scale_l2_norm:
+            const_term = -.25 * np.log(np.pi) - .5 * np.log(std)
+        else:
+            const_term = -.5 * np.log(np.pi) - np.log(2 ** .5) - np.log(std)
         denom_term = 2 * std ** 2
         for t in range(width + 1):
             val = -t ** 2 / denom_term + const_term + 1j * center_ang * t
@@ -742,7 +781,10 @@ class GaborFilterBank(LinearFilterBank):
             else:
                 dft_size = width // 2 + 1
         res = np.zeros(dft_size, dtype=np.float64)
-        const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+        if self._scale_l2_norm:
+            const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+        else:
+            const_term = 0
         num_term = std ** 2 / 2
         for idx in range(dft_size):
             for period in range(
@@ -777,7 +819,10 @@ class GaborFilterBank(LinearFilterBank):
         left_idx = int(np.ceil(width * low_hz / self._rate))
         right_idx = int(width * high_hz / self._rate)
         res = np.zeros(1 + right_idx - left_idx, dtype=np.float64)
-        const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+        if self._scale_l2_norm:
+            const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+        else:
+            const_term = 0
         num_term = std ** 2 / 2
         for idx in range(left_idx, right_idx + 1):
             for period in range(
