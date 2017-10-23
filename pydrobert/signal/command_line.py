@@ -180,7 +180,7 @@ def compute_feats_from_kaldi_tables(args=None):
         for preprocessor in preprocessors:
             buff = preprocessor.apply(buff, in_place=True)
         feats = computer.compute_full(buff)
-        if not KaldiDataType.BaseFloatMatrix.is_double:
+        if not KaldiDataType.BaseMatrix.is_double:
             feats = feats.astype(np.float32)
         feat_writer.write(utt_id, feats)
         if num_utts % 10 == 0:
