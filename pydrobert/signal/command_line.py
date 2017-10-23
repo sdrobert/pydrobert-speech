@@ -70,6 +70,8 @@ def compute_feats_from_kaldi_tables(args=None):
     '''
     from pydrobert.kaldi.command_line import KaldiParser
     from pydrobert.kaldi.logging import register_logger_for_kaldi
+    from pydrobert.kaldi.io.enums import KaldiDataType
+    from pydrobert.kaldi.io import open as io_open
     logger = logging.getLogger(sys.argv[0])
     logger.addHandler(logging.StreamHandler())
     register_logger_for_kaldi(logger)
@@ -129,7 +131,6 @@ def compute_feats_from_kaldi_tables(args=None):
         logger.error('Failed to build preprocessor:', exc_info=True)
         return 1
     # open tables
-    from pydrobert.kaldi.io import open as io_open
     try:
         wav_reader = io_open(
             options.wav_rspecifier, 'wm', value_style='bsd')
@@ -179,6 +180,8 @@ def compute_feats_from_kaldi_tables(args=None):
         for preprocessor in preprocessors:
             buff = preprocessor.apply(buff, in_place=True)
         feats = computer.compute_full(buff)
+        if not KaldiDataType.BaseFloatMatrix.is_double:
+            feats = feats.astype(np.float32)
         feat_writer.write(utt_id, feats)
         if num_utts % 10 == 0:
             logger.info('Processed {} utterances'.format(num_utts))
