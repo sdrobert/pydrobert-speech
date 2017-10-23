@@ -627,6 +627,7 @@ class GaborFilterBank(LinearFilterBank):
                 std = np.sqrt(np.pi) / (high - low)
                 # diff btw center and freq bound of support
                 diff = np.sqrt((np.log(std) - a)) / std
+                wrap_diff = np.sqrt((np.log(std) - a - np.log(2)))
                 supp_ang_low = center - diff
                 supp_ang_high = center + diff
                 # if we translate the scale by the full difference, we
@@ -660,7 +661,7 @@ class GaborFilterBank(LinearFilterBank):
             support = int(np.ceil(2 * np.sqrt(std ** 2 * (-b - np.log(std)))))
             centers_ang.append(center)
             supports_ang.append(supp_ang_high - supp_ang_low)
-            wraps_ang.append(np.sqrt(2) * np.log(2) / std)
+            wraps_ang.append(2 * wrap_diff - supports_ang[-1])
             supports.append((-support // 2 - 1, support // 2 + 1))
             stds.append(std)
         self._centers_ang = tuple(centers_ang)

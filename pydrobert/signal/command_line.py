@@ -8,11 +8,8 @@ import argparse
 import json
 import logging
 import sys
-import shlex
 
 from os import path
-
-import numpy as np
 
 from pydrobert.signal.compute import FrameComputer
 from pydrobert.signal.pre import PreProcessor
@@ -136,9 +133,6 @@ def _kaldi_argparse_boilerplate(descr, parent, args):
         If there was an error, returns None. Otherwise, a pair of
         (namespace, logger)
     '''
-    def _convert_arg_line_to_args(arg_line):
-        for arg in shlex.split(arg_line, comments=True):
-             yield arg
     prog_name = path.basename(sys.argv[0])
     class _StdErrHelpAction(argparse.Action):
         def __init__(self, *args, **kwargs):
@@ -161,7 +155,6 @@ def _kaldi_argparse_boilerplate(descr, parent, args):
         add_help=False, parents=[parent],
         fromfile_prefix_chars='@', # for kaldi-like config files
     )
-    parser.convert_arg_line_to_args = _convert_arg_line_to_args
     parser.add_argument(
         '-h', '--help', action=_StdErrHelpAction, default=argparse.SUPPRESS,
         nargs=0,
@@ -261,7 +254,6 @@ def compute_feats_from_kaldi_tables(args=None):
         return 1
     # open tables
     from pydrobert.kaldi.io import open as io_open
-    from pydrobert.kaldi.io.enums import KaldiDataType
     try:
         wav_reader = io_open(
             namespace.wav_rspecifier, 'wm', value_style='bsd')
@@ -311,8 +303,6 @@ def compute_feats_from_kaldi_tables(args=None):
         for preprocessor in preprocessors:
             buff = preprocessor.apply(buff, in_place=True)
         feats = computer.compute_full(buff)
-        if not KaldiDataType.BaseMatrix.is_double:
-            feats = feats.astype(np.float32, copy=False)
         feat_writer.write(utt_id, feats)
         if num_utts % 10 == 0:
             logger.info('Processed {} utterances'.format(num_utts))
