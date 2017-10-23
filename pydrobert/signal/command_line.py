@@ -109,18 +109,18 @@ def compute_feats_from_kaldi_tables(args=None):
     # construct the computer
     try:
         computer = alias_factory_subclass_from_arg(
-            FrameComputer, namespace.computer_config)
+            FrameComputer, options.computer_config)
     except ValueError:
         logger.error('Failed to build computer:', exc_info=True)
         return 1
     # construct the preprocessors (if any)
     preprocessors = []
     try:
-        if isinstance(namespace.preprocess, dict):
+        if isinstance(options.preprocess, dict):
             preprocessors.append(alias_factory_subclass_from_arg(
-                PreProcessor, namespace.preprocess))
+                PreProcessor, options.preprocess))
         else:
-            for element in namespace.preprocess:
+            for element in options.preprocess:
                 preprocessors.append(alias_factory_subclass_from_arg(
                     PreProcessor, element))
     except ValueError:
@@ -130,23 +130,23 @@ def compute_feats_from_kaldi_tables(args=None):
     from pydrobert.kaldi.io import open as io_open
     try:
         wav_reader = io_open(
-            namespace.wav_rspecifier, 'wm', value_style='bsd')
+            options.wav_rspecifier, 'wm', value_style='bsd')
     except IOError:
         logger.error(
-            'Could not read the wave table {}'.format(namespace.wav_rspecifier)
+            'Could not read the wave table {}'.format(options.wav_rspecifier)
         )
         return 1
     try:
-        feat_writer = io_open(namespace.feats_wspecifier, 'bm', mode='w')
+        feat_writer = io_open(options.feats_wspecifier, 'bm', mode='w')
     except IOError:
         logger.error(
             'Could not open the feat table {} for writing'.format(
-                namespace.feats_wspecifier))
+                options.feats_wspecifier))
         return 1
     num_utts, num_success = 0, 0
     for utt_id, (buff, samp_freq, duration) in wav_reader.items():
         num_utts += 1
-        if duration < namespace.min_duration:
+        if duration < options.min_duration:
             logger.warn(
                 'File: {} is too short ({:.2f} sec): producing no output'
                 ''.format(utt_id, duration)
@@ -159,18 +159,18 @@ def compute_feats_from_kaldi_tables(args=None):
                 ''.format(utt_id, computer.bank.sample_rate_hz, samp_freq)
             )
             continue
-        cur_chan = namespace.channel
-        if namespace.channel == -1 and buff.shape[0] > 1:
+        cur_chan = options.channel
+        if options.channel == -1 and buff.shape[0] > 1:
             logger.warning(
                 'Channel is not specified but you have data with {} channels;'
                 ' defaulting to zero'.format(buff.shape[0])
             )
             cur_chan = 0
-        elif namespace.channel >= buff.shape[0]:
+        elif options.channel >= buff.shape[0]:
             logger.warn(
                 'File with id {} has {} channels but you specified channel {},'
                 ' producing no ouptut'.format(
-                    utt_id, buff.shape[0], namespace.channel)
+                    utt_id, buff.shape[0], options.channel)
             )
             continue
         buff = buff[cur_chan].astype(np.float64, copy=False)
