@@ -11,6 +11,8 @@ import sys
 
 from os import path
 
+import numpy as np
+
 from pydrobert.signal.compute import FrameComputer
 from pydrobert.signal.pre import PreProcessor
 from pydrobert.signal.util import alias_factory_subclass_from_arg
