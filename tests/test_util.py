@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+import sys
 import warnings
 
 from math import erf
@@ -13,7 +14,8 @@ from tempfile import mkdtemp
 import numpy as np
 import pytest
 
-from pydrobert.signal import util
+from pydrobert.speech import util
+
 
 @pytest.mark.parametrize('shift', [0, 1, 100, -100])
 @pytest.mark.parametrize(
@@ -40,12 +42,10 @@ def test_circshift_fourier(shift, dft_size, start_idx, copy):
     xs = np.fft.ifft(Xs)
     assert np.allclose(np.roll(x, shift), xs)
 
+
 @pytest.mark.parametrize('mu', [0, -1, 100])
 @pytest.mark.parametrize('std', [.1, 1, 10])
-@pytest.mark.parametrize('do_scipy', [
-    pytest.param(True, marks=pytest.mark.importorskip('scipy.norm')),
-    False,
-])
+@pytest.mark.parametrize('do_scipy', [True, False])
 def test_gauss_quant(mu, std, do_scipy):
     X = np.arange(1000, dtype=float) / 1000 - .5
     X /= X.std()
@@ -54,6 +54,7 @@ def test_gauss_quant(mu, std, do_scipy):
     for x in X:
         p = .5 * (1 + erf((x - mu) / std / np.sqrt(2)))
         if do_scipy:
+            pytest.importorskip('scipy.norm')
             x2 = util.gauss_quant(p, mu=mu, std=std)
         else:
             # because we don't give access to this if scipy is
@@ -61,12 +62,13 @@ def test_gauss_quant(mu, std, do_scipy):
             x2 = util._gauss_quant_odeh_evans(p, mu=mu, std=std)
         assert np.isclose(x, x2, atol=1e-5)
 
+
 # python 3 source
 class TemporaryDirectory(object):
 
     def __init__(self, suffix="", prefix="tmp", dir=None):
         self._closed = False
-        self.name = None # Handle mkdtemp raising an exception
+        self.name = None  # Handle mkdtemp raising an exception
         self.name = mkdtemp(suffix, prefix, dir)
 
     def __repr__(self):
@@ -86,7 +88,7 @@ class TemporaryDirectory(object):
                 if "None" not in str(ex):
                     raise
                 print("ERROR: {!r} while cleaning up {!r}".format(ex, self,),
-                      file=_sys.stderr)
+                      file=sys.stderr)
                 return
             self._closed = True
             if _warn:
@@ -133,10 +135,12 @@ class TemporaryDirectory(object):
         except OSError:
             pass
 
+
 @pytest.fixture(scope='module')
 def tdir():
     with TemporaryDirectory() as a:
         yield a
+
 
 @pytest.mark.parametrize('key', [True, False])
 def test_read_kaldi(tdir, key):
@@ -155,6 +159,7 @@ def test_read_kaldi(tdir, key):
     else:
         buff_3 = util.read_signal(rxfilename, dtype='dm')
         assert np.allclose(buff_1, buff_3)
+
 
 @pytest.mark.parametrize('use_scipy', [True, False])
 @pytest.mark.parametrize('channels', [1, 2], ids=['mono', 'stereo'])
@@ -181,6 +186,7 @@ def test_read_wave(tdir, use_scipy, channels, sampwidth):
         wave_buffer_2 = util._wave_read_signal(rfilename, None, None)
     assert np.allclose(wave_buffer_1, wave_buffer_2)
 
+
 @pytest.mark.parametrize('key', [True, False])
 def test_read_hdf5(tdir, key):
     h5py = pytest.importorskip('h5py')
@@ -200,6 +206,7 @@ def test_read_hdf5(tdir, key):
         dset_3 = util.read_signal(rfilename)
         assert np.allclose(dset_1, dset_3)
 
+
 @pytest.mark.parametrize(
     'allow_pickle', [True, False], ids=['picklable', 'notpicklable'])
 @pytest.mark.parametrize('fix_imports', [True, False], ids=['fix', 'nofix'])
@@ -210,6 +217,7 @@ def test_read_numpy_binary(tdir, allow_pickle, fix_imports):
         rfilename, buff_1, allow_pickle=allow_pickle, fix_imports=fix_imports)
     buff_2 = util.read_signal(rfilename)
     assert np.allclose(buff_1, buff_2)
+
 
 @pytest.mark.parametrize(
     'compressed', [True, False], ids=['compressed', 'uncompressed'])
@@ -231,6 +239,7 @@ def test_read_numpy_archive(tdir, compressed, key):
     else:
         buff_3 = util.read_signal(rfilename)
     assert np.allclose(buff_1, buff_3)
+
 
 @pytest.mark.parametrize('text', [True, False])
 def test_read_numpy_fromfile(tdir, text):

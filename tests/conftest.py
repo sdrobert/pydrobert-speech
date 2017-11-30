@@ -1,5 +1,3 @@
-# pylint: skip-file
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -12,9 +10,9 @@ from tempfile import NamedTemporaryFile
 import numpy as np
 import pytest
 
-from pydrobert.signal import compute
-from pydrobert.signal import filters
-from pydrobert.signal import scales
+from pydrobert.speech import compute
+from pydrobert.speech import filters
+from pydrobert.speech import scales
 
 # throws away the user error on import if LC_ALL=C is not set
 try:
@@ -27,6 +25,7 @@ warnings.simplefilter('error')
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
+
 # fixtures
 @pytest.fixture
 def temp_file_1_name():
@@ -34,6 +33,7 @@ def temp_file_1_name():
     temp.close()
     yield temp.name
     os.remove(temp.name)
+
 
 @pytest.fixture(params=[
     scales.LinearScaling(np.random.randint(1, 20)),
@@ -50,6 +50,7 @@ def temp_file_1_name():
 def scaling_function(request):
     return request.param
 
+
 @pytest.fixture(params=[
     1,
     11,
@@ -60,12 +61,14 @@ def scaling_function(request):
 def num_filts(request):
     return request.param
 
+
 @pytest.fixture(params=[
     lambda scale, num_filts: filters.TriangularOverlappingFilterBank(
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
-        high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
+        high_hz=(
+            np.random.randint(2000, 4000) if np.random.randint(2) else None),
         sampling_rate=8000 if np.random.randint(2) else 16000,
         analytic=np.random.randint(2),
     ),
@@ -73,7 +76,8 @@ def num_filts(request):
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
-        high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
+        high_hz=(
+            np.random.randint(2000, 4000) if np.random.randint(2) else None),
         sampling_rate=8000 if np.random.randint(2) else 16000,
         analytic=np.random.randint(2),
     ),
@@ -81,7 +85,8 @@ def num_filts(request):
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
-        high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
+        high_hz=(
+            np.random.randint(2000, 4000) if np.random.randint(2) else None),
         sampling_rate=8000 if np.random.randint(2) else 16000,
         boundary_adjustment_mode='edges' if np.random.randint(2) else 'wrap',
     ),
@@ -89,7 +94,8 @@ def num_filts(request):
         scale,
         low_hz=np.random.randint(20, 60),
         num_filts=num_filts,
-        high_hz=np.random.randint(2000, 4000) if np.random.randint(2) else None,
+        high_hz=(
+            np.random.randint(2000, 4000) if np.random.randint(2) else None),
         sampling_rate=8000 if np.random.randint(2) else 16000,
         order=np.random.randint(2, 5),
         max_centered=np.random.randint(2),
@@ -103,6 +109,7 @@ def num_filts(request):
 def bank(request, scaling_function, num_filts):
     return request.param(scaling_function, num_filts)
 
+
 @pytest.fixture(params=[
     'causal',
     'centered',
@@ -110,10 +117,12 @@ def bank(request, scaling_function, num_filts):
 def frame_style(request):
     return request.param
 
+
 @pytest.fixture(params=[
     lambda bank, frame_style: compute.STFTFrameComputer(
         bank,
-        frame_length_ms=np.random.randint(5, 30) if np.random.randint(2) else None,
+        frame_length_ms=(
+            np.random.randint(5, 30) if np.random.randint(2) else None),
         frame_shift_ms=np.random.randint(5, 20),
         use_power=np.random.randint(2),
         use_log=np.random.randint(2),
@@ -136,4 +145,3 @@ def frame_style(request):
 ],)
 def computer(request, bank, frame_style):
     return request.param(bank, frame_style)
-

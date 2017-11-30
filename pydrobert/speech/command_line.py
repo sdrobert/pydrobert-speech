@@ -9,13 +9,11 @@ import json
 import logging
 import sys
 
-from os import path
-
 import numpy as np
 
-from pydrobert.signal.compute import FrameComputer
-from pydrobert.signal.pre import PreProcessor
-from pydrobert.signal.util import alias_factory_subclass_from_arg
+from pydrobert.speech.compute import FrameComputer
+from pydrobert.speech.pre import PreProcessor
+from pydrobert.speech.util import alias_factory_subclass_from_arg
 
 try:
     from pydrobert.kaldi.command_line import kaldi_vlog_level_cmd_decorator
@@ -23,6 +21,7 @@ try:
 except ImportError:
     def kaldi_vlog_level_cmd_decorator(func):
         return func
+
     def kaldi_logger_decorator(func):
         return func
 
@@ -30,6 +29,7 @@ __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
+
 
 def json_type(string):
     '''Convert JSON string (or path to JSON file) to container hierarchy'''
@@ -47,6 +47,7 @@ def json_type(string):
         raise argparse.ArgumentTypeError(
             'Unable to parse string as json: "{}"'.format(string))
 
+
 def nonneg_int_type(string):
     '''Convert to an int and make sure its nonnegative'''
     try:
@@ -56,6 +57,7 @@ def nonneg_int_type(string):
         raise argparse.ArgumentTypeError(
             '{} is not a nonnegative integer'.format(string))
     return val
+
 
 @kaldi_vlog_level_cmd_decorator
 @kaldi_logger_decorator
@@ -91,7 +93,7 @@ def compute_feats_from_kaldi_tables(args=None):
     parser.add_argument(
         'computer_config', type=json_type,
         help='JSON file or string to configure a '
-        'pydrobert.signal.compute.FrameComputer object to calculate '
+        'pydrobert.speech.compute.FrameComputer object to calculate '
         'features with'
     )
     parser.add_argument(
@@ -103,8 +105,9 @@ def compute_feats_from_kaldi_tables(args=None):
     )
     parser.add_argument(
         '--preprocess', type=json_type, default=tuple(),
-        help='JSON list of configurations for pydrobert.signal.pre.PreProcessor'
-        ' objects. Audio will be preprocessed in the same order as the list'
+        help='JSON list of configurations for '
+        'pydrobert.speech.pre.PreProcessor objects. Audio will be '
+        'preprocessed in the same order as the list'
     )
     try:
         options = parser.parse_args(args)
@@ -191,4 +194,3 @@ def compute_feats_from_kaldi_tables(args=None):
     feat_writer.close()
     wav_reader.close()
     return 0 if num_success else 1
-

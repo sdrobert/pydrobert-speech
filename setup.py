@@ -1,5 +1,3 @@
-# pylint: skip-file
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -22,16 +20,21 @@ PWD = path.abspath(path.dirname(__file__))
 with open(path.join(PWD, 'README.rst'), encoding='utf-8') as readme_file:
     LONG_DESCRIPTION = readme_file.read()
 
+SETUP_REQUIRES = ['setuptools_scm']
+if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
+    SETUP_REQUIRES += ['pytest-runner']
+
 setup(
-    name='pydrobert-signal',
-    description='Signal processing with Python',
+    name='pydrobert-speech',
+    description='Speech processing with Python',
     long_description=LONG_DESCRIPTION,
-    url='https://github.com/sdrobert/pydrobert-signal',
+    use_scm_version=True,
+    url='https://github.com/sdrobert/pydrobert-speech',
     author=__author__,
     author_email=__email__,
     license=__license__,
     namespace_packages=['pydrobert'],
-    packages=['pydrobert', 'pydrobert.signal'],
+    packages=['pydrobert', 'pydrobert.speech'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Researchers',
@@ -46,9 +49,7 @@ setup(
     install_requires=[
         'numpy', 'six',
     ],
-    setup_requires=[
-        'pytest-runner',
-    ],
+    setup_requires=SETUP_REQUIRES,
     tests_require=[
         'pytest', 'scipy',
     ],

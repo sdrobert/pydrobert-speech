@@ -8,12 +8,12 @@ import abc
 
 import numpy as np
 
-from pydrobert.signal import AliasedFactory
-from pydrobert.signal import config
-from pydrobert.signal.scales import ScalingFunction
-from pydrobert.signal.util import alias_factory_subclass_from_arg
-from pydrobert.signal.util import angular_to_hertz
-from pydrobert.signal.util import hertz_to_angular
+from pydrobert.speech import AliasedFactory
+from pydrobert.speech import config
+from pydrobert.speech.scales import ScalingFunction
+from pydrobert.speech.util import alias_factory_subclass_from_arg
+from pydrobert.speech.util import angular_to_hertz
+from pydrobert.speech.util import hertz_to_angular
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -92,7 +92,7 @@ class LinearFilterBank(AliasedFactory):
         Returns a tuple of length `num_filts` containing pairs of floats
         of the low and high frequencies. Frequencies outside the span
         have a response of approximately (with magnitude up to
-        `signal.EFFECTIVE_SUPPORT_SIGNAL`) zero.
+        `speech.EFFECTIVE_SUPPORT_SIGNAL`) zero.
 
         The boundaries need not be tight, i.e. the region inside the
         boundaries could be zero. It is more important to guarantee that
@@ -245,10 +245,10 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
         Dictates the layout of filters in the Fourier domain. Can be
         a ScalingFunction or something compatible with
-        `pydrobert.signal.alias_factory_subclass_from_arg`
+        `pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -541,10 +541,10 @@ class GaborFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
         Dictates the layout of filters in the Fourier domain. Can be
         a ScalingFunction or something compatible with
-        `pydrobert.signal.alias_factory_subclass_from_arg`
+        `pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -578,7 +578,7 @@ class GaborFilterBank(LinearFilterBank):
 
     See Also
     --------
-    pydrobert.signal.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
+    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
         value below which counts as zero
     """
 
@@ -868,10 +868,10 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.signal.ScalingFunction, str, or dict
+    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
         Dictates the layout of filters in the Fourier domain. Can be
         a ScalingFunction or something compatible with
-        `pydrobert.signal.alias_factory_subclass_from_arg`
+        `pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
@@ -906,7 +906,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     See Also
     --------
-    pydrobert.signal.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
+    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
         value below which counts as zero
     '''
 

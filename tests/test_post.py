@@ -7,7 +7,8 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from pydrobert.signal import post
+from pydrobert.speech import post
+
 
 @pytest.fixture(params=[
     np.float64,
@@ -22,6 +23,7 @@ from pydrobert.signal import post
 ], scope='module')
 def dtype(request):
     return request.param
+
 
 @pytest.mark.parametrize('norm_var', [True, False])
 @pytest.mark.parametrize('buff', [
@@ -53,16 +55,17 @@ def test_standardize_local(norm_var, buff, dtype):
         if norm_var:
             assert np.allclose(s_buff.var(axis=other_axes), 1), axis
 
+
 @pytest.mark.parametrize('norm_var', [True, False])
 @pytest.mark.parametrize('buff', [
-    np.random.random((5, 100)) * np.random.randint(1, 100, 100)
-    + np.random.randint(-10, 10, 100),
-    np.random.random((8, 1, 10)) * np.random.randint(1, 100, 10)
-    + np.random.randint(-10, 10, 10),
-    np.random.random((3, 10, 20)) * np.random.randint(1, 100, 20)
-    + np.random.randint(-10, 10, 20),
-    np.random.random((2, 50, 2, 3)) * np.random.randint(1, 100, 3)
-    + np.random.randint(-10, 10, 3),
+    np.random.random((5, 100)) * np.random.randint(1, 100, 100) + (
+        np.random.randint(-10, 10, 100)),
+    np.random.random((8, 1, 10)) * np.random.randint(1, 100, 10) + (
+        + np.random.randint(-10, 10, 10)),
+    np.random.random((3, 10, 20)) * np.random.randint(1, 100, 20) + (
+        + np.random.randint(-10, 10, 20)),
+    np.random.random((2, 50, 2, 3)) * np.random.randint(1, 100, 3) + (
+        + np.random.randint(-10, 10, 3)),
 ])
 def test_standardize_global(norm_var, buff, dtype):
     buff = buff.astype(dtype)
@@ -86,6 +89,7 @@ def test_standardize_global(norm_var, buff, dtype):
     s_buff_2 = stand.apply(buff[0])
     assert np.allclose(s_buff_1[0], s_buff_2)
 
+
 def test_standardize_write_read(temp_file_1_name):
     stand_1 = post.Standardize()
     x_1 = np.random.random((2, 3, 4))
@@ -102,6 +106,7 @@ def test_standardize_write_read(temp_file_1_name):
     stand_2 = post.Standardize(temp_file_1_name)
     x_1_p_3 = stand_2.apply(x_1, axis=1)
     assert np.allclose(x_1_p_2, x_1_p_3)
+
 
 @pytest.mark.parametrize('buff', [
     np.random.random(10),
@@ -123,6 +128,7 @@ def test_delta_shapes(buff, concatenate, num_deltas):
                 new_shape.insert(target_axis, num_deltas + 1)
             assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), \
                 buff.shape
+
 
 class KaldiDeltas(object):
     '''Replicate Kaldi delta logic for comparative purposes'''
@@ -169,7 +175,8 @@ class KaldiDeltas(object):
             self._process(r, features, out_row)
         return out.astype(features.dtype, copy=False)
 
-@pytest.mark.parametrize('buff',[
+
+@pytest.mark.parametrize('buff', [
     np.random.random((1, 3)),
     np.random.random((3, 1)),
     np.random.random((20, 50)),
@@ -184,4 +191,3 @@ def test_compare_to_kaldi(buff, num_deltas, window, dtype):
     delta_res = deltas.apply(buff, axis=0)
     kaldi_res = kaldi_deltas.apply(buff)
     assert np.allclose(delta_res, kaldi_res)
-

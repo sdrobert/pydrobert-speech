@@ -1,4 +1,4 @@
-"""Signal processing library, primarily for speech
+"""Speech processing library
 
 Available modules
 -----------------
@@ -21,7 +21,8 @@ vis
 
 import abc
 
-from itertools import chain
+from pkg_resources import DistributionNotFound
+from pkg_resources import get_distribution
 
 from six import with_metaclass
 
@@ -39,6 +40,12 @@ __all__ = [
     'scales',
     'util',
 ]
+
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+    __version__ = 'dev'
+
 
 class AliasedFactory(object, with_metaclass(abc.ABCMeta)):
     '''An abstract interface for initialing concrete subclasses with aliases'''

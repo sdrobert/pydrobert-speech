@@ -11,8 +11,8 @@ from itertools import count
 
 import numpy as np
 
-from pydrobert.signal import AliasedFactory
-from pydrobert.signal.util import read_signal
+from pydrobert.speech import AliasedFactory
+from pydrobert.speech.util import read_signal
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -25,6 +25,7 @@ __all__ = [
     'CMVN',
     'Deltas',
 ]
+
 
 class PostProcessor(AliasedFactory):
     '''A container for post-processing features with a transform'''
@@ -51,6 +52,7 @@ class PostProcessor(AliasedFactory):
             The transformed features
         '''
         pass
+
 
 class Standardize(PostProcessor):
     r'''Standardize each feature coefficient
@@ -83,7 +85,7 @@ class Standardize(PostProcessor):
 
     See Also
     --------
-    pydrobert.signal.util.read_signal
+    pydrobert.speech.util.read_signal
         Describes the strategy used for loading signals
 
     References
@@ -353,7 +355,9 @@ class Standardize(PostProcessor):
         else:
             self._stats.tofile(wfilename)
 
+
 CMVN = Standardize
+
 
 class Deltas(PostProcessor):
     r'''Calculate feature deltas (weighted rolling averages)
@@ -475,4 +479,3 @@ class Deltas(PostProcessor):
             return np.concatenate(delta_feats, self._target_axis)
         else:
             return np.stack(delta_feats, self._target_axis)
-

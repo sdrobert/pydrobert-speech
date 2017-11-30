@@ -7,9 +7,9 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from pydrobert.signal.config import EFFECTIVE_SUPPORT_THRESHOLD
-from pydrobert.signal.filters import GammaWindow
-from pydrobert.signal.util import hertz_to_angular
+from pydrobert.speech.config import EFFECTIVE_SUPPORT_THRESHOLD
+from pydrobert.speech.filters import GammaWindow
+
 
 def test_truncated_matches_full(bank):
     for filt_idx in range(bank.num_filts):
@@ -42,6 +42,7 @@ def test_truncated_matches_full(bank):
             full_response[bad_idx], challenge[bad_idx]
         )
 
+
 def test_frequency_matches_impulse(bank):
     for filt_idx in range(bank.num_filts):
         left_hz, right_hz = bank.supports_hz[filt_idx]
@@ -65,12 +66,14 @@ def test_frequency_matches_impulse(bank):
         # the right ballpark... probably
         assert np.allclose(np.fft.ifft(X), x, atol=1e-3), (len(x), filt_idx)
 
+
 def test_half_response_matches_full(bank):
     for filt_idx in range(bank.num_filts):
         dft_size = bank.supports[filt_idx][1] - bank.supports[filt_idx][0]
         Xh = bank.get_frequency_response(filt_idx, dft_size, half=True)
         X = bank.get_frequency_response(filt_idx, dft_size, half=False)
         assert np.allclose(X[:len(Xh)], Xh)
+
 
 def test_zero_outside_freq_support(bank):
     for filt_idx in range(bank.num_filts):
@@ -95,6 +98,7 @@ def test_zero_outside_freq_support(bank):
             atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD
         )
 
+
 def test_zero_outside_temp_support(bank):
     for filt_idx in range(bank.num_filts):
         left_samp, right_samp = bank.supports[filt_idx]
@@ -115,6 +119,7 @@ def test_zero_outside_temp_support(bank):
             x[zero_mask], 0,
             atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD
         )
+
 
 @pytest.mark.parametrize('window_size', [10, 100, 1000])
 @pytest.mark.parametrize('peak_ratio', [.5, .75, .9])

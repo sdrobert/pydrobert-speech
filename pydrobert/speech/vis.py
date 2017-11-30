@@ -7,27 +7,29 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from itertools import cycle
+
 import numpy as np
 
-from matplotlib import lines
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 
-from pydrobert.signal.compute import LinearFilterBankFrameComputer
+from pydrobert.speech.compute import LinearFilterBankFrameComputer
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
 __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2017 Sean Robertson"
 
+
 def plot_frequency_response(
-        bank, axes=None, dft_size=None, half=None, title=None,
-        x_scale='hz', y_scale='dB',):
+        banks, axes=None, dft_size=None, half=None, title=None,
+        x_scale='hz', y_scale='dB', cmap=None):
     '''Plot frequency response of filters in a filter bank
 
     Parameters
     ----------
-    bank : banks.LinearFilterBank
+    bank : banks.LinearFilterBank or list
     axes : matplotlib.axes.Axes, optional
         An Axes object to plot on. Default is to generate a new figure
     dft_size : int, optional
@@ -51,36 +53,53 @@ def plot_frequency_response(
         response. ``'real'`` is the real part of the response,
         ``'imag'`` is the imaginary part of the response, and ``'both'``
         displays both ``'real'`` and ``'imag'`` as separate lines
+    cmap : colormap, optinal
+        A colormap to pull colours from. Defaults to matplotlib's default
+        colormap
 
     Returns
     -------
     matplotlib.figure.Figure
         The containing figure`
     '''
-    if not bank.num_filts:
+    try:
+        len(banks)
+    except AttributeError:  # 1 bank
+        banks = [banks]
+    if not all(x.num_filts for x in banks):
         raise ValueError(
-            'Filter bank must have at least one filter to be visualized')
-    rate = bank.sampling_rate
-    first_colour = 'b'
-    second_colour = 'g'
+            'Filter banks must have at least one filter to be visualized')
+    if not all(x.sampling_rate == banks[0].sampling_rate for x in banks):
+        raise ValueError(
+            'Banks must all have the same sampling rate')
+    rate = banks[0].sampling_rate
+    if cmap is None:
+        cmap = plt.get_cmap()
     if dft_size is None:
-        dft_size = int(max(
-            max(right - left for left, right in bank.supports),
-            2 * rate / min(right - left for left, right in bank.supports_hz),
-        ))
+        dft_size = max(
+            int(max(
+                max(right - left for left, right in bank.supports),
+                2 * rate / min(
+                    right - left for left, right in bank.supports_hz),
+            )) for bank in banks)
     if half is None:
-        half = bank.is_real
+        half = all(bank.is_real for bank in banks)
     if axes is None:
         fig, axes = plt.subplots()
     else:
         fig = axes.get_figure()
-    responses_colours = [
-        (
-            bank.get_frequency_response(filt_idx, dft_size, half=half),
-            first_colour,
-        )
-        for filt_idx in range(bank.num_filts)
-    ]
+    colours = cmap.colors
+    r_colours = list(cmap.colors)
+    r_colours.reverse()
+    responses_colours = []
+    for bank, first_colour, second_color in zip(
+            banks, cycle(colours), cycle(r_colours)):
+        responses_colours.extend([
+            (
+                bank.get_frequency_response(filt_idx, dft_size, half=half),
+                first_colour, second_color
+            ) for filt_idx in range(bank.num_filts)
+        ])
     if half:
         x = np.arange(
             (dft_size + dft_size % 2) // 2 + 1 - dft_size % 2,
@@ -108,58 +127,54 @@ def plot_frequency_response(
         y_title = 'Log Ratio (dB)'
         # maximum abs. Get ripped
         max_abs = max(
-            max(np.abs(response)) for response, _ in responses_colours)
+            max(np.abs(response)) for response, _, _ in responses_colours)
         max_abs = np.log10(max(np.finfo(float).eps, max_abs))
         for filt_idx in range(len(responses_colours)):
-            response, colours = responses_colours[filt_idx]
+            response, first_colour, second_colour = responses_colours[filt_idx]
             response = np.abs(response)
             response[response <= np.finfo(float).eps] = np.nan
             response[...] = 20 * (np.log10(response) - max_abs)
             # looks better than discontinuities
             response[np.isnan(response)] = -1e10
-            responses_colours[filt_idx] = response, colours
+            responses_colours[filt_idx] = response, first_colour, second_colour
         y_max = 0
-        y_min = -20
+        y_min = -10
     elif y_scale in ('pow', 'power'):
         y_title = 'Power'
         y_min = 0
         y_max = 0
         for filt_idx in range(len(responses_colours)):
-            response, colour = responses_colours[filt_idx]
+            response, first_colour, second_colour = responses_colours[filt_idx]
             response = np.abs(response) ** 2
             y_max = max(y_max, max(response))
-            responses_colours[filt_idx] = response, colour
+            responses_colours[filt_idx] = response, first_colour, second_colour
         y_max *= 1.04
     elif y_scale in ('real', 'imag', 'imaginary', 'both'):
         if y_scale == 'real':
             y_title = 'Real-value response'
         elif y_scale == 'both':
             y_title = 'Complex response'
-            real_colour = responses_colours[0][1]
-            if real_colour == first_colour:
-                imag_colour = second_colour
-            else:
-                imag_colour = first_colour
         else:
             y_title = 'Imaginary-value response'
         y_min = np.inf
         y_max = -np.inf
         new_responses_colours = []
-        for response, colour in responses_colours:
+        for response, first_colour, second_colour in responses_colours:
             if y_scale == 'real':
                 response = np.real(response)
             elif y_scale == 'both':
-                colour = real_colour
                 response_b = np.imag(response)
                 response = np.real(response)
                 y_max = max(y_max, max(response_b))
                 y_min = min(y_min, min(response_b))
-                new_responses_colours.append((response_b, imag_colour))
+                new_responses_colours.append(
+                    (response_b, second_colour, first_colour))
             else:
                 response = np.imag(response)
             y_max = max(y_max, max(response))
             y_min = min(y_min, min(response))
-            new_responses_colours.append((response, colour))
+            new_responses_colours.append(
+                (response, first_colour, second_colour))
         assert np.isfinite(y_min) and np.isfinite(y_max)
         y_max *= .96 if y_max < 0 else 1.04
         y_min *= .96 if y_min > 0 else 1.04
@@ -173,13 +188,14 @@ def plot_frequency_response(
         axes.set_title(title)
     axes.set_ylabel(y_title)
     axes.set_xlabel(x_title)
-    for response, colour in responses_colours:
+    for response, colour, _ in responses_colours:
         axes.plot(x, response, color=colour)
-    if y_scale == 'both':
-        real_handle = lines.Line2D([], [], color=real_colour, label='Real')
-        imag_handle = lines.Line2D([], [], color=imag_colour, label='Imag')
-        axes.legend(handles=[real_handle, imag_handle])
+    # if y_scale == 'both':
+    #     real_handle = lines.Line2D([], [], color=real_colour, label='Real')
+    #     imag_handle = lines.Line2D([], [], color=imag_colour, label='Imag')
+    #     axes.legend(handles=[real_handle, imag_handle])
     return fig
+
 
 def _pi_formatter(val, _):
     num_halfpi = int(np.round(2 * val / np.pi))
@@ -201,6 +217,7 @@ def _pi_formatter(val, _):
     else:
         return ''
 
+
 def compare_feature_frames(
         computers, signal, axes=None, figure_height=None, figure_width=None,
         plot_titles=None, positions=None, post_ops=None, title=None, **kwargs):
@@ -214,10 +231,10 @@ def compare_feature_frames(
 
     Parameters
     ----------
-    computers : pydrobert.signal.compute.FrameComputer or tuple
+    computers : pydrobert.speech.compute.FrameComputer or tuple
         One or more frame computers to compare
     signal : array-like
-        A 1D array of the raw signal. Assumed to be valid with respect
+        A 1D array of the raw speech. Assumed to be valid with respect
         to computer settings (e.g. sample rate).
     axes : matplotlib.axes.Axes or tuple, optional
         By default, this function creates a new figure and subplots.
@@ -247,7 +264,7 @@ def compare_feature_frames(
         must be contiguous and start from index 0 or 0,0 (top or
         top-left). `positions` cannot be specified if `axes` is
         specified
-    post_ops : pydrobert.signal.post.PostProcessor or tuple, optional
+    post_ops : pydrobert.speech.post.PostProcessor or tuple, optional
         One or more post-processors to apply (in order) to each computed
         feature representation. If a simple list of post-processors is
         provided, each operation is applied to the default axis (the
@@ -392,7 +409,7 @@ def compare_feature_frames(
         frame_shift = computer.frame_shift
         if computer.frame_style == 'causal':
             pad_left = 0
-        else: # centered
+        else:  # centered
             pad_left = (frame_length + 1) // 2 - 1
         total_len = num_samples + pad_left
         num_frames = max(0, (total_len - frame_length) // frame_shift + 1)

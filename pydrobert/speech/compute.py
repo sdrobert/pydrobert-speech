@@ -1,4 +1,4 @@
-"""Compute features from signals"""
+"""Compute features from speech signals"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -10,13 +10,13 @@ from itertools import count
 
 import numpy as np
 
-from pydrobert.signal import AliasedFactory
-from pydrobert.signal import config
-from pydrobert.signal.filters import GammaWindow
-from pydrobert.signal.filters import HannWindow
-from pydrobert.signal.filters import LinearFilterBank
-from pydrobert.signal.filters import WindowFunction
-from pydrobert.signal.util import alias_factory_subclass_from_arg
+from pydrobert.speech import AliasedFactory
+from pydrobert.speech import config
+from pydrobert.speech.filters import GammaWindow
+from pydrobert.speech.filters import HannWindow
+from pydrobert.speech.filters import LinearFilterBank
+from pydrobert.speech.filters import WindowFunction
+from pydrobert.speech.util import alias_factory_subclass_from_arg
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -186,6 +186,7 @@ class FrameComputer(AliasedFactory):
         """
         return frame_by_frame_calculation(self, signal)
 
+
 class LinearFilterBankFrameComputer(FrameComputer):
     '''Frame computers whose features are derived from linear filter banks
 
@@ -196,10 +197,10 @@ class LinearFilterBankFrameComputer(FrameComputer):
 
     Parameters
     ----------
-    bank : pydrobert.signal.filters.LinearFilterBank, dict, or str
+    bank : pydrobert.speech.filters.LinearFilterBank, dict, or str
         Each filter in the bank corresponds to a coefficient in a
         frame vector. Can be a LinearFilterBank or something compatible
-        with `pydrobert.signal.alias_factory_subclass_from_arg`
+        with `pydrobert.speech.alias_factory_subclass_from_arg`
     include_energy : bool, optional
         Whether to include a coefficient based on the energy of the
         signal within the frame. If ``True``, the energy coefficient
@@ -207,7 +208,7 @@ class LinearFilterBankFrameComputer(FrameComputer):
 
     Attributes
     ----------
-    bank : pydrobert.signal.filters.LinearFilterBank
+    bank : pydrobert.speech.filters.LinearFilterBank
     includes_energy : bool
     '''
 
@@ -228,6 +229,7 @@ class LinearFilterBankFrameComputer(FrameComputer):
     @property
     def num_coeffs(self):
         return self._bank.num_filts + int(self._include_energy)
+
 
 class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     """Compute features of a signal by integrating STFTs
@@ -267,12 +269,12 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Whether the DFT should be a padded to a power of two for
         computational efficiency
-    window_function : pydrobert.signal.filters.WindowFunction, dict, or str
+    window_function : pydrobert.speech.filters.WindowFunction, dict, or str
         The window used in step 1. Can be a WindowFunction or something
         compatible with
-        `pydrobert.signal.alias_factory_subclass_from_arg`. Defaults to
-        `pydrobert.signal.filters.GammaWindow` when ``frame_style`` is
-        ``'causal'``, otherwise `pydrobert.signal.filters.HannWindow`.
+        `pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
+        `pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
+        ``'causal'``, otherwise `pydrobert.speech.filters.HannWindow`.
     use_log : bool, optional
         Whether to take the log of the sum from 3b.
     use_power : bool, optional
@@ -280,7 +282,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
 
     Attributes
     ----------
-    bank : pydrobert.signal.filters.LinearFilterBank
+    bank : pydrobert.speech.filters.LinearFilterBank
     frame_style : {'causal', 'centered'}
     sampling_rate : float
     frame_length : int
@@ -423,10 +425,10 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                     if seg_len:
                         val += self._nonlin_op(
                             half_spect[
-                                -2 + half_len % 2 - start_idx:
-                                -2 + half_len % 2 - start_idx - seg_len:
-                                -1
-                            ].conj() * truncated_filt[consumed:consumed + seg_len]
+                                (-2 + (half_len % 2) - start_idx):
+                                (-2 + (half_len % 2) - start_idx - seg_len):-1
+                            ].conj() * truncated_filt[
+                                consumed:consumed + seg_len]
                         )
                     start_idx -= half_len - 2 + half_len % 2
                 else:
@@ -450,7 +452,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             coeffs[filt_idx] = val
 
     def compute_chunk(self, chunk):
-        self._chunk_dtype = chunk.dtype # needed for `finalize`
+        self._chunk_dtype = chunk.dtype  # needed for `finalize`
         # algorithm should work when frame shift is greater than frame
         # length - buf_len may be negative, which will skip samples
         buf_len = self._buf_len
@@ -566,7 +568,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             )
         return coeffs
 
+
 STFTFrameComputer = ShortTimeFourierTransformFrameComputer
+
 
 class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     """Compute features by integrating over the filter modulus
@@ -587,7 +591,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     Parameters
     ----------
-    bank : pydrobert.signal.filters.LinearFilterBank
+    bank : pydrobert.speech.filters.LinearFilterBank
     frame_shift_ms : float, optional
         The offset between successive frames, in milliseconds. Also the
         length of the integration
@@ -599,12 +603,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     pad_to_nearest_power_of_two : bool, optional
         Pad the DFTs used in computation to a power of two for
         efficient computation
-    window_function : pydrobert.signal.filters.WindowFunction, dict, or str
+    window_function : pydrobert.speech.filters.WindowFunction, dict, or str
         The window used to weigh integration. Can be a WindowFunction or
         something compatible with
-        `pydrobert.signal.alias_factory_subclass_from_arg`. Defaults to
-        `pydrobert.signal.filters.GammaWindow` when ``frame_style`` is
-        ``'causal'``, otherwise `pydrobert.signal.filters.HannWindow`.
+        `pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
+        `pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
+        ``'causal'``, otherwise `pydrobert.speech.filters.HannWindow`.
     use_power : bool, optional
         Whether the pointwise linearity is the signal's power or
         magnitude
@@ -639,7 +643,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._ret_dtype = np.float64
         self._x_rem, self._y_rem, self._skip = 0, 0, 0
         self._started = False
-        if frame_style == None:
+        if frame_style is None:
             frame_style = 'centered' if bank.is_zero_phase else 'causal'
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
@@ -895,7 +899,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         elif config.USE_FFTPACK:
             from scipy import fftpack
             complex_frame = np.zeros(self._dft_size, dtype=np.complex128)
-            complex_frame[:len(buff)] = buff # implicit upcast if f32
+            complex_frame[:len(buff)] = buff  # implicit upcast if f32
             fourier_frame = fftpack.fft(complex_frame, overwrite_x=True)
         else:
             fourier_frame = np.fft.fft(buff, n=self._dft_size)
@@ -934,7 +938,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._y_buf[-1] = 0
         self._y_rem -= self._frame_shift
 
+
 SIFrameComputer = ShortIntegrationFrameComputer
+
 
 def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
     """Compute feature representation of entire signal iteratively
@@ -973,4 +979,3 @@ def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
         signal = signal[chunk_size:]
     coeffs.append(computer.finalize())
     return np.concatenate(coeffs)
-

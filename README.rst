@@ -1,5 +1,4 @@
-pydrobert-signal
------------------
+pydrobert-speech
+----------------
 
-Various signal/feature-related transforms, primarily intended for speech
-processing.
+Various speech/feature-related transforms.

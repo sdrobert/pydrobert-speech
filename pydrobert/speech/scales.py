@@ -3,7 +3,7 @@
 Scaling functions transform a scalar in the frequency domain to some
 other real domain (the "scale" domain). The scaling functions should be
 invertible. Their primary purpose is to define the bandwidths of filters
-in `pydrobert.signal.filters`.
+in `pydrobert.speech.filters`.
 """
 
 from __future__ import absolute_import
@@ -14,7 +14,7 @@ import abc
 
 import numpy as np
 
-from pydrobert.signal import AliasedFactory
+from pydrobert.speech import AliasedFactory
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -29,6 +29,7 @@ __all__ = [
     'BarkScaling',
 ]
 
+
 class ScalingFunction(AliasedFactory):
     """Converts a frequency to some scale and back again"""
 
@@ -41,6 +42,7 @@ class ScalingFunction(AliasedFactory):
     def hertz_to_scale(self, hertz):
         """Convert frequency (in Hertz) to scalar"""
         pass
+
 
 class LinearScaling(ScalingFunction):
     """Linear scaling between high and low scales/frequencies
@@ -70,6 +72,7 @@ class LinearScaling(ScalingFunction):
 
     def hertz_to_scale(self, hertz):
         return (hertz - self.low_hz) * self.slope_hz
+
 
 class OctaveScaling(ScalingFunction):
     """Uniform scaling in log2 domain from low frequency
@@ -103,6 +106,7 @@ class OctaveScaling(ScalingFunction):
     def hertz_to_scale(self, hertz):
         return np.log2(hertz / max(1e-10, self.low_hz))
 
+
 class MelScaling(ScalingFunction):
     r"""Psychoacoustic scaling function from [1]_
 
@@ -131,6 +135,7 @@ class MelScaling(ScalingFunction):
 
     def hertz_to_scale(self, hertz):
         return 1127. * np.log(1 + hertz / 700.)
+
 
 class BarkScaling(ScalingFunction):
     r"""Psychoacoustic scaling function from [1]_

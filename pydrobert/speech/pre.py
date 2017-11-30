@@ -1,4 +1,4 @@
-"""Classes for pre-processing signals/audio"""
+"""Classes for pre-processing speech signals"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -8,7 +8,7 @@ import abc
 
 import numpy as np
 
-from pydrobert.signal import AliasedFactory
+from pydrobert.speech import AliasedFactory
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
@@ -20,6 +20,7 @@ __all__ = [
     'Dither',
     'Preemphasize',
 ]
+
 
 class PreProcessor(AliasedFactory):
     '''A container for pre-processing signals with a transform'''
@@ -47,15 +48,17 @@ class PreProcessor(AliasedFactory):
         '''
         pass
 
-class Dither(PreProcessor):
-    '''Add random noise to a signal
 
-    The default axis of `apply` has been set to None, which will generate random
-    noise for each coefficient. This is likely the desired behaviour. Setting
-    axis to an integer will add random values along 1D slices of that axis.
-    
-    Intermediate values are calculated as 64-bit floats. The result is cast back
-    to the input data type.
+class Dither(PreProcessor):
+    '''Add random noise to a signal tensor
+
+    The default axis of `apply` has been set to None, which will
+    generate random noise for each coefficient. This is likely the
+    desired behaviour. Setting axis to an integer will add random values
+    along 1D slices of that axis.
+
+    Intermediate values are calculated as 64-bit floats. The result is
+    cast back to the input data type.
 
     Parameters
     ----------
@@ -80,10 +83,11 @@ class Dither(PreProcessor):
         if axis is None or not signal.shape or len(signal.shape) == 1:
             signal += self.coeff * np.random.random(signal.shape)
         else:
-            random_shape = [1] * len(tensor.shape)
-            random_shape[axis] = tensor.shape[axis]
+            random_shape = [1] * len(signal.shape)
+            random_shape[axis] = signal.shape[axis]
             signal += self.coeff * np.random.random(random_shape)
         return signal.astype(signal_dtype, copy=False)
+
 
 class Preemphasize(PreProcessor):
     '''Attenuate the low frequencies of a signal by taking sample differences
@@ -93,11 +97,11 @@ class Preemphasize(PreProcessor):
         new[i] = old[i] - coeff * old[i-1] for i > 1
         new[0] = old[0]
 
-    This is essentially a convolution with a Haar wavelet for positive `coeff`.
-    It emphasizes high frequencies. 
+    This is essentially a convolution with a Haar wavelet for positive
+    `coeff`. It emphasizes high frequencies.
 
-    Intermediate values are calculated as 64-bit floats. The result is cast back
-    to the input data type.
+    Intermediate values are calculated as 64-bit floats. The result is
+    cast back to the input data type.
 
     Parameters
     ----------
@@ -125,5 +129,6 @@ class Preemphasize(PreProcessor):
             tensor_slice_subhd = [slice(None)] * len(signal.shape)
             tensor_slice_mind[axis] = slice(1, None)
             tensor_slice_subhd[axis] = slice(-1, None)
-            signal[tensor_slice_mind] -= self.coeff * signal[tensor_slice_subhd]
+            signal[tensor_slice_mind] -= (
+                self.coeff * signal[tensor_slice_subhd])
         return signal.astype(signal_dtype, copy=False)

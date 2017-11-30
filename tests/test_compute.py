@@ -7,8 +7,9 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from pydrobert.signal import config
-from pydrobert.signal.compute import frame_by_frame_calculation
+from pydrobert.speech import config
+from pydrobert.speech.compute import frame_by_frame_calculation
+
 
 @pytest.fixture(params=[
     0,
@@ -24,15 +25,16 @@ def buff(request):
     b.flags.writeable = False
     return b
 
+
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
     feats_framewise = frame_by_frame_calculation(computer, buff)
-    assert np.allclose(feats_full, feats_framewise), \
-        (
-            feats_full.shape[0],
-            np.where(
-                np.logical_not(np.isclose(feats_full, feats_framewise)))[0],
-        )
+    assert np.allclose(feats_full, feats_framewise), (
+        feats_full.shape[0],
+        np.where(
+            np.logical_not(np.isclose(feats_full, feats_framewise)))[0],
+    )
+
 
 def test_chunk_sizes_dont_matter_to_result(computer, buff):
     feats = frame_by_frame_calculation(computer, buff)
@@ -42,20 +44,20 @@ def test_chunk_sizes_dont_matter_to_result(computer, buff):
         feats_chunks.append(computer.compute_chunk(buff[:next_len]))
         buff = buff[next_len:]
     feats_chunks.append(computer.finalize())
-    assert np.allclose(feats, np.concatenate(feats_chunks)), \
-        (
-            feats.shape[0],
-            np.where(np.logical_not(np.isclose(
-                feats, np.concatenate(feats_chunks)
-            )))
-        )
+    assert np.allclose(feats, np.concatenate(feats_chunks)), (
+        feats.shape[0],
+        np.where(np.logical_not(np.isclose(
+            feats, np.concatenate(feats_chunks)
+        )))
+    )
+
 
 def test_zero_samples_generate_zero_features(computer):
-    assert computer.compute_full(np.empty(0)).shape \
-            == (0, computer.num_coeffs)
-    assert computer.compute_chunk(np.empty(0)).shape \
-            == (0, computer.num_coeffs)
+    assert computer.compute_full(np.empty(0)).shape == (0, computer.num_coeffs)
+    assert computer.compute_chunk(np.empty(0)).shape == (
+        0, computer.num_coeffs)
     assert computer.finalize().shape == (0, computer.num_coeffs)
+
 
 def test_finalize_twice_generates_no_coefficients(computer):
     buff = np.random.random(computer.frame_length * 2)
@@ -67,12 +69,14 @@ def test_finalize_twice_generates_no_coefficients(computer):
     assert coeffs.shape[0] >= 1
     assert computer.finalize().shape == (0, computer.num_coeffs)
 
+
 def test_started_makes_sense(computer):
     assert not computer.started
     computer.compute_chunk(np.empty(1))
     assert computer.started
     computer.finalize()
     assert not computer.started
+
 
 def test_repeated_calls_generate_same_results(computer, buff):
     assert np.allclose(
@@ -81,6 +85,7 @@ def test_repeated_calls_generate_same_results(computer, buff):
         frame_by_frame_calculation(computer, buff),
         frame_by_frame_calculation(computer, buff)
     )
+
 
 class TestFFTPACK(object):
 

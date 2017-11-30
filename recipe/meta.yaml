@@ -1,0 +1,45 @@
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0').replace('v','') %}
+{% if environ.get('TRAVIS', False) %}
+  {% set build_num = environ['TRAVIS_BUILD_NUMBER'] %}
+{% else %}
+  {% set build_num = environ.get('GIT_DESCRIBE_NUMBER', 0) %}
+{% endif %}
+
+package:
+  name: pydrobert-speech
+  version: {{ version }}
+
+source:
+  path: ..
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - setuptools_scm
+  run:
+    - python
+    - numpy
+    - six
+
+build:
+  number: {{ build_num }}
+  script: python setup.py install --single-version-externally-managed --record=record.txt
+
+test:
+  source_files:
+    - tests
+  requires:
+    - pytest
+    - scipy
+  imports:
+    - pydrobert
+    - pydrobert.speech
+  commands:
+    - pytest
+
+about:
+  home: https://github.com/sdrobert/pydrobert-speech
+  license: Apache 2.0
+  license_file: LICENSE
+  summary: Speech processing with Python

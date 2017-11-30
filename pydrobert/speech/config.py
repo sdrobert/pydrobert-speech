@@ -1,4 +1,4 @@
-'''Package constants used throughout pydrobert.signal'''
+'''Package constants used throughout pydrobert.speech'''
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"
