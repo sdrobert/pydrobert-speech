@@ -444,6 +444,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
                 res[idx - left_idx] = (right - hz) / (right - mid)
         return left_idx, res
 
+
 class Fbank(TriangularOverlappingFilterBank):
     """The triangular filter bank with a frequency response that is rooted
 
@@ -509,6 +510,7 @@ class Fbank(TriangularOverlappingFilterBank):
                 filt_idx, width, half=True)
             return np.fft.irfft(freq_response, n=width)
 
+
 class GaborFilterBank(LinearFilterBank):
     r"""Gabor filters with ERBs between points from a scale
 
@@ -518,13 +520,14 @@ class GaborFilterBank(LinearFilterBank):
 
     .. math::
 
-         f(t) = C e^{\frac{-t^2}{2\sigma^2} + i\xi t}
+         f(t) = C \sigma^{-1/2} \pi^{-1/4}
+                e^{\frac{-t^2}{2\sigma^2} + i\xi t}
 
     in the time domain and
 
     .. math::
 
-         \widehat{f}(\omega) = \sqrt{2}\pi\sigma^{3/2} C
+         \widehat{f}(\omega) = C \sqrt{2\sigma} \pi^{1/4}
                                e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
 
     in the frequency domain. Though Gaussians never truly reach 0, in
@@ -532,12 +535,13 @@ class GaborFilterBank(LinearFilterBank):
     filters are optimal with respect to their time-bandwidth product.
 
     `scaling_function` is used to split up the frequencies between
-    `high_hz` and `low_hz` into a series of "edges." Pairs of edges
-    define the location of the filter by setting :math:`\xi` to the
-    midpoint and scaling :math:`\sigma`. Scaling is such that, if
-    the filters max out at 1, the first intersection of subsequent
-    filters' response matches the filters' Equivalent Rectangular
-    Bandwidths (erb == True) or their 3dB bandwidths (erb == False).
+    `high_hz` and `low_hz` into a series of filters. Every subsequent
+    filter's width is scaled such that, if the filters are all of the
+    same height, the intersection with the precedent filter's response
+    matches the filter's Equivalent Rectangular Bandwidth (erb == True)
+    or its 3dB bandwidths (erb == False). The ERB is the width of a
+    rectangular filter with the same height as the filter's maximum
+    frequency response that has the same L_2 norm.
 
     Parameters
     ----------
@@ -545,7 +549,7 @@ class GaborFilterBank(LinearFilterBank):
         Dictates the layout of filters in the Fourier domain. Can be
         a ScalingFunction or something compatible with
         `pydrobert.speech.alias_factory_subclass_from_arg`
-    num_filts : int, optional
+    num_filts : int
         The number of filters in the bank
     high_hz, low_hz : float, optional
         The topmost and bottommost edge of the filters, respectively.
@@ -554,14 +558,9 @@ class GaborFilterBank(LinearFilterBank):
         The sampling rate (cycles/sec) of the target recordings
     scale_l2_norm : bool
         Whether to scale the l2 norm of each filter to 1. Otherwise the
-        frequency response of each filter will max out at an absolute value of
-        1.
+        frequency response of each filter will max out at an absolute
+        value of 1.
     erb : bool
-    boundary_adjustment_mode : {'edges', 'wrap'}, optional
-        How to handle when the effective support would exceed the
-        Nyquist or pass below 0Hz. 'edges' narrows the boundary filters
-        in frequency. 'wrap' ignores the problem. The filter bank is
-        no longer analytic if the support falls below 0Hz.
 
     Attributes
     ----------
@@ -585,7 +584,7 @@ class GaborFilterBank(LinearFilterBank):
     aliases = {'gabor'}
 
     def __init__(
-            self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
+            self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
             sampling_rate=16000, scale_l2_norm=False, erb=False,
             boundary_adjustment_mode='wrap'):
         scaling_function = alias_factory_subclass_from_arg(
@@ -598,109 +597,80 @@ class GaborFilterBank(LinearFilterBank):
             raise ValueError(
                 'Invalid frequency range: ({:.2f},{:.2f}'.format(
                     low_hz, high_hz))
-        if boundary_adjustment_mode not in ('edges', 'wrap'):
-            raise ValueError('Invalid boundary adjustment mode: "{}"'.format(
-                boundary_adjustment_mode))
         self._rate = sampling_rate
         if high_hz is None:
             high_hz = sampling_rate // 2
         scale_low = scaling_function.hertz_to_scale(low_hz)
         scale_high = scaling_function.hertz_to_scale(high_hz)
         scale_delta = (scale_high - scale_low) / (num_filts + 1)
-        edges = [
-            scaling_function.scale_to_hertz(scale_low + scale_delta * idx)
-            for idx in range(0, num_filts + 2)
-        ]
+        # edges dictate the points where filters should intersect. We
+        # make a pretend intersection halfway between low_hz and
+        # the first filter center in the scaled domain. Likewise with
+        # high_hz and the last filter center. Intersections are spaced
+        # uniformly in the scaled domain
+        edges = tuple(
+            scaling_function.scale_to_hertz(
+                scale_low + scale_delta * (idx + .5))
+            for idx in range(0, num_filts + 1)
+        )
+        centers_hz = []
         centers_ang = []
         stds = []
         supports_ang = []
         supports = []
-        wraps_ang = []
+        wrap_supports_ang = []
         self._wrap_below = False
-        t_support_const = 2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
+        log_2 = np.log(2)
+        log_pi = np.log(np.pi)
+        t_support_const = -2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
         f_support_const = t_support_const
         if scale_l2_norm:
-            f_support_const -= np.log(2) + .5 * np.log(np.pi)
-            t_support_const += .5 * np.log(np.pi)
+            f_support_const += log_2 + .5 * log_pi
+            t_support_const -= .5 * log_pi
         else:
-            t_support_const += np.log(2) + np.log(np.pi)
+            t_support_const -= log_2 + log_pi
         if erb:
-            bandwidth_const = np.sqrt(np.pi)
+            bandwidth_const = np.sqrt(np.pi) / 2
         else:
-            bandwidth_const = 2 * np.sqrt(3 / 10 * np.log(10))
-        last_low = 0
-        last_high = 0
-        for low, high in zip(edges[:-2], edges[2:]):
-            low = max(last_low, hertz_to_angular(low, self._rate))
-            high = max(hertz_to_angular(high, self._rate), last_high)
-            filter_resolved = False
-            steps = 0
-            max_steps = 100
-            while not filter_resolved:
-                assert steps <= max_steps
-                filter_resolved = True
-                center = (low + high) / 2
-                # expect intersections at (low + center) / 2 and
-                # (high + center) / 2
-                std = 2 * bandwidth_const / (high - low)
-                # diff btw center and freq bound of support
-                if scale_l2_norm:
-                    diff = np.sqrt((np.log(std) - f_support_const)) / std
-                    wrap_diff = np.sqrt(
-                        (np.log(std) - f_support_const - np.log(2))) / std
-                else:
-                    diff = np.sqrt(-f_support_const) / std
-                    wrap_diff = np.sqrt(-f_support_const - np.log(2)) / std
-                supp_ang_low = center - diff
-                supp_ang_high = center + diff
-                # if we translate the scale by the full difference, we
-                # are guaranteed to be within the desired range. This is
-                # not very tight. Instead, we jump a fraction of the
-                # linear difference and re-evaluate. The algorithm can
-                # converge in fixed time since max_steps - steps will
-                # eventually be 1
-                if supp_ang_low < 0:
-                    if boundary_adjustment_mode == 'edges':
-                        low_inc = -supp_ang_low / (max_steps - steps)
-                        if low + low_inc > high:
-                            low = (low + high) / 2
-                        else:
-                            low += low_inc
-                        filter_resolved = False
-                    else:
-                        self._wrap_below = True
-                if supp_ang_high > np.pi:
-                    if boundary_adjustment_mode == 'edges':
-                        high_dec = (supp_ang_high - np.pi)
-                        high_dec /= max_steps - steps
-                        if high - high_dec < low:
-                            high = (high + low) / 2
-                        else:
-                            high -= high_dec
-                        filter_resolved = False
-                steps += 1
-            last_low = low
-            last_high = high
+            bandwidth_const = np.sqrt(3 / 10 * np.log(10))
+        for left_intersect, right_intersect in zip(edges[:-1], edges[1:]):
+            center_hz = (left_intersect + right_intersect) / 2
+            center_ang = hertz_to_angular(center_hz, self._rate)
+            std = bandwidth_const / hertz_to_angular(
+                center_hz - left_intersect, self._rate)
+            log_std = np.log(std)
             if scale_l2_norm:
-                support = int(np.ceil(
-                    2 * std * np.sqrt((-t_support_const - np.log(std)))))
+                diff_ang = np.sqrt(log_std + f_support_const) / std
+                wrap_diff_ang = np.sqrt(
+                    log_std + f_support_const + log_2) / std
+                diff_samps = int(np.ceil(
+                    std * np.sqrt(t_support_const - log_std)))
             else:
-                support = int(np.ceil(
-                    2 * std * np.sqrt((-t_support_const - 2 * np.log(std)))))
-            centers_ang.append(center)
-            supports_ang.append(supp_ang_high - supp_ang_low)
-            wraps_ang.append(2 * wrap_diff - supports_ang[-1])
-            supports.append((-support // 2 - 1, support // 2 + 1))
+                diff_ang = np.sqrt(f_support_const) / std
+                wrap_diff_ang = np.sqrt(f_support_const + log_2) / std
+                diff_samps = int(np.ceil(std * np.sqrt(
+                    t_support_const - 2 * log_std)))
+            supp_ang_low = center_ang - diff_ang
+            if supp_ang_low < 0:
+                self._wrap_below = True
+            centers_hz.append(center_hz)
+            centers_ang.append(center_ang)
+            supports_ang.append((center_ang - diff_ang, center_ang + diff_ang))
+            wrap_supports_ang.append(2 * wrap_diff_ang)
+            supports.append((-diff_samps, diff_samps))
             stds.append(std)
         self._centers_ang = tuple(centers_ang)
-        self._centers_hz = tuple(
-            angular_to_hertz(ang, self._rate) for ang in centers_ang)
+        self._centers_hz = tuple(centers_hz)
         self._stds = tuple(stds)
         self._supports_ang = tuple(supports_ang)
-        self._wraps_hz = tuple(
-            angular_to_hertz(ang, self._rate) for ang in wraps_ang)
+        self._wrap_supports_ang = tuple(wrap_supports_ang)
         self._supports_hz = tuple(
-            angular_to_hertz(ang, self._rate) for ang in supports_ang)
+            (
+                angular_to_hertz(ang_l, self._rate),
+                angular_to_hertz(ang_h, self._rate),
+            )
+            for ang_l, ang_h in supports_ang
+        )
         self._supports = tuple(supports)
 
     @property
@@ -734,9 +704,7 @@ class GaborFilterBank(LinearFilterBank):
 
     @property
     def supports_hz(self):
-        return tuple(
-            (center - support / 2, center + support / 2)
-            for center, support in zip(self._centers_hz, self._supports_hz))
+        return self._supports_hz
 
     @property
     def supports(self):
@@ -755,9 +723,9 @@ class GaborFilterBank(LinearFilterBank):
         std = self._stds[filt_idx]
         res = np.zeros(width, dtype=np.complex128)
         if self._scale_l2_norm:
-            const_term = -.25 * np.log(np.pi) - .5 * np.log(std)
+            const_term = -.5 * np.log(std) - .25 * np.log(np.pi)
         else:
-            const_term = -.5 * np.log(np.pi) - np.log(2 ** .5) - np.log(std)
+            const_term = -.5 * np.log(2 * np.pi) - np.log(std)
         denom_term = 2 * std ** 2
         for t in range(width + 1):
             val = -t ** 2 / denom_term + const_term + 1j * center_ang * t
@@ -770,9 +738,7 @@ class GaborFilterBank(LinearFilterBank):
 
     def get_frequency_response(self, filt_idx, width, half=False):
         center_ang = self._centers_ang[filt_idx]
-        support_ang = self._supports_ang[filt_idx]
-        lowest_ang = center_ang - support_ang / 2
-        highest_ang = center_ang + support_ang / 2
+        lowest_ang, highest_ang = self._supports_ang[filt_idx]
         std = self._stds[filt_idx]
         dft_size = width
         if half:
@@ -785,54 +751,46 @@ class GaborFilterBank(LinearFilterBank):
             const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
         else:
             const_term = 0
-        num_term = std ** 2 / 2
+        num_term = -(std ** 2) / 2
         for idx in range(dft_size):
             for period in range(
                     -1 - int(max(-lowest_ang, 0) / (2 * np.pi)),
                     2 + int(highest_ang / (2 * np.pi))):
                 omega = (idx / width + period) * 2 * np.pi
-                val = -num_term * (center_ang - omega) ** 2 + const_term
+                val = num_term * (center_ang - omega) ** 2 + const_term
                 val = np.exp(val)
                 res[idx] += val
         return res
 
     def get_truncated_response(self, filt_idx, width):
-        center_ang = self._centers_ang[filt_idx]
-        support_ang = self._supports_ang[filt_idx]
-        std = self._stds[filt_idx]
-        lowest_ang = center_ang - support_ang / 2
-        highest_ang = center_ang + support_ang / 2
-        center_hz = self._centers_hz[filt_idx]
-        support_hz = self._supports_hz[filt_idx]
-        wraps_hz = self._wraps_hz[filt_idx]
-        # wraps_hz is the extra support (in hertz) it takes for the
-        # Gaussian tail to reach half the EFFECTIVE_SUPPORT_THRESHOLD
-        # from its current support. If one tail overlaps the other due
-        # to periodization, the full frequency response may be greater
-        # than the threshold in regions the truncated response would
-        # not specify. We check for this possible overlap and return the
-        # full frequency response if it occurs.
-        if int(np.ceil(width * (support_hz + wraps_hz) / self._rate)) >= width:
+        # wrap_supports_ang contains the angular supports of each filter
+        # if the effective support threshold were halved. If this
+        # support exceeds the 2pi period, overlap from aliasing in the
+        # periphery will exceed the effective support, meaning the
+        # entire period lies in the support
+        if self._wrap_supports_ang[filt_idx] >= 2 * np.pi:
             return 0, self.get_frequency_response(filt_idx, width)
-        low_hz = center_hz - support_hz / 2
-        high_hz = center_hz + support_hz / 2
-        left_idx = int(np.ceil(width * low_hz / self._rate))
-        right_idx = int(width * high_hz / self._rate)
+        center_ang = self._centers_ang[filt_idx]
+        std = self._stds[filt_idx]
+        lowest_ang, highest_ang = self._supports_ang[filt_idx]
+        left_idx = int(np.ceil(width * lowest_ang / (2 * np.pi)))
+        right_idx = int(width * highest_ang / (2 * np.pi))
         res = np.zeros(1 + right_idx - left_idx, dtype=np.float64)
         if self._scale_l2_norm:
             const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
         else:
             const_term = 0
-        num_term = std ** 2 / 2
+        num_term = -(std ** 2) / 2
         for idx in range(left_idx, right_idx + 1):
             for period in range(
                     -int(max(-lowest_ang, 0) / (2 * np.pi)),
                     1 + int(highest_ang / (2 * np.pi))):
                 omega = (idx / width + period) * 2 * np.pi
-                val = -num_term * (center_ang - omega) ** 2 + const_term
+                val = num_term * (center_ang - omega) ** 2 + const_term
                 val = np.exp(val)
                 res[idx - left_idx] += val
         return left_idx % width, res
+
 
 class ComplexGammatoneFilterBank(LinearFilterBank):
     r'''Gammatone filters with complex carriers
@@ -1160,7 +1118,9 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
                 h_0 = np.abs(self._h(right, idx))
         return (int(np.floor(offset)), int(np.ceil(right) + offset))
 
+
 # windows
+
 
 class WindowFunction(AliasedFactory):
     '''A real linear filter, usually lowpass'''
@@ -1169,6 +1129,7 @@ class WindowFunction(AliasedFactory):
     def get_impulse_response(self, width):
         '''Write the filter into a numpy array of fixed width'''
         pass
+
 
 class BartlettWindow(WindowFunction):
     '''A unit-normalized triangular window
@@ -1185,6 +1146,7 @@ class BartlettWindow(WindowFunction):
         window /= max(1, width - 1) / 2
         return window
 
+
 class BlackmanWindow(WindowFunction):
     '''A unit-normalized Blackman window
 
@@ -1199,6 +1161,7 @@ class BlackmanWindow(WindowFunction):
         window = np.blackman(width)
         window /= 0.42 * max(1, width - 1)
         return window
+
 
 class HammingWindow(WindowFunction):
     '''A unit-normalized Hamming window
@@ -1215,6 +1178,7 @@ class HammingWindow(WindowFunction):
         window /= 0.54 * max(1, width - 1)
         return window
 
+
 class HannWindow(WindowFunction):
     '''A unit-normalized Hann window
 
@@ -1229,6 +1193,7 @@ class HannWindow(WindowFunction):
         window = np.hanning(width)
         window /= 0.5 * max(1, width - 1)
         return window
+
 
 class GammaWindow(WindowFunction):
     r'''A lowpass filter based on the Gamma function
