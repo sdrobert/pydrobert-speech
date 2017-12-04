@@ -1,7 +1,4 @@
-"""Visualization methods for filters package
-
-Requires the `matplotlib` package.
-"""
+"""Visualization functions"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -10,9 +7,6 @@ from __future__ import print_function
 from itertools import cycle
 
 import numpy as np
-
-from matplotlib import pyplot as plt
-from matplotlib import ticker
 
 from pydrobert.speech.compute import LinearFilterBankFrameComputer
 
@@ -61,7 +55,14 @@ def plot_frequency_response(
     -------
     matplotlib.figure.Figure
         The containing figure`
+
+    Raises
+    ------
+    ImportError
+        If unable to import matplotlib
     '''
+    from matplotlib import pyplot as plt
+    from matplotlib import ticker
     try:
         len(banks)
     except AttributeError:  # 1 bank
@@ -282,8 +283,10 @@ def compare_feature_frames(
 
     Raises
     ------
-    ValueError
+    ImportError
+        If unable to import matplotlib
     '''
+    from matplotlib import pyplot as plt
     try:
         iter(computers)
     except TypeError:

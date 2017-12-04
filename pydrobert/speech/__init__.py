@@ -39,6 +39,7 @@ __all__ = [
     'post',
     'scales',
     'util',
+    'vis',
 ]
 
 try:
