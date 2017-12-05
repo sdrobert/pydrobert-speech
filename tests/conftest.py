@@ -29,7 +29,15 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 # fixtures
 @pytest.fixture
 def temp_file_1_name():
-    temp = NamedTemporaryFile(delete=False)
+    temp = NamedTemporaryFile(suffix='_1', delete=False)
+    temp.close()
+    yield temp.name
+    os.remove(temp.name)
+
+
+@pytest.fixture
+def temp_file_2_name():
+    temp = NamedTemporaryFile(suffix='_2', delete=False)
     temp.close()
     yield temp.name
     os.remove(temp.name)
