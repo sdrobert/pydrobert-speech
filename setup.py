@@ -59,7 +59,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'compute-feats-from-kaldi-tables = pydrobert.signal.command_line:c'
+            'compute-feats-from-kaldi-tables = pydrobert.speech.command_line:c'
             'ompute_feats_from_kaldi_tables [kaldi]',
         ]
     }
