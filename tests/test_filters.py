@@ -1,5 +1,3 @@
-# pylint: skip-file
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -7,8 +5,83 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
+from pydrobert.speech import filters
 from pydrobert.speech.config import EFFECTIVE_SUPPORT_THRESHOLD
 from pydrobert.speech.filters import GammaWindow
+
+
+@pytest.fixture(params=[
+    1,
+    11,
+], ids=[
+    '1 filt',
+    '11 filts',
+], scope='module',)
+def num_filts(request):
+    return request.param
+
+
+@pytest.fixture(params=[
+    lambda num_filts: filters.TriangularOverlappingFilterBank(
+        'mel',
+        low_hz=5,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        analytic=True,
+    ),
+    lambda num_filts: filters.TriangularOverlappingFilterBank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        analytic=False,
+    ),
+    lambda num_filts: filters.Fbank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        analytic=True,
+    ),
+    lambda num_filts: filters.Fbank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        analytic=False,
+    ),
+    lambda num_filts: filters.GaborFilterBank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        erb=True,
+    ),
+    lambda num_filts: filters.GaborFilterBank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        erb=False,
+    ),
+    lambda num_filts: filters.ComplexGammatoneFilterBank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        max_centered=True,
+    ),
+], ids=[
+    'triangular_analytic',
+    'triangular',
+    'fbank_analytic',
+    'fbank',
+    'gabor_erb',
+    'gabor',
+    'gammatone',
+])
+def bank(request, num_filts):
+    return request.param(num_filts)
 
 
 def test_truncated_matches_full(bank):
@@ -31,7 +104,8 @@ def test_truncated_matches_full(bank):
         if bank.is_real:
             challenge[
                 len(challenge) - bin_idx - len(truncated) + 1:
-                len(challenge) - bin_idx + 1] += truncated[::-1].conj()
+                len(challenge) - bin_idx + 1
+            ] = truncated[:None if bin_idx else 0:-1].conj()
         bad_idx = np.where(np.logical_not(np.isclose(
             full_response, challenge, atol=EFFECTIVE_SUPPORT_THRESHOLD)))
         assert np.allclose(

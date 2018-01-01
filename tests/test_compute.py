@@ -5,8 +5,44 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
+from pydrobert.speech import compute
 from pydrobert.speech import config
-from pydrobert.speech.compute import frame_by_frame_calculation
+
+
+@pytest.fixture(params=[
+    'causal',
+    'centered',
+], scope='module',)
+def frame_style(request):
+    return request.param
+
+
+@pytest.fixture(params=[
+    lambda frame_style: compute.STFTFrameComputer(
+        {'name': 'gabor', 'scaling_function': 'mel'},
+        frame_length_ms=25,
+        frame_shift_ms=10,
+        use_power=True,
+        use_log=True,
+        pad_to_nearest_power_of_two=np.random.randint(2),
+        include_energy=np.random.randint(2),
+        frame_style=frame_style
+    ),
+    lambda frame_style: compute.SIFrameComputer(
+        {'name': 'gabor', 'scaling_function': 'mel'},
+        frame_shift_ms=25,
+        use_power=True,
+        use_log=True,
+        pad_to_nearest_power_of_two=np.random.randint(2),
+        include_energy=np.random.randint(2),
+        frame_style=frame_style,
+    ),
+], ids=[
+    'stft',
+    'si',
+],)
+def computer(request, frame_style):
+    return request.param(frame_style)
 
 
 @pytest.fixture(params=[
@@ -26,7 +62,7 @@ def buff(request):
 
 def test_framewise_matches_full(computer, buff):
     feats_full = computer.compute_full(buff)
-    feats_framewise = frame_by_frame_calculation(computer, buff)
+    feats_framewise = compute.frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), (
         feats_full.shape[0],
         np.where(
@@ -35,7 +71,7 @@ def test_framewise_matches_full(computer, buff):
 
 
 def test_chunk_sizes_dont_matter_to_result(computer, buff):
-    feats = frame_by_frame_calculation(computer, buff)
+    feats = compute.frame_by_frame_calculation(computer, buff)
     feats_chunks = []
     while len(buff):
         next_len = np.random.randint(len(buff) + 1)
@@ -80,8 +116,8 @@ def test_repeated_calls_generate_same_results(computer, buff):
     assert np.allclose(
         computer.compute_full(buff), computer.compute_full(buff))
     assert np.allclose(
-        frame_by_frame_calculation(computer, buff),
-        frame_by_frame_calculation(computer, buff)
+        compute.frame_by_frame_calculation(computer, buff),
+        compute.frame_by_frame_calculation(computer, buff)
     )
 
 

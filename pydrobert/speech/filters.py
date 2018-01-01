@@ -35,6 +35,7 @@ __all__ = [
 
 # banks
 
+
 class LinearFilterBank(AliasedFactory):
     """A collection of linear, time invariant filters
 
@@ -218,8 +219,12 @@ class LinearFilterBank(AliasedFactory):
 
         And the full spectrum by:
 
-        >>> full[bin_idx:bin_idx + len(buf)] = trnc
-        >>> full[-bin_idx - len(trnc) + 1:-bin_idx + 1] = trnc[::-1].conj()
+        >>> full[bin_idx:bin_idx + len(trnc)] = trnc
+        >>> full[width - bin_idx - len(trnc) + 1:width - bin_idx + 1] =\
+        ...     trnc[:None if bin_idx else 0:-1].conj()
+
+        (the embedded if-statement is necessary when bin_idx is 0, as
+        the full fft excludes its symmetric bin)
 
         Parameters
         ----------
@@ -234,6 +239,7 @@ class LinearFilterBank(AliasedFactory):
 
         """
         pass
+
 
 class TriangularOverlappingFilterBank(LinearFilterBank):
     """Triangular frequency response whose vertices are along the scale
@@ -585,8 +591,7 @@ class GaborFilterBank(LinearFilterBank):
 
     def __init__(
             self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
-            sampling_rate=16000, scale_l2_norm=False, erb=False,
-            boundary_adjustment_mode='wrap'):
+            sampling_rate=16000, scale_l2_norm=False, erb=False):
         scaling_function = alias_factory_subclass_from_arg(
             ScalingFunction, scaling_function)
         self._scale_l2_norm = scale_l2_norm
