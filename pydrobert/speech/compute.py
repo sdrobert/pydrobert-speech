@@ -762,8 +762,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 (dft_idx + 1) * valid_samples_per_dft - self._x_rem,
                 chunk_len
             )
+            assert end_idx >= 0
             y_keep = end_idx - dft_idx * valid_samples_per_dft + self._x_rem
-            start_idx = end_idx - self._dft_size
+            start_idx = end_idx - self._dft_size  # relative to chunk
             if start_idx < 0:
                 chunk_to_copy = end_idx - chunk_copied
                 assert chunk_to_copy < self._dft_size
@@ -830,10 +831,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._y_buf.fill(0)
             self._x_rem = 0
             if self._frame_style == 'centered':
-                self._y_rem = self._frame_shift
+                self._skip = self._translation - self._frame_shift
+                if self._skip < 0:
+                    self._x_rem = -self._skip
+                    self._skip = 0
             else:
-                self._y_rem = 0
-            self._skip = self._translation
+                self._skip = self._translation
             self._started = True
 
     def _handle_skip(self, chunk):

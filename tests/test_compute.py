@@ -136,3 +136,68 @@ class TestFFTPACK(object):
 
     def teardown_method(self):
         config.USE_FFTPACK = self._orig_USE_FFTPACK
+
+
+class SIFrameComputerNpConvolve(compute.SIFrameComputer):
+    '''For compute_full, use np.convolve instead of overlap-save'''
+
+    aliases = {}
+
+    def __init__(self, *args, **kwargs):
+        super(SIFrameComputerNpConvolve, self).__init__(*args, **kwargs)
+        # convert filters back to impulse responses...
+        for filt_idx in range(len(self._filts)):
+            ifilt = self._compute_idft(self._filts[filt_idx])
+            assert np.allclose(ifilt[self._max_support + 1:], 0)
+            self._filts[filt_idx] = ifilt[:self._max_support]
+        self._window = self._window.flatten()
+
+    def compute_full(self, signal):
+        num_frames = len(signal) // self._frame_shift
+        coeffs = np.empty((num_frames, self.num_coeffs), dtype=signal.dtype)
+        if not num_frames:
+            return coeffs
+        signal = np.pad(
+            signal, (0, self._frame_shift + self._translation),
+            'constant',
+        )
+        for coeff_idx, filt in enumerate(self._filts):
+            y = np.convolve(signal, filt)
+            if self._power:
+                y[:] = y * y.conj()
+            else:
+                y[:] = np.abs(y)
+            if self._frame_style == 'centered':
+                frame_start = self._translation - self._frame_shift
+            else:
+                frame_start = self._translation
+            for frame_idx in range(num_frames):
+                frame_end = frame_start + 2 * self._frame_shift
+                print(frame_start, frame_end)
+                if frame_start < 0:
+                    frame = np.pad(
+                        y[max(0, frame_start):frame_end],
+                        (max(0, -frame_start), 0),
+                        'constant'
+                    )
+                else:
+                    frame = y[frame_start:frame_end]
+                coeffs[frame_idx, coeff_idx] = np.sum(
+                    frame.real * self._window)
+                frame_start += self._frame_shift
+        if self._log:
+            coeffs[:] = np.log(np.maximum(coeffs, config.LOG_FLOOR_VALUE))
+        return coeffs
+
+
+@pytest.mark.xfail
+def test_overlap_save_convolve_the_same(buff):
+    os_computer = compute.SIFrameComputer(
+        {'name': 'gabor', 'scaling_function': 'mel'})
+    conv_computer = SIFrameComputerNpConvolve(
+        {'name': 'gabor', 'scaling_function': 'mel'})
+    os_coeffs = os_computer.compute_full(buff)
+    print()
+    conv_coeffs = conv_computer.compute_full(buff)
+    assert os_coeffs.shape == conv_coeffs.shape
+    assert np.allclose(os_coeffs, conv_coeffs)
