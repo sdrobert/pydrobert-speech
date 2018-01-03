@@ -49,9 +49,11 @@ def computer(request, frame_style):
     0,
     1,
     2 ** 8,
+    2 ** 10,
 ], ids=[
     'empty buffer',
     'length 1 buffer',
+    'medium buffer',
     'large buffer',
 ], scope="module")
 def buff(request):
@@ -158,7 +160,11 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         if not num_frames:
             return coeffs
         signal = np.pad(
-            signal, (0, self._frame_shift + self._translation),
+            signal,
+            (
+                max(0, self._frame_shift - self._translation),
+                self._frame_shift + self._translation,
+            ),
             'constant',
         )
         for coeff_idx, filt in enumerate(self._filts):
@@ -168,20 +174,12 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
             else:
                 y[:] = np.abs(y)
             if self._frame_style == 'centered':
-                frame_start = self._translation - self._frame_shift
+                frame_start = max(0, self._translation - self._frame_shift)
             else:
                 frame_start = self._translation
             for frame_idx in range(num_frames):
                 frame_end = frame_start + 2 * self._frame_shift
-                print(frame_start, frame_end)
-                if frame_start < 0:
-                    frame = np.pad(
-                        y[max(0, frame_start):frame_end],
-                        (max(0, -frame_start), 0),
-                        'constant'
-                    )
-                else:
-                    frame = y[frame_start:frame_end]
+                frame = y[frame_start:frame_end]
                 coeffs[frame_idx, coeff_idx] = np.sum(
                     frame.real * self._window)
                 frame_start += self._frame_shift
@@ -190,14 +188,12 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         return coeffs
 
 
-@pytest.mark.xfail
 def test_overlap_save_convolve_the_same(buff):
     os_computer = compute.SIFrameComputer(
         {'name': 'gabor', 'scaling_function': 'mel'})
     conv_computer = SIFrameComputerNpConvolve(
         {'name': 'gabor', 'scaling_function': 'mel'})
     os_coeffs = os_computer.compute_full(buff)
-    print()
     conv_coeffs = conv_computer.compute_full(buff)
     assert os_coeffs.shape == conv_coeffs.shape
     assert np.allclose(os_coeffs, conv_coeffs)

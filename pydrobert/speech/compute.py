@@ -793,18 +793,19 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def finalize(self):
         coeffs = np.empty((0, self.num_coeffs), dtype=self._ret_dtype)
         if self._started:
-            # half a window of integration was provided at the start of
-            # computations to y_rem so that integration remains
-            # centered.
             if self._frame_style == 'centered':
-                drop_center = self._frame_shift
+                # we 'borrowed' a half frame's worth of coefficients
+                # from the start of the sequence in order to center the
+                # integration, so we discount that from the remaining
+                # samples
+                borrowed = self._frame_shift
             else:
-                drop_center = 0
+                borrowed = 0
             remaining_samples = self._translation - self._skip + self._x_rem
-            remaining_samples += self._y_rem - drop_center
+            remaining_samples += self._y_rem - borrowed
             if remaining_samples >= self._frame_shift:
                 coeffs = self.compute_chunk(np.zeros(
-                    self._frame_shift + self._translation - drop_center,
+                    self._frame_shift + self._translation - borrowed,
                     dtype=self._ret_dtype))
         self._started = False
         return coeffs
@@ -830,6 +831,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._x_buf.fill(0)
             self._y_buf.fill(0)
             self._x_rem = 0
+            self._y_rem = 0
             if self._frame_style == 'centered':
                 self._skip = self._translation - self._frame_shift
                 if self._skip < 0:
@@ -879,6 +881,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 window_start = max(0, self._frame_shift - block_end)
                 window_end = self._frame_shift - block_end + active_end
                 window_active = self._window[:, window_start:window_end]
+                block_accum = np.sum(y_active * window_active, axis=1)
                 self._y_buf[block_idx, :, filt_idx] += np.sum(
                     y_active * window_active, axis=1)
         self._y_rem += y_keep
@@ -934,7 +937,13 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     def _compute_frame(self, coeffs):
         # compute a frame's worth of coefficients from y_rem
         assert self._y_rem >= 2 * self._frame_shift
-        coeffs[:] = np.sum(self._y_buf[:2], axis=(0, 1))
+        # y_buf[0, 0, :] contains the accumulators of the first half of
+        # the frame (the first block) multiplied with the first half of
+        # the window
+        # y_buf[1, 1, :] contains the accumulators of the second half of
+        # the frame (the second block) multiplied with the second half
+        # of the window
+        coeffs[:] = self._y_buf[0, 0, :] + self._y_buf[1, 1, :]
         if self._log:
             coeffs[:] = np.log(np.maximum(coeffs, config.LOG_FLOOR_VALUE))
         self._y_buf[:-1] = self._y_buf[1:]
