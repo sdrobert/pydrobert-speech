@@ -11,13 +11,14 @@ import sys
 
 import numpy as np
 
+from pydrobert import speech
 from pydrobert.speech.compute import FrameComputer
 from pydrobert.speech.pre import PreProcessor
 from pydrobert.speech.util import alias_factory_subclass_from_arg
 
 try:
-    from pydrobert.kaldi.command_line import kaldi_vlog_level_cmd_decorator
-    from pydrobert.kaldi.command_line import kaldi_logger_decorator
+    from pydrobert.kaldi.logging import kaldi_vlog_level_cmd_decorator
+    from pydrobert.kaldi.logging import kaldi_logger_decorator
 except ImportError:
     def kaldi_vlog_level_cmd_decorator(func):
         return func
@@ -70,10 +71,10 @@ def compute_feats_from_kaldi_tables(args=None):
     .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
            Toolkit. ASRU
     '''
-    from pydrobert.kaldi.command_line import KaldiParser
+    from pydrobert.kaldi.io.argparse import KaldiParser
     from pydrobert.kaldi.logging import register_logger_for_kaldi
     from pydrobert.kaldi.io.enums import KaldiDataType
-    from pydrobert.kaldi.io import open as io_open
+    from pydrobert.kaldi.io import open as kaldi_open
     logger = logging.getLogger(sys.argv[0])
     logger.addHandler(logging.StreamHandler())
     register_logger_for_kaldi(logger)
@@ -81,6 +82,7 @@ def compute_feats_from_kaldi_tables(args=None):
     parser = KaldiParser(
         description=compute_feats_from_kaldi_tables.__doc__,
         add_verbose=True, logger=logger,
+        version=speech.__version__,
     )
     parser.add_argument(
         'wav_rspecifier', type='kaldi_rspecifier',
@@ -135,7 +137,7 @@ def compute_feats_from_kaldi_tables(args=None):
         return 1
     # open tables
     try:
-        wav_reader = io_open(
+        wav_reader = kaldi_open(
             options.wav_rspecifier, 'wm', value_style='bsd')
     except IOError:
         logger.error(
@@ -143,7 +145,7 @@ def compute_feats_from_kaldi_tables(args=None):
         )
         return 1
     try:
-        feat_writer = io_open(options.feats_wspecifier, 'bm', mode='w')
+        feat_writer = kaldi_open(options.feats_wspecifier, 'bm', mode='w')
     except IOError:
         logger.error(
             'Could not open the feat table {} for writing'.format(

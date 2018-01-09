@@ -9,9 +9,9 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-# throws away the user error on import if LC_ALL=C is not set
 try:
-    import pydrobert.kaldi
+    from pydrobert.kaldi import KaldiLocaleWarning
+    warnings.filterwarnings("ignore", category=KaldiLocaleWarning)
 except ImportError:
     pass
 
