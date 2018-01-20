@@ -29,11 +29,11 @@ setup(
     description='Speech processing with Python',
     long_description=LONG_DESCRIPTION,
     use_scm_version=True,
+    zip_safe=False,
     url='https://github.com/sdrobert/pydrobert-speech',
     author=__author__,
     author_email=__email__,
     license=__license__,
-    namespace_packages=['pydrobert'],
     packages=['pydrobert', 'pydrobert.speech'],
     classifiers=[
         'Development Status :: 3 - Alpha',
