@@ -39,14 +39,19 @@ def test_standardize_local(norm_var, buff, dtype):
     buff = buff.astype(dtype)
     stand = post.Standardize(norm_var=norm_var)
     for axis in range(len(buff.shape)):
-        buff_2 = buff
+        buff_2 = buff.copy()
         other_axes = tuple(
             idx for idx in range(len(buff.shape)) if idx != axis)
-        if np.any(np.isclose(buff_2.std(axis=other_axes), 0)):
-            buff_2 = np.zeros(buff.shape, dtype=buff.dtype)
-            buff_2[0, ...] = 1
-        if sum(buff.shape[idx] for idx in other_axes) == len(other_axes):
+        if sum(buff_2.shape[idx] for idx in other_axes) == len(other_axes):
             continue
+        # we make sure that one sample along the target axis is
+        # different from at least one other
+        s_1 = [0] * len(buff_2.shape)
+        s_2 = [-1] * len(buff_2.shape)
+        s_1[axis] = slice(None)
+        s_2[axis] = slice(None)
+        buff_2[s_1] = buff_2[s_2] - 1
+        assert not np.any(np.isclose(buff_2.std(axis=other_axes), 0))
         s_buff = stand.apply(buff_2, axis=axis)
         assert np.allclose(s_buff.mean(axis=other_axes), 0)
         assert not np.allclose(s_buff, 0)
