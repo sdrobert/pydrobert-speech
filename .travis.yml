@@ -11,7 +11,7 @@ install:
   - pip install -U pip setuptools setuptools_scm
   - pip install -r requirements.txt
 
-test:
+script:
   - python setup.py test
 
 before_deploy:
