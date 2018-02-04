@@ -825,7 +825,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 raise ValueError(
                     'Chunk does not share a type with previous chunks')
         else:
-            if not np.issubdtype(chunk.dtype, np.float):
+            if not np.issubdtype(chunk.dtype, np.floating):
                 raise ValueError('Chunk must be a float type')
             self._ret_dtype = chunk.dtype
             self._x_buf.fill(0)

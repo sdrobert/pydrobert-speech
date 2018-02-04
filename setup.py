@@ -47,7 +47,7 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     install_requires=[
-        'numpy', 'six',
+        'numpy', 'six', 'future',
     ],
     setup_requires=SETUP_REQUIRES,
     tests_require=[

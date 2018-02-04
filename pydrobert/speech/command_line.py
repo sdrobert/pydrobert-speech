@@ -11,7 +11,8 @@ import sys
 
 import numpy as np
 
-from pydrobert import speech
+import pydrobert.speech as speech
+
 from pydrobert.speech.compute import FrameComputer
 from pydrobert.speech.pre import PreProcessor
 from pydrobert.speech.util import alias_factory_subclass_from_arg

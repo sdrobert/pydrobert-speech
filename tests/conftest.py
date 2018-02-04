@@ -16,10 +16,11 @@ except ImportError:
     pass
 
 warnings.simplefilter('error')
-# annoying scipy errors. Not mah fault!
+# # annoying scipy errors. Not mah fault!
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 warnings.filterwarnings("ignore", category=ImportWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # fixtures

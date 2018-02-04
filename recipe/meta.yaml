@@ -23,6 +23,7 @@ requirements:
     - six
 
 build:
+  noarch: python
   number: {{ build_num }}
   script: python setup.py install --single-version-externally-managed --record=record.txt
 
