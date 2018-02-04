@@ -33,3 +33,4 @@ deploy:
   file: dist
   on:
     tags: true
+    branch: master
