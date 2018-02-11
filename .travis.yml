@@ -3,14 +3,16 @@ sudo: required
 services: docker
 
 python:
+  - 2.7
+  - 3.5
   - 3.6
 
-# install:
-#   - pip install -U pip setuptools setuptools_scm
-#   - pip install -r requirements.txt
+install:
+  - pip install -U pip setuptools setuptools_scm
+  - pip install -r requirements.txt
 
-# script:
-#   - python setup.py test
+script:
+  - python setup.py test
 
 install:
   - echo "Install'd"
@@ -20,7 +22,7 @@ script:
 
 before_deploy:
   - if [ "${TRAVIS_PYTHON_VERSION}" = "3.6" ]; then
-      ls recipe;
+      python setup.py bdist_wheel sdist;
       chmod +x recipe/build_conda.sh;
       docker pull continuumio/miniconda3;
       docker run
@@ -29,7 +31,6 @@ before_deploy:
         -e "TRAVIS_BRANCH=${TRAVIS_BRANCH}"
         -e "TRAVIS_BUILD_NUMBER=${TRAVIS_BUILD_NUMBER}"
         continuumio/miniconda3 /io/recipe/build_conda.sh /io/dist;
-      python setup.py bdist_wheel sdist;
     fi
 
 deploy:
