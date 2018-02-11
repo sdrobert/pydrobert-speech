@@ -16,14 +16,14 @@ script:
 
 before_deploy:
   - if [ "${TRAVIS_PYTHON_VERSION}" = "3.6" ]; then
-    python setup.py bdist_wheel sdist;
-    docker pull continuumio/miniconda3;
-    docker run
-      -v `pwd`:/io
-      -e "TRAVIS=true"
-      -e "TRAVIS_BRANCH=${TRAVIS_BRANCH}"
-      -e "TRAVIS_BUILD_NUMBER=${TRAVIS_BUILD_NUMBER}"
-      continuumio/miniconda3 /io/recipe/build_conda.sh /io/dist;
+      python setup.py bdist_wheel sdist;
+      docker pull continuumio/miniconda3;
+      docker run
+        -v `pwd`:/io
+        -e "TRAVIS=true"
+        -e "TRAVIS_BRANCH=${TRAVIS_BRANCH}"
+        -e "TRAVIS_BUILD_NUMBER=${TRAVIS_BUILD_NUMBER}"
+        continuumio/miniconda3 /io/recipe/build_conda.sh /io/dist;
     fi
 
 deploy:
@@ -35,3 +35,4 @@ deploy:
   on:
     tags: true
     branch: master
+    condition: "$TRAVIS_PYTHON_VERSION" = "3.6"
