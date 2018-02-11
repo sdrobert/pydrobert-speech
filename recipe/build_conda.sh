@@ -1,4 +1,4 @@
-# !/usr/bin/env bash
+#! /usr/bin/env bash
 # Travis CI Conda building
 
 set -e -x
