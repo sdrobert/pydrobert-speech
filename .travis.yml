@@ -14,6 +14,12 @@ python:
 # script:
 #   - python setup.py test
 
+install:
+  - echo "Install'd"
+
+script:
+  - echo "Script'd"
+
 before_deploy:
   - if [ "${TRAVIS_PYTHON_VERSION}" = "3.6" ]; then
       docker pull continuumio/miniconda3;
