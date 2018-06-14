@@ -2,11 +2,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
+from json import load as json_load
+from wave import open as wave_open
+
 import numpy as np
+import pydrobert.speech.compute as compute
+import pydrobert.speech.config as config
 import pytest
 
-from pydrobert.speech import compute
-from pydrobert.speech import config
+from pydrobert.speech.util import alias_factory_subclass_from_arg
+from six.moves.cPickle import load as pickle_load
 
 
 @pytest.fixture(params=[
@@ -197,3 +204,24 @@ def test_overlap_save_convolve_the_same(buff):
     conv_coeffs = conv_computer.compute_full(buff)
     assert os_coeffs.shape == conv_coeffs.shape
     assert np.allclose(os_coeffs, conv_coeffs)
+
+
+def test_kaldi_comp_matches_fbank_comp():
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+    with open(os.path.join(data_dir, 'kaldi_feats.pkl'), 'rb') as pkl_file:
+        kaldi_feats = pickle_load(pkl_file)
+    with wave_open(os.path.join(data_dir, 'noise.wav'), 'rb') as wave_file:
+        sig = np.frombuffer(
+            wave_file.readframes(10000), dtype=np.int16).astype(np.float32)
+    with open(os.path.join(data_dir, 'fbank.json')) as json_file:
+        computer = alias_factory_subclass_from_arg(
+            compute.FrameComputer, json_load(json_file))
+    fbank_feats = computer.compute_full(sig)
+    # remove unit-normalization of hann window. We use the power spectrum, so
+    # the denominator was squared, hence the 2x in the log domain
+    fbank_feats += 2 * np.log(0.5 * (computer.frame_length - 1))
+    # removes x2 for real-spectrum output. We double because of the
+    # hermitian symmetry of real-valued signals; kaldi doesn't
+    fbank_feats -= np.log(2)
+    assert fbank_feats.shape == kaldi_feats.shape
+    assert np.allclose(fbank_feats, kaldi_feats)

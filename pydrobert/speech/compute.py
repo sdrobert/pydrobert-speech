@@ -318,7 +318,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._first_frame = True
         self._buf_len = 0
         self._chunk_dtype = np.float64
-        if frame_style == None:
+        if frame_style is None:
             frame_style = 'centered' if bank.is_zero_phase else 'causal'
         elif frame_style not in ('centered', 'causal'):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
@@ -490,7 +490,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                 self._buf[:] = np.pad(
                     frame,
                     ((frame_length + 1) // 2 - 1, 0),
-                    'reflect'
+                    'symmetric'
                 )
                 frame = self._buf
                 total_len = chunk_len + frame_length
@@ -527,7 +527,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             frame = np.pad(
                 self._buf[-buf_len:],
                 (0, frame_length - buf_len),
-                'reflect',
+                'symmetric',
             )
             self._compute_frame(frame, coeffs[0])
         else:
@@ -542,23 +542,26 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             raise ValueError('Already started computing frames')
         # there should be a nicer way to calculate this
         frame_length = self._frame_length
+        frame_shift = self._frame_shift
         if len(signal) < frame_length // 2 + 1:
             return np.empty((0, self.num_coeffs), dtype=signal.dtype)
         if self._frame_style == 'causal':
             pad_left = 0
         else:
-            pad_left = (self._frame_length + 1) // 2 - 1
-        frame_shift = self._frame_shift
-        total_len = pad_left + len(signal)
-        num_frames = max(0, (total_len - frame_length) // frame_shift + 1)
-        rem_len = total_len - num_frames * frame_shift
-        if rem_len >= frame_length // 2 + 1:
-            num_frames += 1
-            pad_right = frame_length - rem_len
-        else:
-            pad_right = 0
+            # pad_left = (self._frame_length + 1) // 2 - 1
+            pad_left = frame_length // 2 - frame_shift // 2
+        # total_len = pad_left + len(signal)
+        # num_frames = max(0, (total_len - frame_length) // frame_shift + 1)
+        # rem_len = total_len - num_frames * frame_shift
+        # if rem_len >= frame_length // 2 + 1:
+        #     num_frames += 1
+        #     pad_right = frame_length - rem_len
+        # else:
+        #     pad_right = 0
+        num_frames = max(0, (len(signal) + frame_shift // 2) // frame_shift)
+        pad_right = max(0, num_frames * frame_shift + pad_left - len(signal))
         if pad_left or pad_right:
-            signal = np.pad(signal, (pad_left, pad_right), 'reflect')
+            signal = np.pad(signal, (pad_left, pad_right), 'symmetric')
         coeffs = np.zeros((num_frames, self.num_coeffs), dtype=signal.dtype)
         for frame_idx in range(num_frames):
             frame_left = frame_idx * frame_shift
