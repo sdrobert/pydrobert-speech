@@ -558,57 +558,34 @@ class Fbank(LinearFilterBank):
 
     @property
     def supports(self):
-        # A given filter is bound from above by
-        # 2(w_r - w_l) / ((w_c - w_l)(w_r - w_c)t^2pi)
-        # supports = []
-        # for idx in range(len(self._vertices) - 2):
-        #     left = hertz_to_angular(self._vertices[idx], self._rate)
-        #     mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
-        #     right = hertz_to_angular(self._vertices[idx + 2], self._rate)
-        #     K = np.sqrt(8 * (right - left) / np.pi)
-        #     K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
-        #     K /= np.sqrt(mid - left) * np.sqrt(right - mid)
-        #     K = int(np.ceil(K))
-        #     supports.append((- K // 2 - 1, K // 2 + 1))
-        # return tuple(supports)
-        raise NotImplementedError()
+        # A given filter is bound above for t > 0 by
+        # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
+        #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
+        supports = []
+        for idx in range(len(self._vertices) - 2):
+            left = hertz_to_angular(self._vertices[idx], self._rate)
+            mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
+            right = hertz_to_angular(self._vertices[idx + 2], self._rate)
+            K = right - left + 2 * ((right - mid) * (mid - left)) ** 2
+            K /= config.EFFECTIVE_SUPPORT_THRESHOLD ** 2 * np.pi
+            K /= (right - mid) * (mid - left)
+            K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
+            K /= np.sqrt(mid - left) * np.sqrt(right - mid)
+            K **= .3333
+            K = int(np.ceil(K))
+            supports.append((- K // 2 - 1, K // 2 + 1))
+        return tuple(supports)
 
     def get_impulse_response(self, filt_idx, width):
-        # left = hertz_to_angular(self._vertices[filt_idx], self._rate)
-        # mid = hertz_to_angular(self._vertices[filt_idx + 1], self._rate)
-        # right = hertz_to_angular(self._vertices[filt_idx + 2], self._rate)
-        # res = np.zeros(
-        #     width, dtype=np.complex128 if self._analytic else np.float64)
-        # # for numerical stability (angles can get pretty small)
-        # if right - mid > mid - left:
-        #     denom = right - mid
-        #     div_term = mid - left
-        # else:
-        #     denom = mid - left
-        #     div_term = right - mid
-        # denom *= (int(self._analytic) + 1) * np.pi
-        # for t in range(1, width + 1):
-        #     if self._analytic:
-        #         numer = (right - left) / div_term * np.exp(1j * mid * t)
-        #         numer -= (right - mid) / div_term * np.exp(1j * left * t)
-        #         numer -= (mid - left) / div_term * np.exp(1j * right * t)
-        #     else:
-        #         numer = (right - left) / div_term * np.cos(mid * t)
-        #         numer -= (right - mid) / div_term * np.cos(left * t)
-        #         numer -= (mid - left) / div_term * np.cos(right * t)
-        #     val = numer / t ** 2
-        #     if t < width:
-        #         res[t] += val
-        #         res[-t] += val.conj()
-        #     else:
-        #         res[0] += val
-        # numer = mid / div_term * (right ** 2 - left ** 2)
-        # numer += right / div_term * (left ** 2 - mid ** 2)
-        # numer += left / div_term * (mid ** 2 - right ** 2)
-        # res[0] += numer / 2
-        # res /= denom
-        # return res
-        raise NotImplementedError()
+        # For the time being, I'll just invert the frequency response
+        if self.is_analytic:
+            freq_response = self.get_frequency_response(
+                filt_idx, width, half=False)
+            return np.fft.ifft(freq_response)
+        else:
+            freq_response = self.get_frequency_response(
+                filt_idx, width, half=True)
+            return np.fft.irfft(freq_response, n=width)
 
     def get_frequency_response(self, filt_idx, width, half=False):
         scaling_function = MelScaling()

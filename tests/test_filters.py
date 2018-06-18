@@ -42,14 +42,12 @@ def num_filts(request):
         analytic=False,
     ),
     lambda num_filts: filters.Fbank(
-        'mel',
         low_hz=0,
         num_filts=num_filts,
         sampling_rate=8000,
         analytic=True,
     ),
     lambda num_filts: filters.Fbank(
-        'mel',
         low_hz=0,
         num_filts=num_filts,
         sampling_rate=8000,
