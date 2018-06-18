@@ -70,6 +70,7 @@ def buff(request):
 
 
 def test_framewise_matches_full(computer, buff):
+    print(computer._frame_shift, computer._frame_length, len(buff))
     feats_full = computer.compute_full(buff)
     feats_framewise = compute.frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), (

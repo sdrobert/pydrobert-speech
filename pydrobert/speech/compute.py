@@ -461,7 +461,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         noncausal_first = self._frame_style == 'centered'
         noncausal_first &= self._first_frame
         if noncausal_first:
-            frame_length = self._frame_length // 2 + 1
+            # frame_length = self._frame_length // 2 + 1
+            frame_length = (self._frame_length + 1) // 2
+            frame_length += self._frame_shift // 2
         else:
             frame_length = self._frame_length
         frame_shift = self._frame_shift
@@ -489,7 +491,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                 frame_length = self._frame_length
                 self._buf[:] = np.pad(
                     frame,
-                    ((frame_length + 1) // 2 - 1, 0),
+                    (self._frame_length // 2 - self._frame_shift // 2, 0),
                     'symmetric'
                 )
                 frame = self._buf
@@ -521,15 +523,31 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     def finalize(self):
         buf_len = self._buf_len
         frame_length = self._frame_length
-        if buf_len >= frame_length // 2 + 1:
-            assert self._frame_style == 'causal' or not self._first_frame
-            coeffs = np.empty((1, self.num_coeffs), dtype=self._chunk_dtype)
-            frame = np.pad(
-                self._buf[-buf_len:],
-                (0, frame_length - buf_len),
+        frame_shift = self._frame_shift
+        if self._frame_style == 'causal':
+            pad_left = 0
+        else:
+            pad_left = frame_length // 2 - frame_shift // 2
+        num_frames = buf_len + frame_shift // 2
+        if not self._first_frame:
+            num_frames -= pad_left
+            pad_left = 0
+        num_frames //= frame_shift
+        if num_frames >= 1:
+            pad_right = (num_frames - 1) * frame_shift + frame_length - buf_len
+            pad_right -= pad_left
+            coeffs = np.empty(
+                (num_frames, self.num_coeffs), dtype=self._chunk_dtype)
+            frames = np.pad(
+                self._buf[-buf_len:], (pad_left, pad_right),
                 'symmetric',
             )
-            self._compute_frame(frame, coeffs[0])
+            for frame_idx in range(num_frames):
+                frame = frames[
+                    frame_idx * frame_shift:
+                    frame_idx * frame_shift + frame_length
+                ]
+                self._compute_frame(frame, coeffs[frame_idx])
         else:
             coeffs = np.empty((0, self.num_coeffs), dtype=self._chunk_dtype)
         self._buf_len = 0
@@ -559,7 +577,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         # else:
         #     pad_right = 0
         num_frames = max(0, (len(signal) + frame_shift // 2) // frame_shift)
-        pad_right = max(0, num_frames * frame_shift + pad_left - len(signal))
+        total_len = (num_frames - 1) * frame_shift - pad_left + frame_length
+        pad_right = max(0, total_len - len(signal))
         if pad_left or pad_right:
             signal = np.pad(signal, (pad_left, pad_right), 'symmetric')
         coeffs = np.zeros((num_frames, self.num_coeffs), dtype=signal.dtype)
@@ -884,7 +903,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 window_start = max(0, self._frame_shift - block_end)
                 window_end = self._frame_shift - block_end + active_end
                 window_active = self._window[:, window_start:window_end]
-                block_accum = np.sum(y_active * window_active, axis=1)
+                # block_accum = np.sum(y_active * window_active, axis=1)
                 self._y_buf[block_idx, :, filt_idx] += np.sum(
                     y_active * window_active, axis=1)
         self._y_rem += y_keep
