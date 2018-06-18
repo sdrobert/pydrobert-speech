@@ -211,9 +211,8 @@ def test_kaldi_comp_matches_fbank_comp():
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
     with open(os.path.join(data_dir, 'kaldi_feats.pkl'), 'rb') as pkl_file:
         kaldi_feats = pickle_load(pkl_file)
-    with wave_open(os.path.join(data_dir, 'noise.wav'), 'rb') as wave_file:
-        sig = np.frombuffer(
-            wave_file.readframes(10000), dtype=np.int16).astype(np.float32)
+    with open(os.path.join(data_dir, 'noise.pkl'), 'rb') as pkl_file:
+        sig = pickle_load(pkl_file)
     with open(os.path.join(data_dir, 'fbank.json')) as json_file:
         computer = alias_factory_subclass_from_arg(
             compute.FrameComputer, json_load(json_file))
