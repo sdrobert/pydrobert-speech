@@ -70,7 +70,6 @@ def buff(request):
 
 
 def test_framewise_matches_full(computer, buff):
-    print(computer._frame_shift, computer._frame_length, len(buff))
     feats_full = computer.compute_full(buff)
     feats_framewise = compute.frame_by_frame_calculation(computer, buff)
     assert np.allclose(feats_full, feats_framewise), (
@@ -163,15 +162,18 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         self._window = self._window.flatten()
 
     def compute_full(self, signal):
-        num_frames = len(signal) // self._frame_shift
+        frame_length = self._frame_length
+        frame_shift = self._frame_shift
+        num_frames = (len(signal) + frame_shift // 2)
+        num_frames //= frame_shift
         coeffs = np.empty((num_frames, self.num_coeffs), dtype=signal.dtype)
         if not num_frames:
             return coeffs
         signal = np.pad(
             signal,
             (
-                max(0, self._frame_shift - self._translation),
-                self._frame_shift + self._translation,
+                max(0, frame_shift - self._translation),
+                frame_length + self._translation,  # liberal
             ),
             'constant',
         )
@@ -182,7 +184,7 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
             else:
                 y[:] = np.abs(y)
             if self._frame_style == 'centered':
-                frame_start = max(0, self._translation - self._frame_shift)
+                frame_start = max(0, self._translation - frame_shift)
             else:
                 frame_start = self._translation
             for frame_idx in range(num_frames):

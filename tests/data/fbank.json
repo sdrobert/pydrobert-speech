@@ -15,5 +15,6 @@
   "pad_to_nearest_power_of_two": true,
   "window_function": "hanning",
   "use_log": true,
-  "use_power": true
+  "use_power": true,
+  "kaldi_shift": true
 }
