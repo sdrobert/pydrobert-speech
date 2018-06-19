@@ -10,6 +10,7 @@ import numpy as np
 
 from pydrobert.speech import AliasedFactory
 from pydrobert.speech import config
+from pydrobert.speech.scales import MelScaling
 from pydrobert.speech.scales import ScalingFunction
 from pydrobert.speech.util import alias_factory_subclass_from_arg
 from pydrobert.speech.util import angular_to_hertz
@@ -246,8 +247,8 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     The vertices of the filters are sampled uniformly along the passed
     scale. If the scale is nonlinear, the triangles will be
-    asymmetrical. With mel scaling, these filters are designed to
-    resemble the ones used in [1]_ and [2]_, though squared. See Fbank.
+    asymmetrical. This is closely related to, but not identical to, the filters
+    described in [1]_ and [2]_.
 
     Parameters
     ----------
@@ -451,21 +452,109 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return left_idx, res
 
 
-class Fbank(TriangularOverlappingFilterBank):
-    """The triangular filter bank with a frequency response that is rooted
+class Fbank(LinearFilterBank):
+    '''A mel-triangular filter bank that is square-rooted
 
-    In a standard mel-filterbank spectrogram, the power spectrum is
+    An ``Fbank`` instance is intended to replicate the filters from Kaldi and
+    HTK. Its scale is fixed to Mel-scale. Like a
+    ``TriangularOverlappingFilterBank``, ``Fbank`` places the vertices of
+    triangular filters uniformly along the target scale. However, an ``Fbank``
+    is triangular in the Mel-scale, whereas the triangular bank is triangular
+    in frequency.
+
+    .. note:: In a standard mel-filterbank spectrogram, the power spectrum is
     calculated before filtering. This module's spectrogram takes the
     power spectrum after filtering. To recreate the frequency response
     of the alternate order, we can take the pointwise square root of the
     frequency response.
 
-    The pointwise square root generates a filterbank in its own right.
-    The filters' frequency response is more bell-shaped, and the filter
-    takes longer to decay in time.
-    """
+    Parameters
+    ----------
+    num_filts : int, optional
+        The number of filters in the bank
+    high_hz, low_hz : float, optional
+        The topmost and bottommost edge of the filters, respectively.
+        The default for high_hz is the Nyquist
+    sampling_rate : float, optional
+        The sampling rate (cycles/sec) of the target recordings
+    analytic : bool, optional
+        Whether to use an analytic form of the bank. The analytic form
+        is easily derived from the real form in [1]_ and [2]_. Since
+        the filter is compactly supported in frequency, the analytic
+        form is simply the suppression of the ``[-pi, 0)`` frequencies
+
+    Attributes
+    ----------
+    centers_hz : tuple
+    is_real : bool
+    is_analytic : bool
+    num_filts : int
+    sampling_rate : float
+    supports_hz : tuple
+    supports : tuple
+    supports_ms : tuple
+    '''
 
     aliases = {'fbank'}
+
+    def __init__(
+            self, num_filts=40, high_hz=None, low_hz=20., sampling_rate=16000,
+            analytic=False):
+        scaling_function = MelScaling()
+        if low_hz < 0 or (
+                high_hz and (
+                    high_hz <= low_hz or high_hz > sampling_rate // 2)):
+            raise ValueError(
+                'Invalid frequency range: ({:.2f},{:.2f}'.format(
+                    low_hz, high_hz))
+        self._rate = sampling_rate
+        if high_hz is None:
+            high_hz = sampling_rate // 2
+        # compute vertices
+        scale_low = scaling_function.hertz_to_scale(low_hz)
+        scale_high = scaling_function.hertz_to_scale(high_hz)
+        scale_delta = (scale_high - scale_low) / (num_filts + 1)
+        self._vertices = tuple(
+            scaling_function.scale_to_hertz(scale_low + scale_delta * idx)
+            for idx in range(0, num_filts + 2)
+        )
+        self._analytic = analytic
+
+    @property
+    def is_real(self):
+        return not self._analytic
+
+    @property
+    def is_analytic(self):
+        return self._analytic
+
+    @property
+    def is_zero_phase(self):
+        return True
+
+    @property
+    def num_filts(self):
+        return len(self._vertices) - 2
+
+    @property
+    def sampling_rate(self):
+        return self._rate
+
+    @property
+    def centers_hz(self):
+        """The point of maximum gain in each filter's frequency response, in Hz
+
+        This property gives the so-called "center frequencies" - the
+        point of maximum gain - of each filter.
+        """
+        return self._vertices[1:-1]
+
+    @property
+    def supports_hz(self):
+        return tuple(
+            (low, high)
+            for low, high in zip(self._vertices[:-2], self._vertices[2:])
+        )
 
     @property
     def supports(self):
@@ -487,26 +576,8 @@ class Fbank(TriangularOverlappingFilterBank):
             supports.append((- K // 2 - 1, K // 2 + 1))
         return tuple(supports)
 
-    def get_frequency_response(self, filt_idx, width, half=False):
-        res = super(Fbank, self).get_frequency_response(
-            filt_idx, width, half=half)
-        res **= .5
-        return res
-
-    def get_truncated_response(self, filt_idx, width):
-        left_idx, res = super(Fbank, self).get_truncated_response(
-            filt_idx, width)
-        res **= .5
-        return left_idx, res
-
     def get_impulse_response(self, filt_idx, width):
-        # TODO(sdrobert): I think the correct equation is 
-        # (i - 1)(\sqrt{c - l}e^{irt}erf((i - 1)\sqrt{(r - c)t/2})
-        #     - \sqrt{r - c}e^{ilt}erf((i - 1)\sqrt{(c - l)t/2})) /
-        #   \sqrt{2^5 t^3 (c - l)(r - c) \pi}
-        # but it doesn't match with the frequency response. Maybe
-        # since erf is approximated? For the time being, I'll just
-        # invert the frequency response
+        # For the time being, I'll just invert the frequency response
         if self.is_analytic:
             freq_response = self.get_frequency_response(
                 filt_idx, width, half=False)
@@ -515,6 +586,126 @@ class Fbank(TriangularOverlappingFilterBank):
             freq_response = self.get_frequency_response(
                 filt_idx, width, half=True)
             return np.fft.irfft(freq_response, n=width)
+
+    def get_frequency_response(self, filt_idx, width, half=False):
+        scaling_function = MelScaling()
+        left_hz = self._vertices[filt_idx]
+        mid_hz = self._vertices[filt_idx + 1]
+        right_hz = self._vertices[filt_idx + 2]
+        left_mel = scaling_function.hertz_to_scale(left_hz)
+        mid_mel = scaling_function.hertz_to_scale(mid_hz)
+        right_mel = scaling_function.hertz_to_scale(right_hz)
+        left_idx = int(np.ceil(width * left_hz / self._rate))
+        right_idx = int(width * right_hz / self._rate)
+        assert self._rate * (left_idx - 1) / width <= left_hz
+        assert self._rate * (right_idx + 1) / width >= right_hz, width
+        dft_size = width
+        if half:
+            if width % 2:
+                dft_size = (width + 1) // 2
+            else:
+                dft_size = width // 2 + 1
+        res = np.zeros(dft_size, dtype=np.float64)
+        for idx in range(left_idx, min(dft_size, right_idx + 1)):
+            hz = self._rate * idx / width
+            mel = scaling_function.hertz_to_scale(hz)
+            if mel <= mid_mel:
+                val = (mel - left_mel) / (mid_mel - left_mel)
+            else:
+                val = (right_mel - mel) / (right_mel - mid_mel)
+            res[idx] = val ** .5
+            if not half and not self._analytic:
+                res[-idx] = val ** .5
+        return res
+
+    def get_truncated_response(self, filt_idx, width):
+        scaling_function = MelScaling()
+        left_hz = self._vertices[filt_idx]
+        mid_hz = self._vertices[filt_idx + 1]
+        right_hz = self._vertices[filt_idx + 2]
+        left_mel = scaling_function.hertz_to_scale(left_hz)
+        mid_mel = scaling_function.hertz_to_scale(mid_hz)
+        right_mel = scaling_function.hertz_to_scale(right_hz)
+        left_idx = int(np.ceil(width * left_hz / self._rate))
+        right_idx = int(width * right_hz / self._rate)
+        assert self._rate * (left_idx - 1) / width <= left_hz
+        assert self._rate * (right_idx + 1) / width >= right_hz, width
+        res = np.zeros(min(width, right_idx + 1) - left_idx, dtype=np.float64)
+        for idx in range(left_idx, min(width, right_idx + 1)):
+            hz = self._rate * idx / width
+            mel = scaling_function.hertz_to_scale(hz)
+            if mel <= mid_mel:
+                res[idx - left_idx] = (mel - left_mel) / (mid_mel - left_mel)
+            else:
+                res[idx - left_idx] = (right_mel - mel) / (right_mel - mid_mel)
+        return left_idx, res ** .5
+
+
+
+# class Fbank(TriangularOverlappingFilterBank):
+#     """The triangular filter bank with a frequency response that is rooted
+
+#     In a standard mel-filterbank spectrogram, the power spectrum is
+#     calculated before filtering. This module's spectrogram takes the
+#     power spectrum after filtering. To recreate the frequency response
+#     of the alternate order, we can take the pointwise square root of the
+#     frequency response.
+
+#     The pointwise square root generates a filterbank in its own right.
+#     The filters' frequency response is more bell-shaped, and the filter
+#     takes longer to decay in time.
+#     """
+
+#     aliases = {'fbank'}
+
+#     @property
+#     def supports(self):
+#         # A given filter is bound above for t > 0 by
+#         # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
+#         #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
+#         supports = []
+#         for idx in range(len(self._vertices) - 2):
+#             left = hertz_to_angular(self._vertices[idx], self._rate)
+#             mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
+#             right = hertz_to_angular(self._vertices[idx + 2], self._rate)
+#             K = right - left + 2 * ((right - mid) * (mid - left)) ** 2
+#             K /= config.EFFECTIVE_SUPPORT_THRESHOLD ** 2 * np.pi
+#             K /= (right - mid) * (mid - left)
+#             K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
+#             K /= np.sqrt(mid - left) * np.sqrt(right - mid)
+#             K **= .3333
+#             K = int(np.ceil(K))
+#             supports.append((- K // 2 - 1, K // 2 + 1))
+#         return tuple(supports)
+
+#     def get_frequency_response(self, filt_idx, width, half=False):
+#         res = super(Fbank, self).get_frequency_response(
+#             filt_idx, width, half=half)
+#         res **= .5
+#         return res
+
+#     def get_truncated_response(self, filt_idx, width):
+#         left_idx, res = super(Fbank, self).get_truncated_response(
+#             filt_idx, width)
+#         res **= .5
+#         return left_idx, res
+
+#     def get_impulse_response(self, filt_idx, width):
+#         # TODO(sdrobert): I think the correct equation is 
+#         # (i - 1)(\sqrt{c - l}e^{irt}erf((i - 1)\sqrt{(r - c)t/2})
+#         #     - \sqrt{r - c}e^{ilt}erf((i - 1)\sqrt{(c - l)t/2})) /
+#         #   \sqrt{2^5 t^3 (c - l)(r - c) \pi}
+#         # but it doesn't match with the frequency response. Maybe
+#         # since erf is approximated? For the time being, I'll just
+#         # invert the frequency response
+#         if self.is_analytic:
+#             freq_response = self.get_frequency_response(
+#                 filt_idx, width, half=False)
+#             return np.fft.ifft(freq_response)
+#         else:
+#             freq_response = self.get_frequency_response(
+#                 filt_idx, width, half=True)
+#             return np.fft.irfft(freq_response, n=width)
 
 
 class GaborFilterBank(LinearFilterBank):
