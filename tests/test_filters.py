@@ -73,6 +73,15 @@ def num_filts(request):
         num_filts=num_filts,
         sampling_rate=8000,
         max_centered=True,
+        erb=True,
+    ),
+    lambda num_filts: filters.ComplexGammatoneFilterBank(
+        'mel',
+        low_hz=0,
+        num_filts=num_filts,
+        sampling_rate=8000,
+        max_centered=True,
+        erb=False,
     ),
 ], ids=[
     'triangular_analytic',
@@ -81,7 +90,8 @@ def num_filts(request):
     'fbank',
     'gabor_erb',
     'gabor',
-    'gammatone',
+    'gammatone_erb',
+    'gammatone'
 ])
 def bank(request, num_filts):
     return request.param(num_filts)

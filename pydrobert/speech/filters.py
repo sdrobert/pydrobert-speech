@@ -641,73 +641,6 @@ class Fbank(LinearFilterBank):
         return left_idx, res ** .5
 
 
-
-# class Fbank(TriangularOverlappingFilterBank):
-#     """The triangular filter bank with a frequency response that is rooted
-
-#     In a standard mel-filterbank spectrogram, the power spectrum is
-#     calculated before filtering. This module's spectrogram takes the
-#     power spectrum after filtering. To recreate the frequency response
-#     of the alternate order, we can take the pointwise square root of the
-#     frequency response.
-
-#     The pointwise square root generates a filterbank in its own right.
-#     The filters' frequency response is more bell-shaped, and the filter
-#     takes longer to decay in time.
-#     """
-
-#     aliases = {'fbank'}
-
-#     @property
-#     def supports(self):
-#         # A given filter is bound above for t > 0 by
-#         # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
-#         #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
-#         supports = []
-#         for idx in range(len(self._vertices) - 2):
-#             left = hertz_to_angular(self._vertices[idx], self._rate)
-#             mid = hertz_to_angular(self._vertices[idx + 1], self._rate)
-#             right = hertz_to_angular(self._vertices[idx + 2], self._rate)
-#             K = right - left + 2 * ((right - mid) * (mid - left)) ** 2
-#             K /= config.EFFECTIVE_SUPPORT_THRESHOLD ** 2 * np.pi
-#             K /= (right - mid) * (mid - left)
-#             K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
-#             K /= np.sqrt(mid - left) * np.sqrt(right - mid)
-#             K **= .3333
-#             K = int(np.ceil(K))
-#             supports.append((- K // 2 - 1, K // 2 + 1))
-#         return tuple(supports)
-
-#     def get_frequency_response(self, filt_idx, width, half=False):
-#         res = super(Fbank, self).get_frequency_response(
-#             filt_idx, width, half=half)
-#         res **= .5
-#         return res
-
-#     def get_truncated_response(self, filt_idx, width):
-#         left_idx, res = super(Fbank, self).get_truncated_response(
-#             filt_idx, width)
-#         res **= .5
-#         return left_idx, res
-
-#     def get_impulse_response(self, filt_idx, width):
-#         # TODO(sdrobert): I think the correct equation is 
-#         # (i - 1)(\sqrt{c - l}e^{irt}erf((i - 1)\sqrt{(r - c)t/2})
-#         #     - \sqrt{r - c}e^{ilt}erf((i - 1)\sqrt{(c - l)t/2})) /
-#         #   \sqrt{2^5 t^3 (c - l)(r - c) \pi}
-#         # but it doesn't match with the frequency response. Maybe
-#         # since erf is approximated? For the time being, I'll just
-#         # invert the frequency response
-#         if self.is_analytic:
-#             freq_response = self.get_frequency_response(
-#                 filt_idx, width, half=False)
-#             return np.fft.ifft(freq_response)
-#         else:
-#             freq_response = self.get_frequency_response(
-#                 filt_idx, width, half=True)
-#             return np.fft.irfft(freq_response, n=width)
-
-
 class GaborFilterBank(LinearFilterBank):
     r"""Gabor filters with ERBs between points from a scale
 
@@ -995,7 +928,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     .. math::
 
-         h(t) = c t^{n - 1} e^{\phi - \alpha t + i\xi t} u(t)
+         h(t) = c t^{n - 1} e^{- \alpha t + i\xi t} u(t)
 
     in the time domain, where :math:`\alpha` is the bandwidth parameter,
     :math:`\xi` is the carrier frequency, :math:`n` is the order of the
@@ -1005,20 +938,21 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     .. math::
 
-         H(\omega) = \frac{c(n - 1)!)}{\alpha^n}P(\omega) \\
-         P(\omega) = \frac{e^{i\phi}}{\left
-                            (1 + i\frac{\omega - \xi}{\alpha}
+         H(\omega) = \frac{c(n - 1)!)}{\left
+                            \alpha + i(\omega - \xi)
                         \right)^n}
 
     For large :math:`\xi`, the complex gammatone is approximately
     analytic.
 
     `scaling_function` is used to split up the frequencies between
-    `high_hz` and `low_hz` into a series of "edges." Pairs of edges
-    define the location of the filter by setting :math:`\xi` to the
-    midpoint and scaling :math:`\sigma` such that the filter's
-    Equivalent Rectangular Bandwidth (ERB) matches the distance between
-    those edges.
+    `high_hz` and `low_hz` into a series of filters. Every subsequent
+    filter's width is scaled such that, if the filters are all of the
+    same height, the intersection with the precedent filter's response
+    matches the filter's Equivalent Rectangular Bandwidth (erb == True)
+    or its 3dB bandwidths (erb == False). The ERB is the width of a
+    rectangular filter with the same height as the filter's maximum
+    frequency response that has the same L_2 norm.
 
     Parameters
     ----------
@@ -1040,11 +974,11 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         While normally causal, setting `max_centered` to true will shift
         all filters in the bank such that the maximum absolute value
         in time is centered at sample 0.
-    boundary_adjustment_mode : {'edges', 'wrap'}, optional
-        How to handle when the effective support would exceed the
-        Nyquist or pass below 0Hz. 'edges' narrows the boundary filters
-        in frequency. 'wrap' ignores the problem. The filter bank is
-        no longer analytic if the support falls below 0Hz.
+    scale_l2_norm : bool
+        Whether to scale the l2 norm of each filter to 1. Otherwise the
+        frequency response of each filter will max out at an absolute
+        value of 1.
+    erb : bool
 
     Attributes
     ----------
@@ -1057,6 +991,8 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
     supports_hz : tuple
     supports : tuple
     supports_ms : tuple
+    scaled_l2_norm : bool
+    erb : bool
 
     See Also
     --------
@@ -1064,23 +1000,22 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         value below which counts as zero
     '''
 
-    aliases = {'gammatone'}
+    aliases = {'gammatone', 'tonebank'}
 
     def __init__(
-            self, scaling_function, num_filts=40, high_hz=None, low_hz=60.,
+            self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
             sampling_rate=16000, order=4, max_centered=False,
-            boundary_adjustment_mode='wrap'):
+            scale_l2_norm=False, erb=False):
         scaling_function = alias_factory_subclass_from_arg(
             ScalingFunction, scaling_function)
+        self._scale_l2_norm = scale_l2_norm
+        self._erb = erb
         if low_hz < 0 or (
                 high_hz and (
                     high_hz <= low_hz or high_hz > sampling_rate // 2)):
             raise ValueError(
                 'Invalid frequency range: ({:.2f},{:.2f}'.format(
                     low_hz, high_hz))
-        if boundary_adjustment_mode not in ('edges', 'wrap'):
-            raise ValueError('Invalid boundary adjustment mode: "{}"'.format(
-                boundary_adjustment_mode))
         if not isinstance(order, int) or order <= 0:
             raise ValueError('order must be a positive integer')
         self._order = order
@@ -1090,94 +1025,77 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         scale_low = scaling_function.hertz_to_scale(low_hz)
         scale_high = scaling_function.hertz_to_scale(high_hz)
         scale_delta = (scale_high - scale_low) / (num_filts + 1)
-        edges = [
-            scaling_function.scale_to_hertz(scale_low + scale_delta * idx)
-            for idx in range(0, num_filts + 2)
-        ]
-        self._alphas = []
+        # see gabor filters for more info
+        edges = tuple(
+            scaling_function.scale_to_hertz(
+                scale_low + scale_delta * (idx + .5))
+            for idx in range(0, num_filts + 1)
+        )
+        self._centers_hz = []
         self._xis = []
+        self._alphas = []
         self._cs = []
         self._offsets = []
-        supports_ang = []
-        supports = []
-        wraps_ang = []
+        self._supports = []
+        self._supports_ang = []
+        self._wrap_supports_ang = []
         self._wrap_below = False
-        last_low = 0
-        last_high = 0
-        # some constants for calculations
-        a = 2 * np.log(np.math.factorial(order - 1))
-        b = np.log(np.math.factorial(2 * order - 2))
-        a += (2 * order - 1) * np.log(2) - b
-        b *= -.5
         log_eps = np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
-        for low, high in zip(edges[:-2], edges[2:]):
-            self._alphas.append(0)
-            self._xis.append(0)
-            self._offsets.append(0)
-            self._cs.append(0)
-            low = max(last_low, hertz_to_angular(low, self._rate))
-            high = max(hertz_to_angular(high, self._rate), last_high)
-            filter_resolved = False
-            steps = 0
-            max_steps = 100
-            while not filter_resolved:
-                assert steps <= max_steps
-                filter_resolved = True
-                self._xis[-1] = (high + low) / 2
-                log_alpha = 2 * np.log(high - low) + a
-                log_c = (order - .5) * (np.log(2) + log_alpha) + b
-                self._alphas[-1] = np.exp(log_alpha)
-                self._cs[-1] = np.exp(log_c)
-                if max_centered:
-                    self._offsets[-1] = (order - 1) / self._alphas[-1]
-                diff = -2 / order * (np.log(high - low) + log_eps)
-                wrap_diff = self._alphas[-1] * np.sqrt(
-                    np.exp(diff + 2 / order * np.log(2)) - 1)
-                diff = self._alphas[-1] * np.sqrt(np.exp(diff) - 1)
-                supp_ang_low = self._xis[-1] - diff
-                supp_ang_high = self._xis[-1] + diff
-                wrap_ang = 2 * (wrap_diff - diff)
-                if supp_ang_low < 0:
-                    if boundary_adjustment_mode == 'edges':
-                        low_inc = -supp_ang_low / (max_steps - steps)
-                        if low + low_inc > high:
-                            low = (low + high) / 2
-                        else:
-                            low += low_inc
-                        filter_resolved = False
-                    else:
-                        self._wrap_below = True
-                if supp_ang_high > np.pi:
-                    if boundary_adjustment_mode == 'edges':
-                        high_dec = (supp_ang_high - np.pi)
-                        high_dec /= max_steps - steps
-                        if high - high_dec < low:
-                            high = (high + low) / 2
-                        else:
-                            high -= high_dec
-                        filter_resolved = False
-                steps += 1
-            last_low = low
-            last_high = high
-            support = self._calculate_temp_support(-1)
-            supports_ang.append((supp_ang_low, supp_ang_high))
-            wraps_ang.append(wrap_ang)
-            supports.append(support)
+        log_double_factorial = np.log(np.math.factorial(2 * order - 2))
+        log_factorial = np.log(np.math.factorial(order - 1))
+        log_2 = np.log(2)
+        if erb:
+            alpha_const = (order - 1) * log_2
+            alpha_const += 2 * log_factorial
+            alpha_const -= log_double_factorial
+        else:
+            alpha_const = - .5 * np.log(4 * (2 ** (1 / order)) - 4)
+        for left_intersect, right_intersect in zip(edges[:-1], edges[1:]):
+            center_hz = (left_intersect + right_intersect) / 2
+            xi = hertz_to_angular(center_hz, self._rate)
+            log_alpha = alpha_const + np.log(hertz_to_angular(
+                right_intersect - left_intersect, self._rate))
+            alpha = np.exp(log_alpha)
+            if scale_l2_norm:
+                log_c = .5 * (
+                    log_2 + log_alpha + log_double_factorial)
+                log_c -= order * (log_alpha + log_2)
+            else:
+                log_c = order * log_alpha - log_factorial
+            c = np.exp(log_c)
+            if max_centered:
+                offset = -(order - 1) / alpha
+            else:
+                offset = 0
+            supp_a = (2 / order) * (log_c + log_factorial - log_eps)
+            wrap_supp_a = supp_a + (2 / order) * log_2
+            supp_b = np.exp(2 * log_alpha)
+            diff_ang = (np.exp(supp_a) - supp_b) ** .5
+            wrap_diff_ang = (np.exp(wrap_supp_a) - supp_b) ** .5
+            self._centers_hz.append(center_hz)
+            self._xis.append(xi)
+            self._alphas.append(alpha)
+            self._cs.append(c)
+            self._offsets.append(offset)
+            self._supports.append(self._calculate_temp_support(-1))
+            self._supports_ang.append((xi - diff_ang, xi + diff_ang))
+            if self._supports_ang[-1][0] < 0:
+                self._wrap_below = True
+            self._wrap_supports_ang.append(2 * wrap_diff_ang)
         self._xis = tuple(self._xis)
         self._cs = tuple(self._cs)
         self._alphas = tuple(self._alphas)
         self._offsets = tuple(self._offsets)
-        self._centers_hz = tuple(
-            angular_to_hertz(ang, self._rate) for ang in self._xis)
-        self._supports_ang = tuple(supports_ang)
-        self._wraps_ang = tuple(wraps_ang)
+        self._centers_hz = tuple(self._centers_hz)
+        self._supports_ang = tuple(self._supports_ang)
+        self._wrap_supports_ang = tuple(self._wrap_supports_ang)
         self._supports_hz = tuple(
             (
-                angular_to_hertz(left, self._rate),
-                angular_to_hertz(right, self._rate),
+                angular_to_hertz(ang_l, self._rate),
+                angular_to_hertz(ang_h, self._rate),
             )
-            for left, right in supports_ang)
-        self._supports = tuple(supports)
+            for ang_l, ang_h in self._supports_ang)
+        self._supports = tuple(self._supports)
 
     @property
     def is_real(self):
@@ -1193,9 +1111,6 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     @property
     def order(self):
-        """The order of the gammatone
-
-        Higher order means a more symmetric frequency response"""
         return self._order
 
     @property
@@ -1222,6 +1137,14 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
     @property
     def supports(self):
         return self._supports
+
+    @property
+    def scaled_l2_norm(self):
+        return self._scale_l2_norm
+
+    @property
+    def erb(self):
+        return self._erb
 
     def get_impulse_response(self, filt_idx, width):
         left_sup, right_sup = self.supports[filt_idx]
@@ -1254,7 +1177,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     def get_truncated_response(self, filt_idx, width):
         left_sup, right_sup = self._supports_ang[filt_idx]
-        wrap_ang = self._wraps_ang[filt_idx]
+        wrap_ang = self._wrap_supports_ang[filt_idx]
         # wrap_ang is the additional support needed to hit
         # half the effective support threshold. If that support is
         # greater than the 2pi periodization, some points could exceed
@@ -1295,6 +1218,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         # calculate the nonzero region of the temp support of filt idx
         alpha = self._alphas[idx]
         c = self._cs[idx]
+        xi = self._xis[idx]
         offset = self._offsets[idx]
         n = self._order
         eps = config.EFFECTIVE_SUPPORT_THRESHOLD
