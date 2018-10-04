@@ -106,3 +106,5 @@ ENV/
 build/
 dist/
 .pytest_cache/
+.ftpconfig
+.ftpignore

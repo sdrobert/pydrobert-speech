@@ -291,6 +291,7 @@ class Standardize(PostProcessor):
             scales = np.ones(1)
         tensor_slice = [None] * len(tensor.shape)
         tensor_slice[axis] = slice(None)
+        tensor_slice = tuple(tensor_slice)
         tensor *= scales[tensor_slice]
         tensor -= (means * scales)[tensor_slice]
         return tensor
@@ -463,9 +464,10 @@ class Deltas(PostProcessor):
             for other_indices in np.ndindex(other_shapes):
                 for axis_idx, idx in zip(other_axes, other_indices):
                     feat_slice[axis_idx] = idx
-                delta_feat[feat_slice] = np.correlate(
+                delta_feat[tuple(feat_slice)] = np.correlate(
                     np.pad(
-                        features[feat_slice].astype(np.float64, copy=False),
+                        features[tuple(feat_slice)].astype(
+                            np.float64, copy=False),
                         (max_offset, max_offset),
                         self._pad_mode,
                         **self._pad_kwargs

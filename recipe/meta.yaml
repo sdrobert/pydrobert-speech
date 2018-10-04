@@ -1,4 +1,4 @@
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0').replace('v','') %}
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0').replace('v','').replace('untagged', '0.0').split('-')[0] %}
 {% if environ.get('TRAVIS', False) %}
   {% set build_num = environ['TRAVIS_BUILD_NUMBER'] %}
 {% else %}

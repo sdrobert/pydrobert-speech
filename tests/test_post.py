@@ -50,6 +50,8 @@ def test_standardize_local(norm_var, buff, dtype):
         s_2 = [-1] * len(buff_2.shape)
         s_1[axis] = slice(None)
         s_2[axis] = slice(None)
+        s_1 = tuple(s_1)
+        s_2 = tuple(s_2)
         buff_2[s_1] = buff_2[s_2] - 1
         assert not np.any(np.isclose(buff_2.std(axis=other_axes), 0))
         s_buff = stand.apply(buff_2, axis=axis)
