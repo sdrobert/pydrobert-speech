@@ -13,10 +13,10 @@ Layout
 1. ``pre`` : audio -> audio. Preprocess audio signals.
 2. ``scale`` : produces scaling functions for placing filter banks in time. E.g. Mel-scale, Bark-scale, or uniform. 
 3. ``filters`` : scale -> filter bank. Produces factories of filters (e.g. Gabor), positioned according to input scale. The
-  factory can generate the same filter in the frequency or time domain. ``filters`` also contains windowing functions, e.g. Hann.
+   factory can generate the same filter in the frequency or time domain. ``filters`` also contains windowing functions, e.g.    Hann.
 4. ``compute`` : audio, filter bank, window -> features. Produces features, given a filter bank and a signal. The object in
-  ``compute`` controls the conversion. The standard, Short-Time-Fourier-Transform-based filter bank representation is, for
-  example, ``ShortTimeFourierTransformFrameComputer``.
+   ``compute`` controls the conversion. The standard, Short-Time-Fourier-Transform-based filter bank representation is, for
+   example, ``ShortTimeFourierTransformFrameComputer``.
 5. ``post`` : features -> features. Post-processing features, e.g. CMVN.
 
 These submodules naturally form a speech processing pipeline.
