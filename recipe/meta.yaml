@@ -29,7 +29,8 @@ build:
   noarch: python
   number: {{ build_num }}
   script:
-    - export SETUPTOOLS_SCM_PRETEND_VERSION=${PKG_VERSION}
+    - export SETUPTOOLS_SCM_PRETEND_VERSION=${PKG_VERSION}  # [not win]
+    - set SETUPTOOLS_SCM_PRETEND_VERSION=%PKG_VERSION%  # [win]
     - python setup.py install --single-version-externally-managed --record=record.txt
 
 test:
