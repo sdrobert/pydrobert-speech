@@ -57,8 +57,8 @@ try:
         return norm.ppf(p) * std + mu
 except ImportError:
     gauss_quant = _gauss_quant_odeh_evans
-gauss_quant.__doc__ = \
-"""Gaussian quantile function
+gauss_quant.__doc__ = """\
+Gaussian quantile function
 
 Given a probability from a univariate Gaussian, determine the
 value of the random variable such that the probability of
@@ -66,7 +66,7 @@ drawing a value l.t.e. to that value is equal to the
 probability. In other words, the so-called inverse cumulative
 distribution function.
 
-If `scipy` can be imported, this function uses `scipy.norm.ppf`
+If ``scipy`` can be imported, this function uses ``scipy.norm.ppf``
 to calculate the result. Otherwise, it uses the approximation from
 Odeh & Evans 1974 (thru Brophy 1985)
 
@@ -85,13 +85,16 @@ float
     The random variable value
 """
 
+
 def hertz_to_angular(hertz, samp_rate):
     """Convert cycles/sec to radians/sec"""
     return hertz * 2 * np.pi / samp_rate
 
+
 def angular_to_hertz(angle, samp_rate):
     """Convert radians/sec to cycles/sec"""
     return angle * samp_rate / (2 * np.pi)
+
 
 def circshift_fourier(filt, shift, start_idx=0, dft_size=None, copy=True):
     r"""Circularly shift a filter in the time domain, from the fourier domain
@@ -135,6 +138,7 @@ def circshift_fourier(filt, shift, start_idx=0, dft_size=None, copy=True):
             ) % dft_size))
         return filt
 
+
 def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
     from pydrobert.kaldi.io import open as io_open
     if key is None:
@@ -151,6 +155,7 @@ def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
                     raise IndexError('table index out of range')
             return table.value()
 
+
 def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
     from scipy.io import wavfile
     if key is not None:
@@ -159,6 +164,7 @@ def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
     if dtype:
         data = data.astype(dtype)
     return data
+
 
 def _wave_read_signal(rfilename, dtype, key, **kwargs):
     import wave
@@ -184,6 +190,7 @@ def _wave_read_signal(rfilename, dtype, key, **kwargs):
     if dtype:
         data = data.astype(dtype)
     return data
+
 
 def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
     import h5py
@@ -211,6 +218,7 @@ def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
             data = np.array(data)
     return data
 
+
 def _numpy_binary_read_signal(rfilename, dtype, key, **kwargs):
     if key is not None:
         raise TypeError(
@@ -219,6 +227,7 @@ def _numpy_binary_read_signal(rfilename, dtype, key, **kwargs):
     if dtype:
         data = data.astype(dtype)
     return data
+
 
 def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
     archive = np.load(rfilename, **kwargs)
@@ -230,6 +239,15 @@ def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
         data = data.astype(dtype)
     return data
 
+
+def _torch_read_signal(rfilename, dtype, key, **kwargs):
+    import torch
+    data = torch.load(rfilename, map_location='cpu').numpy()
+    if dtype:
+        data = data.astype(dtype)
+    return data
+
+
 def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
     from pydrobert.kaldi.io import open as io_open
     if dtype is None:
@@ -237,6 +255,7 @@ def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
     with io_open(rfilename, mode='r', **kwargs) as inp_stream:
         data = inp_stream.read(dtype)
     return data
+
 
 def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
     if key is not None:
@@ -247,6 +266,7 @@ def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
     else:
         data = np.fromfile(rfilename, **kwargs)
     return data
+
 
 def read_signal(rfilename, dtype=None, key=None, **kwargs):
     r"""Read a signal from a variety of possible sources
@@ -281,6 +301,9 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
         `key` will be loaded. Otherwise the data indexed by the key
         ``'arr_0'`` will be loaded. If set, the result will be cast as
         the numpy data type `dtype`.
+    6.  If `rfilename` ends with `.pt`, the file is assumed to be a binary
+        in PyTorch format. If set, the results will be cast as the numpy
+        data type `dtype`.
     6.  If `pydrobert.kaldi` can be imported, it will try to read an
         object of kaldi data type `dtype` (defaults to `BaseMatrix`)
         from a basic kaldi input stream. If this fails, we continue
@@ -321,12 +344,15 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
         data = _numpy_binary_read_signal(rfilename, dtype, key, **kwargs)
     elif rfilename.endswith('.npz'):
         data = _numpy_archive_read_signal(rfilename, dtype, key, **kwargs)
+    elif rfilename.endswith('.pt'):
+        data = _torch_read_signal(rfilename, dtype, key, **kwargs)
     else:
         try:
             data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
-        except:
+        except Exception:
             data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     return data
+
 
 def alias_factory_subclass_from_arg(factory_class, arg):
     '''Boilerplate for getting an instance of an AliasedFactory

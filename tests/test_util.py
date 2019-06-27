@@ -63,89 +63,10 @@ def test_gauss_quant(mu, std, do_scipy):
         assert np.isclose(x, x2, atol=1e-5)
 
 
-# python 3 source
-class TemporaryDirectory(object):
-
-    def __init__(self, suffix="", prefix="tmp", dir=None):
-        self._closed = False
-        self.name = None  # Handle mkdtemp raising an exception
-        self.name = mkdtemp(suffix, prefix, dir)
-
-    def __repr__(self):
-        return "<{} {!r}>".format(self.__class__.__name__, self.name)
-
-    def __enter__(self):
-        return self.name
-
-    def cleanup(self, _warn=False):
-        if self.name and not self._closed:
-            try:
-                self._rmtree(self.name)
-            except (TypeError, AttributeError) as ex:
-                # Issue #10188: Emit a warning on stderr
-                # if the directory could not be cleaned
-                # up due to missing globals
-                if "None" not in str(ex):
-                    raise
-                print("ERROR: {!r} while cleaning up {!r}".format(ex, self,),
-                      file=sys.stderr)
-                return
-            self._closed = True
-            if _warn:
-                self._warn("Implicitly cleaning up {!r}".format(self),
-                           ResourceWarning)
-
-    def __exit__(self, exc, value, tb):
-        self.cleanup()
-
-    def __del__(self):
-        # Issue a ResourceWarning if implicit cleanup needed
-        self.cleanup(_warn=True)
-
-    # XXX (ncoghlan): The following code attempts to make
-    # this class tolerant of the module nulling out process
-    # that happens during CPython interpreter shutdown
-    # Alas, it doesn't actually manage it. See issue #10188
-    _listdir = staticmethod(os.listdir)
-    _path_join = staticmethod(os.path.join)
-    _isdir = staticmethod(os.path.isdir)
-    _islink = staticmethod(os.path.islink)
-    _remove = staticmethod(os.remove)
-    _rmdir = staticmethod(os.rmdir)
-    _warn = warnings.warn
-
-    def _rmtree(self, path):
-        # Essentially a stripped down version of shutil.rmtree.  We can't
-        # use globals because they may be None'ed out at shutdown.
-        for name in self._listdir(path):
-            fullname = self._path_join(path, name)
-            try:
-                isdir = self._isdir(fullname) and not self._islink(fullname)
-            except OSError:
-                isdir = False
-            if isdir:
-                self._rmtree(fullname)
-            else:
-                try:
-                    self._remove(fullname)
-                except OSError:
-                    pass
-        try:
-            self._rmdir(path)
-        except OSError:
-            pass
-
-
-@pytest.fixture(scope='module')
-def tdir():
-    with TemporaryDirectory() as a:
-        yield a
-
-
 @pytest.mark.parametrize('key', [True, False])
-def test_read_kaldi(tdir, key):
+def test_read_kaldi(temp_dir, key):
     kaldi = pytest.importorskip('pydrobert.kaldi.io')
-    rxfilename = 'ark:{}'.format(os.path.join(tdir, 'foo.ark'))
+    rxfilename = 'ark:{}'.format(os.path.join(temp_dir, 'foo.ark'))
     key_1 = 'lions'
     key_2 = 'tigers'
     buff_1 = np.random.random((100, 10))
@@ -164,9 +85,9 @@ def test_read_kaldi(tdir, key):
 @pytest.mark.parametrize('use_scipy', [True, False])
 @pytest.mark.parametrize('channels', [1, 2], ids=['mono', 'stereo'])
 @pytest.mark.parametrize('sampwidth', [2, 4])
-def test_read_wave(tdir, use_scipy, channels, sampwidth):
+def test_read_wave(temp_dir, use_scipy, channels, sampwidth):
     import wave
-    rfilename = os.path.join(tdir, 'foo.wav')
+    rfilename = os.path.join(temp_dir, 'foo.wav')
     if channels > 1:
         wave_buffer_1 = np.random.random((1000, channels)) * 1000
     else:
@@ -188,9 +109,9 @@ def test_read_wave(tdir, use_scipy, channels, sampwidth):
 
 
 @pytest.mark.parametrize('key', [True, False])
-def test_read_hdf5(tdir, key):
+def test_read_hdf5(temp_dir, key):
     h5py = pytest.importorskip('h5py')
-    rfilename = os.path.join(tdir, 'foo.hdf5')
+    rfilename = os.path.join(temp_dir, 'foo.hdf5')
     h5py_file = h5py.File(rfilename, 'w')
     h5py_file.create_group('a/b/c')
     h5py_file.create_group('a/b/d/e')
@@ -207,11 +128,22 @@ def test_read_hdf5(tdir, key):
         assert np.allclose(dset_1, dset_3)
 
 
+def test_read_torch(temp_dir):
+    torch = pytest.importorskip('torch')
+    torch.manual_seed(10)
+    rfilename = 'foo.pt'
+    exp = torch.randn(10, 4)
+    torch.save(exp, rfilename)
+    exp = exp.numpy()
+    act = util.read_signal(rfilename)
+    assert np.allclose(exp, act)
+
+
 @pytest.mark.parametrize(
     'allow_pickle', [True, False], ids=['picklable', 'notpicklable'])
 @pytest.mark.parametrize('fix_imports', [True, False], ids=['fix', 'nofix'])
-def test_read_numpy_binary(tdir, allow_pickle, fix_imports):
-    rfilename = os.path.join(tdir, 'foo.npy')
+def test_read_numpy_binary(temp_dir, allow_pickle, fix_imports):
+    rfilename = os.path.join(temp_dir, 'foo.npy')
     buff_1 = np.random.random((1000, 10, 5))
     np.save(
         rfilename, buff_1, allow_pickle=allow_pickle, fix_imports=fix_imports)
@@ -222,8 +154,8 @@ def test_read_numpy_binary(tdir, allow_pickle, fix_imports):
 @pytest.mark.parametrize(
     'compressed', [True, False], ids=['compressed', 'uncompressed'])
 @pytest.mark.parametrize('key', [True, False], ids=['withkey', 'withoutkey'])
-def test_read_numpy_archive(tdir, compressed, key):
-    rfilename = os.path.join(tdir, 'foo.npz')
+def test_read_numpy_archive(temp_dir, compressed, key):
+    rfilename = os.path.join(temp_dir, 'foo.npz')
     buff_1 = np.random.random((5, 1, 2))
     buff_2 = np.random.random((1,))
     if compressed and key:
@@ -242,8 +174,8 @@ def test_read_numpy_archive(tdir, compressed, key):
 
 
 @pytest.mark.parametrize('text', [True, False])
-def test_read_numpy_fromfile(tdir, text):
-    rfilename = os.path.join(tdir, 'foo')
+def test_read_numpy_fromfile(temp_dir, text):
+    rfilename = os.path.join(temp_dir, 'foo')
     buff_1 = np.random.random(1000)
     sep = "," if text else ""
     buff_1.tofile(rfilename, sep=sep)
