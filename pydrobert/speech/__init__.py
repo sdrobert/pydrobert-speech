@@ -53,11 +53,12 @@ __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2019 Sean Robertson"
 
 __all__ = [
+    'AliasedFactory',
     'compute',
     'config',
     'filters',
-    'pre',
     'post',
+    'pre',
     'scales',
     'util',
     'vis',
@@ -78,12 +79,11 @@ class AliasedFactory(object, with_metaclass(abc.ABCMeta)):
     def from_alias(cls, alias, *args, **kwargs):
         '''Factory method for initializing a subclass that goes by an alias
 
-        All subclasses of this class have the class attribute
-        ``aliases``. This method matches ``alias`` to an element in some
-        subclass' ``aliases`` and initializes it. Aliases of `cls` are
-        included in the search. Alias conflicts are resolved by always
-        trying to initialize the last registered subclass that matches
-        the alias.
+        All subclasses of this class have the class attribute ``aliases``. This
+        method matches `alias` to an element in some subclass' ``aliases`` and
+        initializes it. Aliases of this class are included in the search. Alias
+        conflicts are resolved by always trying to initialize the last
+        registered subclass that matches the alias.
 
         Parameters
         ----------

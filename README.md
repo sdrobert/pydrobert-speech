@@ -1,79 +1,59 @@
 [![Build Status](https://travis-ci.com/sdrobert/pydrobert-speech.svg?branch=master)](https://travis-ci.com/sdrobert/pydrobert-speech)
+[![Documentation Status](https://readthedocs.org/projects/pydrobert-speech/badge/?version=latest)](https://pydrobert-speech.readthedocs.io/en/latest/?badge=latest)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # pydrobert-speech
 
-## What is it?
+This pure-python library allows for flexible computation of speech features.
 
-A library for converting audio signals to speech features, likely for speech
-recognition.
+For example, given feature configuration called `fbanks.json`:
 
-## Layout
-
-`pydrobert.speech` contains the following important submodules
-
-1. `pre` : audio -> audio. Preprocess audio signals.
-2. `scale` : produces scaling functions for placing filter banks in time.
-   E.g. Mel-scale, Bark-scale, or uniform.
-3. `filters` : scale -> filter bank. Produces factories of filters
-   (e.g. Gabor), positioned according to input scale. The
-   factory can generate the same filter in the frequency or time domain.
-   `filters` also contains windowing functions, e.g.    Hann.
-4. `compute` : audio, filter bank, window -> features. Produces features,
-   given a filter bank and a signal. The object in `compute` controls the
-   conversion. The standard, Short-Time-Fourier-Transform-based filter bank
-   representation is, for example, `ShortTimeFourierTransformFrameComputer`.
-5. `post` : features -> features. Post-processing features, e.g. CMVN.
-
-These submodules naturally form a speech processing pipeline.
-
-## Pipeline construction
-
-Most objects in the library inherit from `AliasedFactory`. Parent classes
-inheriting `AliasedFactory` can initialize children using configuration
-hierarchies and aliases, e.g.
-
-``` python
-mel_scale = pydrobert.speech.scales.MelScaling()
-gabor_bank = pydrobert.speech.filters.LinearFilterBank.from_alias(
-   'gabor', 'mel', high_hz=5000)
-stft_computer = pydrobert.speech.compute.FrameComputer.from_alias(
-   'stft', {'alias': 'gabor', 'scaling_function': 'mel', 'high_hz': 5000},
-    window_function='hann')
+``` json
+{
+  "name": "stft",
+  "bank": "fbank",
+  "frame_length_ms": 25,
+  "include_energy": true,
+  "pad_to_nearest_power_of_two": true,
+  "window_function": "hanning",
+  "use_power": true
+}
 ```
 
-In the latter two lines, the first argument to `from_alias` specifies an
-alias for a given child. For example, `GaborFilterBank.aliases` contains
-`"gabor"`. The second argument to `from_alias` is passed as a positional
-argument to the constructor of the child, and the third is passed as a keyword
-argument. The positional arguments of the constructors of `gabor_bank` and
-`stft_computer` are `scaling_function` and `bank`, which are expected to
-be instances of `AliasedFactory` subclasses themselves. Hence, the object can
-initialize the `AliasedFactory` arguments directly. In the above examples,
-the positional arguments to `from_alias` are used to initialize values
-identical to the previous lines' variables.
+You can compute triangular, overlapping filters like
+[Kaldi](http://kaldi-asr.org/) or [HTK](http://htk.eng.cam.ac.uk/) with the
+commands
 
-Most importantly, the `AliasedFactory` system allows for convenient
-serialization of speech processing pipelines using JSON. JSON is used to
-configure the pipeline for command-line usage.
+``` python
+import json
+from pydrobert.speech import *
+# get the feature computer ready
+params = json.load(open('fbank.json'))
+computer = util.alias_factory_subclass_from_arg(compute.FrameComputer, params)
+# assume "signal" is a numpy float array
+feats = computer.compute_full(signal)
+```
 
-## Command-line
+If you plan on using a [PyTorch](https://pytorch.org) `DataLoader` or Kaldi
+tables in your ASR pipeline, you can compute all a corpus' features by
+using the commmands `signals-to-torch-feat-dir` (requires *pytorch* package)
+or `compute-feats-from-kaldi-tables` (requires *pydrobert-kaldi* package).
 
-The following commands are available via command-line:
+This package can compute much more than f-banks, with many different
+permutations. Consult the documentation for a more in-depth discussion of how
+to use it.
 
-- `compute-feats-from-kaldi-tables` (requires *pydrobert-kaldi*): Given
-  `WavData` stored in a Kaldi table, write to another table the result of a
-  speech processing pipeline
-- `signals-to-torch-feat-dir` (requires *pytorch*): Given a text mapping of
-  utterances to signal paths, write `torch.FloatTensor`s as a series of
-  PyTorch archives, to be read with a `torch.utils.data.DataSet`. Consider
-  pairing with `SpectDataSet` from *pydrobert-pytorch*.
+## Documentation
 
-## Other Utilities
+- [Latest](https://pydrobert-speech.readthedocs.io/en/latest/)
+- [Stable](https://pydrobert-speech.readthedocs.io/en/stable/)
 
-- `pydrobert.speech.vis` contains functions for plotting various parts of
-  the pipeline, including the filter frequency
-  response and spectrogram-like representations of speech features. Requires
-  *matplotlib*.
-- `pydrobert.speech.utils.read_signal` is a very versatile function for
-  reading signals from a variety of sources.
+# Installation
+
+_pydrobert-speech_ is available via both PyPI and Conda.
+
+``` sh
+conda install -c sdrobert pydrobert-speech
+pip install pydrobert-speech
+pip install git+https://github.com/sdrobert/pydrobert-speech # bleeding edge
+```
