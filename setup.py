@@ -41,7 +41,7 @@ if __name__ == "__main__":
         packages=['pydrobert', 'pydrobert.speech'],
         classifiers=[
             'Development Status :: 3 - Alpha',
-            'Intended Audience :: Researchers',
+            'License :: OSI Approved :: Apache Software License',
             'Programming Language :: Python',
             'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 2.7',
