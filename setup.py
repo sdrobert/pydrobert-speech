@@ -51,7 +51,7 @@ if __name__ == "__main__":
             'Programming Language :: Python :: 3.6',
         ],
         install_requires=[
-            'numpy', 'six', 'future',
+            'numpy', 'future',
         ],
         setup_requires=SETUP_REQUIRES,
         tests_require=[
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         },
         entry_points={
             'console_scripts': [
-                'compute-feats-from-kaldi-tables = pydrobert.speech'
+                'compute-feats-from-kaldi-tables = pydrobert.speech.'
                 'command_line:compute_feats_from_kaldi_tables [kaldi]',
                 'signals-to-torch-feat-dir = pydrobert.speech.command_line:'
                 'signals_to_torch_feat_dir [pytorch]',
