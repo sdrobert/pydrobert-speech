@@ -28,8 +28,11 @@ def test_compute_feats_from_kaldi_tables(temp_dir):
         'fbank.json'
     )
     preprocessor_json_path = os.path.join(temp_dir, "preprocess.json")
+    postprocessor_json_path = os.path.join(temp_dir, "unit.json")
     with open(preprocessor_json_path, 'w') as f:
         f.write('["dither"]\n')
+    with open(postprocessor_json_path, 'w') as f:
+        f.write('["unit"]\n')
     if not os.path.isdir(wav_file_dir):
         os.makedirs(wav_file_dir)
     with open(wav_scp, 'w') as scp:
@@ -46,12 +49,26 @@ def test_compute_feats_from_kaldi_tables(temp_dir):
             wv.writeframes(signal.tobytes())
             wv.close()
             scp.write('{} {}\n'.format(utt_id, wav_path))
-    args = ['scp,s:' + wav_scp, 'ark:' + feat_ark, computer_json_path]
+    args = [
+        'scp,s:' + wav_scp, 'ark:' + feat_ark, computer_json_path,
+        "--seed=30", "--preprocess={}".format(preprocessor_json_path),
+        '--postprocess={}'.format(postprocessor_json_path),
+    ]
+    assert not command_line.compute_feats_from_kaldi_tables(args)
+    exps = []
+    with kaldi_io.open('ark,s:' + feat_ark, 'bm') as feats:
+        not_all_feats = 0
+        for utt_idx, feat in enumerate(feats):
+            not_all_feats |= feat.shape[0]
+            assert feat.shape[0] == 0 or feat.shape[-1] == 40
+            exps.append(feat)
+        assert utt_idx == num_utts - 1
+        assert not_all_feats
+    np.random.seed(300)
     assert not command_line.compute_feats_from_kaldi_tables(args)
     with kaldi_io.open('ark,s:' + feat_ark, 'bm') as feats:
-        for utt_idx, feat in enumerate(feats):
-            assert feat.shape[0] == 0 or feat.shape[-1] == 40
-        assert utt_idx == num_utts - 1
+        for utt_idx, (exp, act) in enumerate(zip(exps, feats)):
+            assert np.allclose(act, exp)
 
 
 def test_signals_to_torch_feat_dir(temp_dir):

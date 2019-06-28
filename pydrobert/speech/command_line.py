@@ -159,7 +159,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     parser.add_argument(
         'computer_config', type=_json_type,
         help='JSON file or string to configure a '
-        'pydrobert.speech.compute.FrameComputer object to calculate '
+        '``pydrobert.speech.compute.FrameComputer`` object to calculate '
         'features with'
     )
     parser.add_argument(
@@ -172,8 +172,19 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     parser.add_argument(
         '--preprocess', type=_json_type, default=tuple(),
         help='JSON list of configurations for '
-        'pydrobert.speech.pre.PreProcessor objects. Audio will be '
+        '``pydrobert.speech.pre.PreProcessor`` objects. Audio will be '
         'preprocessed in the same order as the list'
+    )
+    parser.add_argument(
+        '--postprocess', type=_json_type, default=tuple(),
+        help='JSON List of configurations for '
+        '``pydrobert.speech.post.PostProcessor`` objects. Features will be '
+        'postprocessed in the same order as the list'
+    )
+    parser.add_argument(
+        '--seed', type=_nonneg_int_type, default=None,
+        help='A random seed used for determinism. This affects operations '
+        'like dithering. If unset, a seed will be generated at the moment'
     )
     return parser.parse_args(args)
 
@@ -183,11 +194,14 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
 def compute_feats_from_kaldi_tables(args=None):
     '''Store features from a kaldi archive in a kaldi archive
 
-    This command is intended to replace Kaldi's [1]_ series of
+    This command is intended to replace Kaldi's [povey2011]_ series of
     ``compute-<something>-feats`` scripts in a Kaldi pipeline.
 
-    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
-           Toolkit. ASRU
+    References
+    ----------
+
+    .. [povey2011] Povey, D., et al (2011). The Kaldi Speech Recognition
+       Toolkit. ASRU
     '''
     from pydrobert.kaldi.logging import register_logger_for_kaldi
     from pydrobert.kaldi.io.enums import KaldiDataType
@@ -199,6 +213,8 @@ def compute_feats_from_kaldi_tables(args=None):
         options = _compute_feats_from_kaldi_tables_parse_args(args, logger)
     except SystemExit as ex:
         return ex.code
+    if options.seed is not None:
+        np.random.seed(options.seed)
     # construct the computer
     try:
         computer = alias_factory_subclass_from_arg(
@@ -218,6 +234,18 @@ def compute_feats_from_kaldi_tables(args=None):
                     PreProcessor, element))
     except ValueError:
         logger.error('Failed to build preprocessor:', exc_info=True)
+        return 1
+    postprocessors = []
+    try:
+        if isinstance(options.postprocess, dict):
+            postproccessors.append(alias_factory_subclass_from_arg(
+                PostProcessor, options.postprocess))
+        else:
+            for element in options.postprocess:
+                postprocessors.append(alias_factory_subclass_from_arg(
+                    PostProcessor, element))
+    except ValueError:
+        logger.error('Failed to build postprocessor:', exc_info=True)
         return 1
     # open tables
     try:
