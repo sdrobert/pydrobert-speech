@@ -17,7 +17,7 @@ if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[:2] < (3, 4):
     raise RuntimeError("Python version 2.7 or >= 3.4 required.")
 
 PWD = path.abspath(path.dirname(__file__))
-with open(path.join(PWD, 'README.rst'), encoding='utf-8') as readme_file:
+with open(path.join(PWD, 'README.md'), encoding='utf-8') as readme_file:
     LONG_DESCRIPTION = readme_file.read()
 
 SETUP_REQUIRES = ['setuptools_scm']
@@ -31,6 +31,7 @@ if __name__ == "__main__":
         name='pydrobert-speech',
         description='Speech processing with Python',
         long_description=LONG_DESCRIPTION,
+        long_description_content_type='text/markdown',
         use_scm_version=True,
         zip_safe=False,
         url='https://github.com/sdrobert/pydrobert-speech',
