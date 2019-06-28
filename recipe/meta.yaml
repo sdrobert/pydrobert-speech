@@ -23,7 +23,6 @@ requirements:
   run:
     - python
     - numpy
-    - six
 
 build:
   noarch: python

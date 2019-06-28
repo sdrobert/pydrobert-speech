@@ -38,7 +38,7 @@ import abc
 from pkg_resources import DistributionNotFound
 from pkg_resources import get_distribution
 
-from six import with_metaclass
+from future.utils import with_metaclass
 
 __author__ = "Sean Robertson"
 __email__ = "sdrobert@cs.toronto.edu"

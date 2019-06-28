@@ -51,7 +51,7 @@ if __name__ == "__main__":
             'Programming Language :: Python :: 3.6',
         ],
         install_requires=[
-            'numpy', 'six', 'future',
+            'numpy', 'future',
         ],
         setup_requires=SETUP_REQUIRES,
         tests_require=[
