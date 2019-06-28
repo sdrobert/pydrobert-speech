@@ -44,11 +44,12 @@ def test_signals_to_torch_feat_dir(temp_dir):
             file_type = torch.randint(3, (1,)).long().item()
             if file_type == 2:  # wave file
                 path = os.path.join(raw_dir, '{}.wav'.format(utt_idx))
-                with wave.open(path, 'wb') as wv:
-                    wv.setnchannels(1)
-                    wv.setsampwidth(2)
-                    wv.setframerate(16000)
-                    wv.writeframes(signal.to(torch.int16).numpy().tobytes())
+                wv = wave.open(path, 'wb')
+                wv.setnchannels(1)
+                wv.setsampwidth(2)
+                wv.setframerate(16000)
+                wv.writeframes(signal.to(torch.int16).numpy().tobytes())
+                wv.close()  # py2.7 doesn't have context manager
             elif file_type == 1:   # npy file
                 path = os.path.join(raw_dir, '{}.npy'.format(utt_idx))
                 np.save(path, signal.numpy())
