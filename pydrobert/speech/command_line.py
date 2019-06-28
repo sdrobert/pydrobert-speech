@@ -141,25 +141,8 @@ def _nonneg_int_type(string):
     return val
 
 
-@kaldi_vlog_level_cmd_decorator
-@kaldi_logger_decorator
-def compute_feats_from_kaldi_tables(args=None):
-    '''Store features from a kaldi archive in a kaldi archive
-
-    This command is intended to replace Kaldi's [1]_ series of
-    ``compute-<something>-feats`` scripts in a Kaldi pipeline.
-
-    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
-           Toolkit. ASRU
-    '''
+def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     from pydrobert.kaldi.io.argparse import KaldiParser
-    from pydrobert.kaldi.logging import register_logger_for_kaldi
-    from pydrobert.kaldi.io.enums import KaldiDataType
-    from pydrobert.kaldi.io import open as kaldi_open
-    logger = logging.getLogger(sys.argv[0])
-    logger.addHandler(logging.StreamHandler())
-    register_logger_for_kaldi(logger)
-    # parse arguments
     parser = KaldiParser(
         description=compute_feats_from_kaldi_tables.__doc__,
         add_verbose=True, logger=logger,
@@ -192,8 +175,28 @@ def compute_feats_from_kaldi_tables(args=None):
         'pydrobert.speech.pre.PreProcessor objects. Audio will be '
         'preprocessed in the same order as the list'
     )
+    return parser.parse_args(args)
+
+
+@kaldi_vlog_level_cmd_decorator
+@kaldi_logger_decorator
+def compute_feats_from_kaldi_tables(args=None):
+    '''Store features from a kaldi archive in a kaldi archive
+
+    This command is intended to replace Kaldi's [1]_ series of
+    ``compute-<something>-feats`` scripts in a Kaldi pipeline.
+
+    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
+           Toolkit. ASRU
+    '''
+    from pydrobert.kaldi.logging import register_logger_for_kaldi
+    from pydrobert.kaldi.io.enums import KaldiDataType
+    from pydrobert.kaldi.io import open as kaldi_open
+    logger = logging.getLogger(sys.argv[0])
+    logger.addHandler(logging.StreamHandler())
+    register_logger_for_kaldi(logger)
     try:
-        options = parser.parse_args(args)
+        options = _compute_feats_from_kaldi_tables_parse_args(args, logger)
     except SystemExit as ex:
         return ex.code
     # construct the computer

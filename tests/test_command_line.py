@@ -11,6 +11,49 @@ import pytest
 from pydrobert.speech import command_line
 
 
+def test_compute_feats_from_kaldi_tables(temp_dir):
+    kaldi_io = pytest.importorskip('pydrobert.kaldi.io')
+    np.random.seed(5)
+    wav_scp = os.path.join(temp_dir, 'wav.scp')
+    feat_ark = os.path.join(temp_dir, 'feat.ark')
+    wav_file_dir = os.path.join(temp_dir, 'wav')
+    num_utts = 100
+    max_samples = 32000
+    sampling_rate = 16000
+    num_digits = int(np.log10(num_utts)) + 1
+    utt_fmt = 'utt{{:0{}d}}'.format(num_digits)
+    computer_json_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        'data',
+        'fbank.json'
+    )
+    preprocessor_json_path = os.path.join(temp_dir, "preprocess.json")
+    with open(preprocessor_json_path, 'w') as f:
+        f.write('["dither"]\n')
+    if not os.path.isdir(wav_file_dir):
+        os.makedirs(wav_file_dir)
+    with open(wav_scp, 'w') as scp:
+        for utt_idx in range(num_utts):
+            utt_id = utt_fmt.format(utt_idx)
+            wav_path = os.path.join(wav_file_dir, utt_id + '.wav')
+            num_samples = np.random.randint(max_samples)
+            signal = np.random.randint(
+                -2 ** 15, 2 ** 15 - 1, num_samples, dtype=np.int16)
+            wv = wave.open(wav_path, 'wb')
+            wv.setnchannels(1)
+            wv.setsampwidth(2)
+            wv.setframerate(16000)
+            wv.writeframes(signal.tobytes())
+            wv.close()
+            scp.write('{} {}\n'.format(utt_id, wav_path))
+    args = ['scp,s:' + wav_scp, 'ark:' + feat_ark, computer_json_path]
+    assert not command_line.compute_feats_from_kaldi_tables(args)
+    with kaldi_io.open('ark,s:' + feat_ark, 'bm') as feats:
+        for utt_idx, feat in enumerate(feats):
+            assert feat.shape[0] == 0 or feat.shape[-1] == 40
+        assert utt_idx == num_utts - 1
+
+
 def test_signals_to_torch_feat_dir(temp_dir):
     torch = pytest.importorskip('torch')
     torch.manual_seed(50)
