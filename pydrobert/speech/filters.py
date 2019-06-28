@@ -235,7 +235,7 @@ class LinearFilterBank(AliasedFactory):
         And the full spectrum by:
 
         >>> full[bin_idx:bin_idx + len(trnc)] = trnc
-        >>> full[width - bin_idx - len(trnc) + 1:width - bin_idx + 1] =\
+        >>> full[width - bin_idx - len(trnc) + 1:width - bin_idx + 1] = \\
         ...     trnc[:None if bin_idx else 0:-1].conj()
 
         (the embedded if-statement is necessary when bin_idx is 0, as
@@ -259,10 +259,10 @@ class LinearFilterBank(AliasedFactory):
 class TriangularOverlappingFilterBank(LinearFilterBank):
     """Triangular frequency response whose vertices are along the scale
 
-    The vertices of the filters are sampled uniformly along the passed
-    scale. If the scale is nonlinear, the triangles will be
-    asymmetrical. This is closely related to, but not identical to, the filters
-    described in [1]_ and [2]_.
+    The vertices of the filters are sampled uniformly along the passed scale.
+    If the scale is nonlinear, the triangles will be asymmetrical. This is
+    closely related to, but not identical to, the filters described in
+    [povey2011]_ and [young]_.
 
     Parameters
     ----------
@@ -278,10 +278,10 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
     analytic : bool, optional
-        Whether to use an analytic form of the bank. The analytic form
-        is easily derived from the real form in [1]_ and [2]_. Since
-        the filter is compactly supported in frequency, the analytic
-        form is simply the suppression of the ``[-pi, 0)`` frequencies
+        Whether to use an analytic form of the bank. The analytic form is
+        easily derived from the real form in [povey2011]_ and [young]_. Since
+        the filter is compactly supported in frequency, the analytic form is
+        simply the suppression of the ``[-pi, 0)`` frequencies
 
     Attributes
     ----------
@@ -299,13 +299,6 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
     ValueError
         If `high_hz` is above the Nyquist, or `low_hz` is below 0, or
         ``high_hz <= low_hz``
-
-    References
-    ----------
-    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition Toolkit.
-           ASRU
-    .. [2] Young, S. J., et al (2006). The HTK Book, version 3.4.
-           Cambridge University Engineering Department
     """
 
     aliases = {'tri', 'triangular'}
@@ -469,18 +462,12 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 class Fbank(LinearFilterBank):
     '''A mel-triangular filter bank that is square-rooted
 
-    An ``Fbank`` instance is intended to replicate the filters from Kaldi and
-    HTK. Its scale is fixed to Mel-scale. Like a
+    An ``Fbank`` instance is intended to replicate the filters from Kaldi
+    [povey2011]_ and HTK [young]_. Its scale is fixed to Mel-scale. Like a
     ``TriangularOverlappingFilterBank``, ``Fbank`` places the vertices of
     triangular filters uniformly along the target scale. However, an ``Fbank``
     is triangular in the Mel-scale, whereas the triangular bank is triangular
     in frequency.
-
-    .. note:: In a standard mel-filterbank spectrogram, the power spectrum is
-    calculated before filtering. This module's spectrogram takes the
-    power spectrum after filtering. To recreate the frequency response
-    of the alternate order, we can take the pointwise square root of the
-    frequency response.
 
     Parameters
     ----------
@@ -507,6 +494,13 @@ class Fbank(LinearFilterBank):
     supports_hz : tuple
     supports : tuple
     supports_ms : tuple
+
+    Notes
+    -----
+    In a standard mel-filterbank spectrogram, the power spectrum is calculated
+    before filtering. This module's spectrogram takes the power spectrum after
+    filtering. To recreate the frequency response of the alternate order, we
+    can take the pointwise square root of the frequency response.
     '''
 
     aliases = {'fbank'}
@@ -658,9 +652,8 @@ class Fbank(LinearFilterBank):
 class GaborFilterBank(LinearFilterBank):
     r"""Gabor filters with ERBs between points from a scale
 
-    Gabor filters are complex, mostly analytic filters that have a
-    Gaussian envelope in both the time and frequency domains. They are
-    defined as
+    Gabor filters are complex, mostly analytic filters that have a Gaussian
+    envelope in both the time and frequency domains. They are defined as
 
     .. math::
 
@@ -674,18 +667,18 @@ class GaborFilterBank(LinearFilterBank):
          \widehat{f}(\omega) = C \sqrt{2\sigma} \pi^{1/4}
                                e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
 
-    in the frequency domain. Though Gaussians never truly reach 0, in
-    either domain, they are effectively compactly supported. Gabor
-    filters are optimal with respect to their time-bandwidth product.
+    in the frequency domain. Though Gaussians never truly reach 0, in either
+    domain, they are effectively compactly supported. Gabor filters are optimal
+    with respect to their time-bandwidth product.
 
-    `scaling_function` is used to split up the frequencies between
-    `high_hz` and `low_hz` into a series of filters. Every subsequent
-    filter's width is scaled such that, if the filters are all of the
-    same height, the intersection with the precedent filter's response
-    matches the filter's Equivalent Rectangular Bandwidth (erb == True)
-    or its 3dB bandwidths (erb == False). The ERB is the width of a
-    rectangular filter with the same height as the filter's maximum
-    frequency response that has the same L_2 norm.
+    `scaling_function` is used to split up the frequencies between `high_hz`
+    and `low_hz` into a series of filters. Every subsequent filter's width is
+    scaled such that, if the filters are all of the same height, the
+    intersection with the precedent filter's response matches the filter's
+    Equivalent Rectangular Bandwidth (``erb == True``) or its 3dB bandwidths (
+    ``erb == False``). The ERB is the width of a rectangular filter with the
+    same height as the filter's maximum frequency response that has the same
+    :math:`L_2` norm.
 
     Parameters
     ----------
@@ -938,35 +931,33 @@ class GaborFilterBank(LinearFilterBank):
 class ComplexGammatoneFilterBank(LinearFilterBank):
     r'''Gammatone filters with complex carriers
 
-    A complex gammatone filter can be defined as
+    A complex gammatone filter [flanagan1960]_ [aertsen1981]_ can be defined as
 
     .. math::
 
-         h(t) = c t^{n - 1} e^{- \alpha t + i\xi t} u(t)
+        h(t) = c t^{n - 1} e^{- \alpha t + i\xi t} u(t)
 
     in the time domain, where :math:`\alpha` is the bandwidth parameter,
     :math:`\xi` is the carrier frequency, :math:`n` is the order of the
     function, :math:`u(t)` is the step function, and :math:`c` is a
-    normalization constant. In the frequency domain, the filter is
-    defined as
+    normalization constant. In the frequency domain, the filter is defined as
 
     .. math::
 
-         H(\omega) = \frac{c(n - 1)!)}{\left
-                            \alpha + i(\omega - \xi)
-                        \right)^n}
+        H(\omega) = \frac{c(n - 1)!)}{\left(
+            \alpha + i(\omega - \xi) \right)^n}
 
     For large :math:`\xi`, the complex gammatone is approximately
     analytic.
 
-    `scaling_function` is used to split up the frequencies between
-    `high_hz` and `low_hz` into a series of filters. Every subsequent
-    filter's width is scaled such that, if the filters are all of the
-    same height, the intersection with the precedent filter's response
-    matches the filter's Equivalent Rectangular Bandwidth (erb == True)
-    or its 3dB bandwidths (erb == False). The ERB is the width of a
-    rectangular filter with the same height as the filter's maximum
-    frequency response that has the same L_2 norm.
+    `scaling_function` is used to split up the frequencies between `high_hz`
+    and `low_hz` into a series of filters. Every subsequent filter's width is
+    scaled such that, if the filters are all of the same height, the
+    intersection with the precedent filter's response matches the filter's
+    Equivalent Rectangular Bandwidth (``erb == True``) or its 3dB bandwidths
+    (``erb == False``). The ERB is the width of a rectangular filter with the
+    same height as the filter's maximum frequency response that has the same
+    :math:`L_2` norm.
 
     Parameters
     ----------
@@ -1334,7 +1325,7 @@ class GammaWindow(WindowFunction):
 
     A Gamma function is defined as:
 
-    .. math:: p(t; \alpha, n) \defeq t^{n - 1} e^{-\alpha t} u(t)
+    .. math:: p(t; \alpha, n) = t^{n - 1} e^{-\alpha t} u(t)
 
     Where :math:`n` is the order of the function, :math:`\alpha`
     controls the bandwidth of the filter, and :math:`u` is the step

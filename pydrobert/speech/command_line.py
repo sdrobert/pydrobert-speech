@@ -110,6 +110,7 @@ __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2019 Sean Robertson"
 __all__ = [
     "compute_feats_from_kaldi_tables",
+    "signals_to_torch_feat_dir",
 ]
 
 
@@ -196,12 +197,6 @@ def compute_feats_from_kaldi_tables(args=None):
 
     This command is intended to replace Kaldi's [povey2011]_ series of
     ``compute-<something>-feats`` scripts in a Kaldi pipeline.
-
-    References
-    ----------
-
-    .. [povey2011] Povey, D., et al (2011). The Kaldi Speech Recognition
-       Toolkit. ASRU
     '''
     from pydrobert.kaldi.logging import register_logger_for_kaldi
     from pydrobert.kaldi.io.enums import KaldiDataType

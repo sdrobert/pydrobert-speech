@@ -14,23 +14,30 @@
 
 """Speech processing library
 
-Available modules
------------------
-compute
-    Feature computations/transformations from signals
-config
-    Package constants
-filters
-    Filters and filter banks
-post
-    Post-processing of features
-scales
-    Scaling functions, including psychoacoustic scales such as Bark or
-    Mel scales
-util
-    Miscellaneous functions for signal processing
-vis
-    Visualization functions. Requires `matplotlib` be installed
+References
+----------
+.. [stevens1937] S. S. Stevens, J. Volkmann, and E. B. Newman, "A Scale for the
+   Measurement of the Psychological Magnitude Pitch," The Journal of the
+   Acoustical Society of America, vol. 8, no. 3, pp. 185-190, 1937.
+.. [flanagan1960] J. L. Flanagan, "Models for approximating basilar membrane
+   displacement," The Bell System Technical Journal, vol. 39, no. 5, pp.
+   1163-1191, Sep. 1960.
+.. [zwicker1961] E. Zwicker, "Subdivision of the Audible Frequency Range into
+   Critical Bands (Frequenzgruppen)," The Journal of the Acoustical Society of
+   America, vol. 33, no. 2, pp. 248-248, 1961.
+.. [aertsen1981] A. M. H. J. Aertsen, J. H. J. Olders, and P. I. M. Johannesma,
+   "Spectro-temporal receptive fields of auditory neurons in the grassfrog,"
+   Biological Cybernetics, vol. 39, no. 3, pp. 195-209, Jan. 1981.
+.. [oshaughnessy1987] D. O'Shaughnessy, Speech communication: human and
+   machine. Addison-Wesley Pub. Co., 1987.
+.. [tranmuller1990] H. Traunm\\:{u}ller, "Analytical expressions for the
+   tonotopic sensory scale," The Journal of the Acoustical Society of America,
+   vol. 88, no. 1, pp. 97-100, Jul. 1990.
+.. [povey2011] D. Povey et al., "The Kaldi Speech Recognition Toolkit," in
+   IEEE 2011 Workshop on Automatic Speech Recognition and Understanding, Hilton
+   Waikoloa Village, Big Island, Hawaii, US, 2011.
+.. [young] S. Young et al., "The HTK book (for HTK version 3.4)," Cambridge
+   university engineering department, vol. 2, no. 2, pp. 2-3, 2006.
 """
 
 import abc
@@ -46,11 +53,12 @@ __license__ = "Apache 2.0"
 __copyright__ = "Copyright 2019 Sean Robertson"
 
 __all__ = [
+    'AliasedFactory',
     'compute',
     'config',
     'filters',
-    'pre',
     'post',
+    'pre',
     'scales',
     'util',
     'vis',
@@ -71,12 +79,11 @@ class AliasedFactory(object, with_metaclass(abc.ABCMeta)):
     def from_alias(cls, alias, *args, **kwargs):
         '''Factory method for initializing a subclass that goes by an alias
 
-        All subclasses of this class have the class attribute
-        ``aliases``. This method matches ``alias`` to an element in some
-        subclass' ``aliases`` and initializes it. Aliases of `cls` are
-        included in the search. Alias conflicts are resolved by always
-        trying to initialize the last registered subclass that matches
-        the alias.
+        All subclasses of this class have the class attribute ``aliases``. This
+        method matches `alias` to an element in some subclass' ``aliases`` and
+        initializes it. Aliases of this class are included in the search. Alias
+        conflicts are resolved by always trying to initialize the last
+        registered subclass that matches the alias.
 
         Parameters
         ----------

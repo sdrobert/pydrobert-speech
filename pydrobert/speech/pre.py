@@ -108,6 +108,8 @@ class Preemphasize(PreProcessor):
 
     The following transformation is applied along the target axis
 
+    ::
+
         new[i] = old[i] - coeff * old[i-1] for i > 1
         new[0] = old[0]
 

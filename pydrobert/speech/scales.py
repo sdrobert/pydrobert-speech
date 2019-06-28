@@ -123,24 +123,17 @@ class OctaveScaling(ScalingFunction):
 
 
 class MelScaling(ScalingFunction):
-    r"""Psychoacoustic scaling function from [1]_
+    r"""Psychoacoustic scaling function
 
-    Based of the experiment in [1]_ wherein participants adjusted a
+    Based of the experiment in [stevens1937]_ wherein participants adjusted a
     second tone until it was half the pitch of the first. The functional
     approximation to the scale is implemented with the formula from
-    [2]_ (being honest, from Wikipedia):
+    [oshaughnessy1987]_ (being honest, from `Wikipedia
+    <https://en.wikipedia.org/wiki/Mel_scale>`__):
 
-    ..math:: s = 1127 \ln \left(1 + \frac{f}{700} \right)
+    .. math:: s = 1127 \ln \left(1 + \frac{f}{700} \right)
 
-    Where `s` is the scale and `f` is the frequency in Hertz.
-
-    References
-    ----------
-    .. [1] S. S. Stevens, J. Volkmann & E. B. Newman (1937). A Scale for
-       the Measurement of the Psychological Magnitude Pitch. The Journal
-       of the Acoustical Society of America, 8, 185-190.
-    .. [2] O'Shaughnessy, D. (1987). Speech communication: human and
-       machine. Addison-Wesley Pub. Co.
+    Where :math:`s` is the scale and :math:`f` is the frequency in Hertz.
     """
 
     aliases = {'mel'}
@@ -153,31 +146,25 @@ class MelScaling(ScalingFunction):
 
 
 class BarkScaling(ScalingFunction):
-    r"""Psychoacoustic scaling function from [1]_
+    r"""Psychoacoustic scaling function
 
-    Based on a collection experiments briefly mentioned in [1]_
-    involving masking to determine critical bands. The functional
-    approximation to the scale is implemented with the formula from
-    [2]_ (being honest, from Wikipedia):
+    Based on a collection experiments briefly mentioned in [zwicker1961]_
+    involving masking to determine critical bands. The functional approximation
+    to the scale is implemented with the formula from [tranmuller1990]_ (being
+    honest, from `Wikipedia <https://en.wikipedia.org/wiki/Bark_scale>`__):
 
-    ..math::
+    .. math::
 
-         z = 26.81f/(1960 + f) - 0.53 \\
          s = \begin{cases}
             z + 0.15(2 - z) & \mbox{if }z < 2 \\
             z + 0.22(z - 20.1) & \mbox{if }z > 20.1
          \end{cases}
 
-    Where `s` is the scale and `f` is the frequency in Hertz.
+    where
 
-    References
-    ----------
-    .. [1] E. Zwicker (1961). Subdivision of the Audible Frequency Range
-       into Critical Bands (Frequenzgruppen). The Journal of the
-       Acoustical Society of America, 33, 248-248.
-    .. [2] Hartmut Traunmuller (1990). Analytical expressions for the
-       tonotopic sensory scale. The Journal of the Acoustical Society of
-       America, 88, 97-100.
+    .. math:: z = 26.81f/(1960 + f) - 0.53
+
+    Where :math:`s` is the scale and :math:`f` is the frequency in Hertz.
     """
 
     aliases = {'bark'}
