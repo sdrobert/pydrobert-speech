@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 """Compute features from speech signals"""
 
 from __future__ import absolute_import
@@ -57,6 +56,7 @@ class FrameComputer(AliasedFactory):
     coefficients.
 
     Features can be computed one at a time, for example:
+
     >>> chunk_size = 2 ** 10
     >>> while len(signal):Z
     >>>     segment = signal[:chunk_size]
@@ -67,11 +67,12 @@ class FrameComputer(AliasedFactory):
 
     Or all at once (which can be much faster, depending on how the
     computer is optimized):
+
     >>> feats = computer.compute_full(signal)
 
-    The ``k``th frame can be roughly localized to the signal offset
-    to about ``signal[k * computer.frame_shift]``. The signal's exact
-    region of influence is dictated by the `frame_style` property.
+    The k-th frame can be roughly localized to the signal offset to about
+    ``signal[k * computer.frame_shift]``. The signal's exact region of
+    influence is dictated by the `frame_style` property.
 
     Attributes
     ----------
@@ -89,15 +90,12 @@ class FrameComputer(AliasedFactory):
     def frame_style(self):
         """Dictates how the signal is split into frames
 
-        If ``'causal'``, the ``k``th frame is computed over the indices
-        ``signal[k * frame_shift:k * frame_shift + frame_length]`` (at
-        most). If ``'centered'``, the ``k``th frame is computed over
-        the indices
-        ``signal[
-            k * frame_shift - (frame_length + 1) // 2 + 1:
-            k * frame_shift + frame_length // 2 + 1]``. Any range
-        beyond the bounds of the signal is generated in an
-        implementation-specific way.
+        If ``'causal'``, the k-th frame is computed over the indices ``signal[k
+        * frame_shift:k * frame_shift + frame_length]`` (at most). If
+        ``'centered'``, the k-th frame is computed over the indices ``signal[k
+        * frame_shift - (frame_length + 1) // 2 + 1:k * frame_shift +
+        frame_length // 2 + 1]``. Any range beyond the bounds of the signal is
+        generated in an implementation-specific way.
         """
         pass
 
@@ -138,11 +136,8 @@ class FrameComputer(AliasedFactory):
     def started(self):
         """Whether computations for a signal have started
 
-        Becomes `True` after the first call to `compute_chunk`
-
-        See also
-        --------
-        finalize : to return `started` to `False`
+        Becomes ``True`` after the first call to ``compute_chunk()``. Becomes
+        ``False`` after call to ``finalize()``
         """
         pass
 
@@ -250,24 +245,26 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     """Compute features of a signal by integrating STFTs
 
     Computations are per frame and as follows:
+
     1. The current frame is multiplied with some window (rectangular,
        Hamming, Hanning, etc)
     2. An DFT is performed on the result
     3. For each filter in the provided input bank:
+
        a. Multiply the result of 2. with the frequency response of the
           filter
        b. Sum either the pointwise square or absolute value of elements
           in the buffer from 3a.
        c. Optionally take the log of the sum
 
-    .. warning:: This behaviour differs from that of [1]_ or [2]_ in
-                 three ways. First, the sum (3b) comes after the
-                 filtering (3a), which changes the result in the squared
-                 case. Second, the sum is over the full power spectrum,
-                 rather than just between 0 and the Nyquist. This
-                 doubles the value at the end of 3c. if a real filter is
-                 used. Third, frame boundaries are calculated
-                 diffferently.
+    Warning
+    --------
+    This behaviour differs from that of [povey2011]_ or [young]_ in three ways.
+    First, the sum (3b) comes after the filtering (3a), which changes the
+    result in the squared case. Second, the sum is over the full power
+    spectrum, rather than just between 0 and the Nyquist. This doubles the
+    value at the end of 3c. if a real filter is used. Third, frame boundaries
+    are calculated diffferently.
 
     Parameters
     ----------
@@ -295,11 +292,10 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     use_power : bool, optional
         Whether to sum the power spectrum or the magnitude spectrum
     kaldi_shift : bool, optional
-        If ``True``, the ``k``th frame will be computed using the signal
-        between ``signal[
-            k - frame_length // 2 + frame_shift // 2:
-            k + (frame_length + 1) // 2 + frame_shift // 2]``.
-        These are the frame bounds for Kaldi [1]_.
+        If ``True``, the k-th frame will be computed using the signal
+        between ``signal[ k - frame_length // 2 + frame_shift // 2:k +
+        (frame_length + 1) // 2 + frame_shift // 2]``. These are the frame
+        bounds for Kaldi [povey2011]_.
 
     Attributes
     ----------
@@ -314,13 +310,6 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     num_coeffs : int
     started : bool
     kaldi_shift : bool
-
-    References
-    ----------
-    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
-           Toolkit. ASRU
-    .. [2] Young, S. J., et al (2006). The HTK Book, version 3.4.
-           Cambridge University Engineering Department
     """
 
     aliases = {'stft'}

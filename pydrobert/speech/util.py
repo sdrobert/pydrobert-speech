@@ -102,9 +102,11 @@ def angular_to_hertz(angle, samp_rate):
 def circshift_fourier(filt, shift, start_idx=0, dft_size=None, copy=True):
     r"""Circularly shift a filter in the time domain, from the fourier domain
 
-    A simple application of the shift theorem:
+    A simple application of the shift theorem
 
-    .. math:: DFT(T_u x)_k = DFT(x)_k e^{-2i\pi k shift / dft_size}
+    .. math:: DFT(T_u x)[k] = DFT(x)[k] e^{-2i\pi k u}
+
+    Where we set ``u = shift / dft_size``
 
     Parameters
     ----------
@@ -278,42 +280,42 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     a signal of some sort, the way it goes about doing so depends on
     the setting of `rfilename`, processed in the following order:
 
-    1.  If `rfilename` starts with the regular expression
-        ``r'^(ark|scp)(,\w+)*:'``, the file is treated as a Kaldi table
-        and opened with the kaldi data type `dtype` (defaults to
-        `BaseMatrix`). The package `pydrobert.kaldi` will be imported
-        to handle reading. If `key` is set, the value associated with
-        that key is retrieved. Otherwise the first listed value is
-        returned.
-    2.  If `rfilename` ends with `.wav`, the file is assumed to be a
-        wave file. The function will rely on the `scipy` package to load
-        the file if `scipy` can be imported. Otherwise, it uses the
-        standard `wave` package. The type of data encodings each package
-        can handle varies, though neither can handle compressed data.
-    3.  If `rfilename` ends with `.hdf5`, the file is assumed to be an
-        HDF5 file. HDF5 and h5py must be installed on the host system to
-        read this way. If `key` is set, the data will assumed to be
-        indexed by `key` on the archive. Otherwise, a depth-first search
-        of the archive will be performed for the first data set. If set,
-        data will be cast to as the numpy data type `dtype`
-    4.  If `rfilename` ends with `.npy`, the file is assumed to be a
-        binary in Numpy format. If set, the result will be cast as
-        the numpy data type `dtype`.
-    5.  If `rfilename` ends with `.npz`, the file is assumed to be an
-        archive in numpy format. If `key` is swet, the data indexed by
-        `key` will be loaded. Otherwise the data indexed by the key
-        ``'arr_0'`` will be loaded. If set, the result will be cast as
-        the numpy data type `dtype`.
-    6.  If `rfilename` ends with `.pt`, the file is assumed to be a binary
-        in PyTorch format. If set, the results will be cast as the numpy
-        data type `dtype`.
-    6.  If `pydrobert.kaldi` can be imported, it will try to read an
-        object of kaldi data type `dtype` (defaults to `BaseMatrix`)
-        from a basic kaldi input stream. If this fails, we continue
-        to step 7.
-    7.  Otherwise, the routine `numpy.fromfile` will be used to load the
-        data (of type `dtype`, if provided). `numpy.tofile` does not
-        keep track of shape data, so any read data will be 1D.
+    1. If `rfilename` starts with the regular expression
+       ``r'^(ark|scp)(,\w+)*:'``, the file is treated as a Kaldi table
+       and opened with the kaldi data type `dtype` (defaults to
+       `BaseMatrix`). The package `pydrobert.kaldi` will be imported
+       to handle reading. If `key` is set, the value associated with
+       that key is retrieved. Otherwise the first listed value is
+       returned.
+    2. If `rfilename` ends with `.wav`, the file is assumed to be a
+       wave file. The function will rely on the `scipy` package to load
+       the file if `scipy` can be imported. Otherwise, it uses the
+       standard `wave` package. The type of data encodings each package
+       can handle varies, though neither can handle compressed data.
+    3. If `rfilename` ends with `.hdf5`, the file is assumed to be an
+       HDF5 file. HDF5 and h5py must be installed on the host system to
+       read this way. If `key` is set, the data will assumed to be
+       indexed by `key` on the archive. Otherwise, a depth-first search
+       of the archive will be performed for the first data set. If set,
+       data will be cast to as the numpy data type `dtype`
+    4. If `rfilename` ends with `.npy`, the file is assumed to be a
+       binary in Numpy format. If set, the result will be cast as
+       the numpy data type `dtype`.
+    5. If `rfilename` ends with `.npz`, the file is assumed to be an
+       archive in numpy format. If `key` is swet, the data indexed by
+       `key` will be loaded. Otherwise the data indexed by the key
+       ``'arr_0'`` will be loaded. If set, the result will be cast as
+       the numpy data type `dtype`.
+    6. If `rfilename` ends with `.pt`, the file is assumed to be a binary
+       in PyTorch format. If set, the results will be cast as the numpy
+       data type `dtype`.
+    7. If ``pydrobert.kaldi`` can be imported, it will try to read an
+       object of kaldi data type `dtype` (defaults to ``BaseMatrix``)
+       from a basic kaldi input stream. If this fails, we continue
+       to step 7.
+    8. Otherwise, the routine `numpy.fromfile` will be used to load the
+       data (of type `dtype`, if provided). `numpy.tofile` does not
+       keep track of shape data, so any read data will be 1D.
 
     Additional keyword arguments are passed along to the associated
     open or read operation.

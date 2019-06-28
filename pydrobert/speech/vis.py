@@ -42,8 +42,8 @@ def plot_frequency_response(
         An Axes object to plot on. Default is to generate a new figure
     dft_size : int, optional
         The size of the Discrete Fourier Transform to plot. Defaults to
-        `max(max(bank.supports), 2 * bank.sampling_rate /
-        min(bank.supports_hz)`
+        ``max(max(bank.supports), 2 * bank.sampling_rate /
+        min(bank.supports_hz)``
     half : bool, optional
         Whether to plot the half or full spectrum. Defaults to
         ``bank.is_real``

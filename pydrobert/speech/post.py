@@ -75,15 +75,15 @@ class Standardize(PostProcessor):
     the "goal" of this transformation is such that every feature
     coefficient on the chosen axis has mean 0 and variance 1
     (if `norm_var` is ``True``) over the other axes. Features are
-    assumed to be real; the return data type after `apply` is always
+    assumed to be real; the return data type after ``apply()`` is always
     a 64-bit float.
 
     If `rfilename` is not specified or the associated file is empty,
     coefficients are standardized locally (within the target tensor). If
     `rfilename` is specified, feature coefficients are standardized
     according to the sufficient statistics collected in the file. The
-    latter implementation is based off [1]_. The statistics will be
-    loaded with `read_signal`.
+    latter implementation is based off [povey2011]_. The statistics will be
+    loaded with ``read_signal()``.
 
     Parameters
     ----------
@@ -101,11 +101,6 @@ class Standardize(PostProcessor):
     --------
     pydrobert.speech.util.read_signal
         Describes the strategy used for loading signals
-
-    References
-    ----------
-    .. [1] Povey, D., et al (2011). The Kaldi Speech Recognition
-           Toolkit. ASRU
     '''
 
     aliases = {'standardize', 'normalize', 'unit', 'cmvn'}
@@ -410,24 +405,29 @@ class Deltas(PostProcessor):
     the first order delta is defined as
 
     .. math::
-         f(t) = \begin{case}
+
+         f(t) = \begin{cases}
             \frac{-t}{Z} & -W \leq t \leq W \\
             0 & \mathrm{else}
-         \end{case} \\
-         Z = \sqrt{\frac{2W^3}{3}}
+         \end{cases}
 
-    For some `W`. Its Fourier transform is
+    where
+
+    .. math:: Z = \sqrt{\frac{2W^3}{3}}
+
+    For some :math:`W`. Its Fourier transform is
 
     .. math::
-         F[f(t)](\omega) = \frac{-2i}{Z\omega^2}\left(
+
+         F(\omega) = \frac{-2i}{Z\omega^2}\left(
             W\omega \cos W\omega - \sin W\omega \right)
 
-    Note that it is completely imaginary. For W greater than or equal
-    to 2, F is bound below :math:`\frac{i}{\omega}`. Hence, F exhibits
-    lowpass characteristics. Second order deltas are generating by
-    convolving f(-t) with itself, third order is an additional f(-t),
-    etc. By the convolution theorem, higher order deltas have Fourier
-    responses that become tighter around F(0) (more lowpass).
+    Note that it is completely imaginary. For :math:`W \geq 2`, :math:`F` is
+    bound below :math:`\frac{i}{\omega}`. Hence, :math:`F` exhibits low-pass
+    characteristics. Second order deltas are generating by convolving
+    :math:`f(-t)`` with itself, third order is an additional :math:`f(-t)``,
+    etc. By the convolution theorem, higher order deltas have Fourier responses
+    that become tighter around :math:`F(0)`` (more lowpass).
 
     Parameters
     ----------
@@ -438,8 +438,7 @@ class Deltas(PostProcessor):
         The length of the filter to either side of the window. Positive
     pad_mode : str or function, optional
         How to pad the input sequence when correlating. Additional
-        keyword arguments will be passed to `numpy.pad`. See `numpy.pad`
-        for more details
+        keyword arguments will be passed to ``numpy.pad()``
 
     Attributes
     ----------
