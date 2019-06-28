@@ -5,7 +5,8 @@ from __future__ import print_function
 import os
 import warnings
 
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, mkdtemp
+from shutil import rmtree
 
 import pytest
 
@@ -38,3 +39,10 @@ def temp_file_2_name():
     temp.close()
     yield temp.name
     os.remove(temp.name)
+
+
+@pytest.fixture
+def temp_dir():
+    dir_name = mkdtemp()
+    yield dir_name
+    rmtree(dir_name)

@@ -24,43 +24,49 @@ SETUP_REQUIRES = ['setuptools_scm']
 if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
     SETUP_REQUIRES += ['pytest-runner']
 
-setup(
-    name='pydrobert-speech',
-    description='Speech processing with Python',
-    long_description=LONG_DESCRIPTION,
-    use_scm_version=True,
-    zip_safe=False,
-    url='https://github.com/sdrobert/pydrobert-speech',
-    author=__author__,
-    author_email=__email__,
-    license=__license__,
-    packages=['pydrobert', 'pydrobert.speech'],
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Researchers',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-    ],
-    install_requires=[
-        'numpy', 'six', 'future',
-    ],
-    setup_requires=SETUP_REQUIRES,
-    tests_require=[
-        'pytest', 'scipy',
-    ],
-    extras_require={
-        'vis': ['matplotlib'],
-        'kaldi': ['pydrobert-kaldi'],
-    },
-    entry_points={
-        'console_scripts': [
-            'compute-feats-from-kaldi-tables = pydrobert.speech.command_line:c'
-            'ompute_feats_from_kaldi_tables [kaldi]',
-        ]
-    }
-)
+# needed to call tests thru python setup.py test
+# otherwise, multiprocessing hangs
+if __name__ == "__main__":
+    setup(
+        name='pydrobert-speech',
+        description='Speech processing with Python',
+        long_description=LONG_DESCRIPTION,
+        use_scm_version=True,
+        zip_safe=False,
+        url='https://github.com/sdrobert/pydrobert-speech',
+        author=__author__,
+        author_email=__email__,
+        license=__license__,
+        packages=['pydrobert', 'pydrobert.speech'],
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'Intended Audience :: Researchers',
+            'Programming Language :: Python',
+            'Programming Language :: Python :: 2',
+            'Programming Language :: Python :: 2.7',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.4',
+            'Programming Language :: Python :: 3.5',
+            'Programming Language :: Python :: 3.6',
+        ],
+        install_requires=[
+            'numpy', 'six', 'future',
+        ],
+        setup_requires=SETUP_REQUIRES,
+        tests_require=[
+            'pytest', 'scipy',
+        ],
+        extras_require={
+            'vis': ['matplotlib'],
+            'kaldi': ['pydrobert-kaldi'],
+            'pytorch': ['pydrobert-pytorch'],
+        },
+        entry_points={
+            'console_scripts': [
+                'compute-feats-from-kaldi-tables = pydrobert.speech'
+                'command_line:compute_feats_from_kaldi_tables [kaldi]',
+                'signals-to-torch-feat-dir = pydrobert.speech.command_line:'
+                'signals_to_torch_feat_dir [pytorch]',
+            ]
+        }
+    )
