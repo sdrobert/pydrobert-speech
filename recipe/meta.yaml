@@ -1,9 +1,14 @@
-{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0').replace('v','').replace('untagged', '0.0').split('-')[0] %}
 {% if environ.get('TRAVIS', False) %}
+  {% set version = environ.get('TRAVIS_BRANCH', '0.0') %}
   {% set build_num = environ['TRAVIS_BUILD_NUMBER'] %}
+{% elif environ.get('APPVEYOR', False) %}
+  {% set version = environ.get('APPVEYOR_REPO_TAG_NAME', '0.0') %}
+  {% set build_num = environ['APPVEYOR_BUILD_NUMBER'] %}
 {% else %}
+  {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0') %}
   {% set build_num = environ.get('GIT_DESCRIBE_NUMBER', 0) %}
 {% endif %}
+{% set version = version.replace('v','').replace('untagged', '0.0').split('-')[0] %}
 
 package:
   name: pydrobert-speech
@@ -14,6 +19,9 @@ source:
 
 build:
   noarch: python
+  entry_points:
+    - compute-feats-from-kaldi-tables = pydrobert.speech.command_line:compute_feats_from_kaldi_tables
+    - signals-to-torch-feat-dir = pydrobert.speech.command_line:signals_to_torch_feat_dir
 
 requirements:
   build:
@@ -38,9 +46,22 @@ test:
   requires:
     - pytest
     - scipy
+    - h5py
+    - pytorch
+    - pydrobert-kaldi
   imports:
     - pydrobert
     - pydrobert.speech
+    - pydrobert.speech.command_line
+    - pydrobert.speech.compute
+    - pydrobert.speech.config
+    - pydrobert.speech.corpus
+    - pydrobert.speech.filters
+    - pydrobert.speech.post
+    - pydrobert.speech.pre
+    - pydrobert.speech.scales
+    - pydrobert.speech.util
+    - pydrobert.speech.vis
   commands:
     - pytest
 
