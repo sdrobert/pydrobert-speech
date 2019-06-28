@@ -51,8 +51,11 @@ def _gauss_quant_odeh_evans(p, mu=0, std=1):
     if p < .5:
         z = -z
     return z * std + mu
+
+
 try:
     from scipy.stats import norm
+
     def gauss_quant(p, mu=0, std=1):
         return norm.ppf(p) * std + mu
 except ImportError:
