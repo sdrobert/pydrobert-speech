@@ -17,12 +17,6 @@ package:
 source:
   path: ..
 
-build:
-  noarch: python
-  entry_points:
-    - compute-feats-from-kaldi-tables = pydrobert.speech.command_line:compute_feats_from_kaldi_tables
-    - signals-to-torch-feat-dir = pydrobert.speech.command_line:signals_to_torch_feat_dir
-
 requirements:
   build:
     - python
@@ -35,6 +29,9 @@ requirements:
 build:
   noarch: python
   number: {{ build_num }}
+  entry_points:
+    - compute-feats-from-kaldi-tables = pydrobert.speech.command_line:compute_feats_from_kaldi_tables
+    - signals-to-torch-feat-dir = pydrobert.speech.command_line:signals_to_torch_feat_dir
   script:
     - export SETUPTOOLS_SCM_PRETEND_VERSION=${PKG_VERSION}  # [not win]
     - set SETUPTOOLS_SCM_PRETEND_VERSION=%PKG_VERSION%  # [win]
