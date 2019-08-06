@@ -48,7 +48,7 @@ to use it.
 - [Latest](https://pydrobert-speech.readthedocs.io/en/latest/)
 - [Stable](https://pydrobert-speech.readthedocs.io/en/stable/)
 
-# Installation
+## Installation
 
 _pydrobert-speech_ is available via both PyPI and Conda.
 
@@ -57,3 +57,8 @@ conda install -c sdrobert pydrobert-speech
 pip install pydrobert-speech
 pip install git+https://github.com/sdrobert/pydrobert-speech # bleeding edge
 ```
+
+## Licensing and How to Cite
+
+Please see the [pydrobert page](https://github.com/sdrobert/pydrobert) for more
+details.
