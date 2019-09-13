@@ -172,6 +172,7 @@ def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _wave_read_signal(rfilename, dtype, key, **kwargs):
+    import wave
     wave_file = wave.open(rfilename, **kwargs)
     try:
         dtype_in = '<i{}'.format(wave_file.getsampwidth())
