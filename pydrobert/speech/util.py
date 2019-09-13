@@ -201,7 +201,7 @@ def _wave_read_signal(rfilename, dtype, key, **kwargs):
 
 def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
     import h5py
-    with h5py.File(rfilename, **kwargs) as h5py_file:
+    with h5py.File(rfilename, 'r', **kwargs) as h5py_file:
         if key:
             data = h5py_file[key]
         else:
