@@ -108,6 +108,20 @@ def test_read_wave(temp_dir, use_scipy, channels, sampwidth):
     assert np.allclose(wave_buffer_1, wave_buffer_2)
 
 
+def test_read_sphere():
+    audio_dir = os.path.join(os.path.dirname(__file__), 'audio')
+    for name in {
+            '123_1pcbe', '123_1pcle', '123_1ulaw', '123_2alaw', '123_2pcbe',
+            '123_2pcle', '123_2ulaw'}:
+        sph_file = os.path.join(audio_dir, name + '.sph')
+        wav_file = os.path.join(audio_dir, name + '.wav')
+        assert os.path.isfile(sph_file)
+        assert os.path.isfile(wav_file)
+        sph = util.read_signal(sph_file, dtype=np.int32)
+        wav = util.read_signal(wav_file, dtype=np.int32)
+        assert np.all(sph == wav)
+
+
 @pytest.mark.parametrize('key', [True, False])
 def test_read_hdf5(temp_dir, key):
     h5py = pytest.importorskip('h5py')
