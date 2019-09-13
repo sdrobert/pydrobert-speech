@@ -54,13 +54,14 @@ try:
 
         def __init__(
                 self, utt2path, preprocessors, computer, postprocessors,
-                channel, seed):
+                channel, force_as, seed):
             super(_FeatureProcessorDataset, self).__init__()
             self.utt_path = tuple(utt2path.items())
             self.preprocessors = preprocessors
             self.computer = computer
             self.postprocessors = postprocessors
             self.channel = channel
+            self.force_as = force_as
             self.seed = seed
 
         def __len__(self):
@@ -72,7 +73,9 @@ try:
             np.random.seed(self.seed + idx)
             utt_id, path = self.utt_path[idx]
             try:
-                signal = read_signal(path, np.float64)
+                signal = read_signal(
+                    path, dtype=np.float64, force_as=self.force_as,
+                    key=utt_id)
             except Exception as e:
                 raise_from(IOError('Utterance {}:'.format(utt_id), e))
             if (
@@ -340,6 +343,18 @@ def _signals_to_torch_feat_dir_parse_args(args):
         'postprocessed in the same order as the list'
     )
     parser.add_argument(
+        '--force-as', default=None,
+        choices={
+            'tab', 'wav', 'hdf5', 'npy', 'npz', 'pt', 'sph', 'kaldi',
+            'file',
+        },
+        help='Force the paths in `map` to be interpreted as a specific type '
+        'of data. tab: kaldi table (key is utterance id); wav: wave file; '
+        'hdf5: HDF5 archive (key is utterance id); npy: Numpy binary; npz: '
+        'numpy archive (key is utterance id); pt: PyTorch binary; sph: NIST '
+        'SPHERE file; kaldi: kaldi object; file: numpy.fromfile binary'
+    )
+    parser.add_argument(
         '--seed', type=_nonneg_int_type, default=None,
         help='A random seed used for determinism. This affects operations '
         'like dithering. If unset, a seed will be generated at the moment'
@@ -457,7 +472,7 @@ def signals_to_torch_feat_dir(args=None):
     # we use a dataset to take advantage of torch's multiprocessing
     dataset = _FeatureProcessorDataset(
         utt2path, preprocessors, computer, postprocessors, options.channel,
-        seed)
+        options.force_as, seed)
     loader = torch.utils.data.DataLoader(
         dataset, num_workers=options.num_workers)
     if not os.path.isdir(options.dir):

@@ -165,8 +165,6 @@ def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
 
 def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
     from scipy.io import wavfile
-    if key is not None:
-        raise TypeError("'key' is an invalid keyword argument for wave files")
     _, data = wavfile.read(rfilename, **kwargs)
     if dtype:
         data = data.astype(dtype)
@@ -174,9 +172,6 @@ def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _wave_read_signal(rfilename, dtype, key, **kwargs):
-    import wave
-    if key is not None:
-        raise TypeError("'key' is an invalid keyword argument for wave files")
     wave_file = wave.open(rfilename, **kwargs)
     try:
         dtype_in = '<i{}'.format(wave_file.getsampwidth())
@@ -227,9 +222,6 @@ def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _numpy_binary_read_signal(rfilename, dtype, key, **kwargs):
-    if key is not None:
-        raise TypeError(
-            "'key' is an invalid keyword argument for numpy binaries")
     data = np.load(rfilename, **kwargs)
     if dtype:
         data = data.astype(dtype)
@@ -265,9 +257,6 @@ def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
-    if key is not None:
-        raise TypeError(
-            "'key' is an invalid keyword argument for fromfile binaries")
     if dtype:
         data = np.fromfile(rfilename, dtype=dtype, **kwargs)
     else:
@@ -448,9 +437,6 @@ def _copy_sphere_samples(file_, header, dtype, error):
 
 
 def _sphere_read_signal(rfilename, dtype, key):
-    if key is not None:
-        raise TypeError(
-            "'key' is an invalid keyword argument for sphere files")
     error = IOError('{} header could not be read as sphere'.format(rfilename))
     file_ = open(rfilename, 'rb')
     try:
@@ -532,12 +518,6 @@ def read_signal(rfilename, dtype=None, key=None, force_as=None, **kwargs):
     Returns
     -------
     array-like
-
-    Raises
-    ------
-    ImportError
-    TypeError
-    IOError
     """
     if force_as is None:
         if match(r'^(ark|scp)(,\w+)*:', rfilename):
