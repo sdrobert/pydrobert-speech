@@ -60,5 +60,10 @@ pip install git+https://github.com/sdrobert/pydrobert-speech # bleeding edge
 
 ## Licensing and How to Cite
 
+Portions of `util.read_signal` were adapted from the
+[NIST sph2pipe program]<https://www.ldc.upenn.edu/language-resources/tools/sphere-conversion-tools>.
+License information can be found in `LICENSE_sph2pipe`. As of now, we do not
+use any of the code from `shorten_x.c`.
+
 Please see the [pydrobert page](https://github.com/sdrobert/pydrobert) for more
-details.
+details on how to cite this package.

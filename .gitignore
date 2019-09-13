@@ -100,9 +100,6 @@ ENV/
 # mypy
 .mypy_cache/
 
-# wave files
-*.wav
-
 build/
 dist/
 .pytest_cache/

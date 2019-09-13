@@ -14,6 +14,8 @@
 
 """Miscellaneous utility functions"""
 
+import warnings
+
 from builtins import str as text
 from re import match
 
@@ -247,7 +249,7 @@ def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
 
 def _torch_read_signal(rfilename, dtype, key, **kwargs):
     import torch
-    data = torch.load(rfilename, map_location='cpu').numpy()
+    data = torch.load(rfilename, map_location='cpu', **kwargs).numpy()
     if dtype:
         data = data.astype(dtype)
     return data
@@ -270,6 +272,194 @@ def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
         data = np.fromfile(rfilename, dtype=dtype, **kwargs)
     else:
         data = np.fromfile(rfilename, **kwargs)
+    return data
+
+
+def _read_sphere_header(file_, error):
+    # this code has been heavily influcenced by
+    # sph2pipe_v2.5/file_headers.c
+    inpbuf = file_.read(1024)
+    if len(inpbuf) != 1024 or inpbuf[:7] != b'NIST_1A':
+        raise error
+    hdrsize = int(inpbuf.split(b'\n')[1])
+    if hdrsize < 1024:
+        raise error
+    inpbuf += file_.read(hdrsize - len(inpbuf))
+    field = None
+    samptype = sampsize = sampcount = samprate = chancount = inporder = None
+    for field in inpbuf.split(b'\n')[2:]:
+        if field == b'end_head':
+            break
+        field = field.decode()
+        key, fmt, value = field.split(None, 3)
+        if fmt == '-i':
+            value = int(value)
+        if key == 'channel_count':
+            chancount = value
+        elif key == 'sample_count':
+            sampcount = value
+        elif key == 'sample_rate':
+            samprate = value
+        elif key == 'sample_n_bytes':
+            sampsize = value
+        elif key == 'sample_byte_format':
+            inporder = value
+        elif key == 'sample_coding' and value in {"ulaw", "alaw", "pcm"}:
+            samptype = value
+    if field != b'end_head':
+        raise error
+    if not samptype and (sampsize == 2 or (inporder and len(inporder) == 2)):
+        samptype = "pcm"
+    if (
+            not samptype or not sampcount or not samprate or not chancount or
+            (samptype == "pcm" and not inporder)):
+        raise error
+    if not sampsize:
+        sampsize = samptype & 3
+    # TODO(sdrobert): shortened files? Are there licensing issues?
+    return samptype, sampsize, sampcount, samprate, chancount, inporder
+
+
+_ULAW2PCM = np.array([
+    -32124, -31100, -30076, -29052, -28028, -27004, -25980, -24956,
+    -23932, -22908, -21884, -20860, -19836, -18812, -17788, -16764,
+    -15996, -15484, -14972, -14460, -13948, -13436, -12924, -12412,
+    -11900, -11388, -10876, -10364, -9852,  -9340,  -8828,  -8316,
+    -7932,  -7676,  -7420,  -7164,  -6908,  -6652,  -6396,  -6140,
+    -5884,  -5628,  -5372,  -5116,  -4860,  -4604,  -4348,  -4092,
+    -3900,  -3772,  -3644,  -3516,  -3388,  -3260,  -3132,  -3004,
+    -2876,  -2748,  -2620,  -2492,  -2364,  -2236,  -2108,  -1980,
+    -1884,  -1820,  -1756,  -1692,  -1628,  -1564,  -1500,  -1436,
+    -1372,  -1308,  -1244,  -1180,  -1116,  -1052,  -988,   -924,
+    -876,   -844,   -812,   -780,   -748,   -716,   -684,   -652,
+    -620,   -588,   -556,   -524,   -492,   -460,   -428,   -396,
+    -372,   -356,   -340,   -324,   -308,   -292,   -276,   -260,
+    -244,   -228,   -212,   -196,   -180,   -164,   -148,   -132,
+    -120,   -112,   -104,   -96,    -88,    -80,    -72,    -64,
+    -56,    -48,    -40,    -32,    -24,    -16,    -8,     0,
+    32124,  31100,  30076,  29052,  28028,  27004,  25980,  24956,
+    23932,  22908,  21884,  20860,  19836,  18812,  17788,  16764,
+    15996,  15484,  14972,  14460,  13948,  13436,  12924,  12412,
+    11900,  11388,  10876,  10364,  9852,   9340,   8828,   8316,
+    7932,   7676,   7420,   7164,   6908,   6652,   6396,   6140,
+    5884,   5628,   5372,   5116,   4860,   4604,   4348,   4092,
+    3900,   3772,   3644,   3516,   3388,   3260,   3132,   3004,
+    2876,   2748,   2620,   2492,   2364,   2236,   2108,   1980,
+    1884,   1820,   1756,   1692,   1628,   1564,   1500,   1436,
+    1372,   1308,   1244,   1180,   1116,   1052,   988,    924,
+    876,    844,    812,    780,    748,    716,    684,    652,
+    620,    588,    556,    524,    492,    460,    428,    396,
+    372,    356,    340,    324,    308,    292,    276,    260,
+    244,    228,    212,    196,    180,    164,    148,    132,
+    120,    112,    104,    96,     88,     80,     72,     64,
+    56,     48,     40,     32,     24,     16,     8,      0
+], dtype=np.int16)
+
+
+_ALAW2PCM = np.array([
+    -5504,  -5248,  -6016,  -5760,  -4480,  -4224,  -4992,  -4736,
+    -7552,  -7296,  -8064,  -7808,  -6528,  -6272,  -7040,  -6784,
+    -2752,  -2624,  -3008,  -2880,  -2240,  -2112,  -2496,  -2368,
+    -3776,  -3648,  -4032,  -3904,  -3264,  -3136,  -3520,  -3392,
+    -22016, -20992, -24064, -23040, -17920, -16896, -19968, -18944,
+    -30208, -29184, -32256, -31232, -26112, -25088, -28160, -27136,
+    -11008, -10496, -12032, -11520, -8960,  -8448,  -9984,  -9472,
+    -15104, -14592, -16128, -15616, -13056, -12544, -14080, -13568,
+    -344,   -328,   -376,   -360,   -280,   -264,   -312,   -296,
+    -472,   -456,   -504,   -488,   -408,   -392,   -440,   -424,
+    -88,    -72,    -120,   -104,   -24,    -8,     -56,    -40,
+    -216,   -200,   -248,   -232,   -152,   -136,   -184,   -168,
+    -1376,  -1312,  -1504,  -1440,  -1120,  -1056,  -1248,  -1184,
+    -1888,  -1824,  -2016,  -1952,  -1632,  -1568,  -1760,  -1696,
+    -688,   -656,   -752,   -720,   -560,   -528,   -624,   -592,
+    -944,   -912,   -1008,  -976,   -816,   -784,   -880,   -848,
+    5504,   5248,   6016,   5760,   4480,   4224,   4992,   4736,
+    7552,   7296,   8064,   7808,   6528,   6272,   7040,   6784,
+    2752,   2624,   3008,   2880,   2240,   2112,   2496,   2368,
+    3776,   3648,   4032,   3904,   3264,   3136,   3520,   3392,
+    22016,  20992,  24064,  23040,  17920,  16896,  19968,  18944,
+    30208,  29184,  32256,  31232,  26112,  25088,  28160,  27136,
+    11008,  10496,  12032,  11520,  8960,   8448,   9984,   9472,
+    15104,  14592,  16128,  15616,  13056,  12544,  14080,  13568,
+    344,    328,    376,    360,    280,    264,    312,    296,
+    472,    456,    504,    488,    408,    392,    440,    424,
+    88,     72,     120,    104,    24,     8,      56,     40,
+    216,    200,    248,    232,    152,    136,    184,    168,
+    1376,   1312,   1504,   1440,   1120,   1056,   1248,   1184,
+    1888,   1824,   2016,   1952,   1632,   1568,   1760,   1696,
+    688,    656,    752,    720,    560,    528,    624,    592,
+    944,    912,    1008,   976,    816,    784,    880,    848
+], dtype=np.int16)
+
+
+def _copy_sphere_samples(file_, header, dtype, error):
+    # this code has been heavily influenced by
+    # sph2pipe_v2.5/sph2pipe.c, though we rely on numpy to handle sizing,
+    # endianness, etc.
+    samptype, sampsize, sampcount, samprate, chancount, inporder = header
+    BUF_SIZE = 16384
+    sampsdone = 0
+    convert = False
+    if sampsize == 1:
+        in_type = np.dtype(np.uint8)
+    elif sampsize == 2:
+        in_type = np.dtype(np.int16)
+    elif sampsize == 4:
+        in_type = np.dtype(np.int32)
+    else:
+        raise error
+    if dtype is None:
+        dtype = in_type
+    else:
+        dtype = np.dtype(dtype)
+        if sampsize < dtype.itemsize and samptype in {'alaw', 'ulaw'}:
+            # we'll first convert to pcm
+            convert = True
+    data = np.empty(sampcount * chancount, dtype=dtype)
+    in_type = in_type.newbyteorder(">" if (inporder == "10") else "<")
+    while sampsdone < sampcount:
+        inpbuf = file_.read(BUF_SIZE)
+        nb = len(inpbuf)
+        if not nb:
+            break
+        if not sampsdone and inpbuf[:4] == b'ajkg':
+            raise IOError(
+                "Shortened sphere files are currently unsupported. Please "
+                "run your file through sph2pipe to remove shortening")
+        ns = nb // (chancount * sampsize)
+        if (sampsdone + ns) > sampcount:
+            ns = sampcount - sampsdone
+            nb = ns * chancount * sampsize
+        inpbuf = np.frombuffer(inpbuf, dtype=in_type, count=ns * chancount)
+        assert len(inpbuf) == ns * chancount
+        if convert and samptype == 'alaw':
+            inpbuf = _ALAW2PCM[inpbuf]
+        elif convert:
+            inpbuf = _ULAW2PCM[inpbuf]
+        data[sampsdone * chancount:(sampsdone + ns) * chancount] = inpbuf
+        sampsdone += ns
+    if sampsdone != sampcount:
+        warnings.warn('{} samples read, {} samples expected'.format(
+            samspdone, sampcount))
+    if chancount > 1:
+        data = data[:sampsdone * chancount].reshape(
+            (sampsdone, chancount), order='C')
+    return data
+
+
+def _sphere_read_signal(rfilename, dtype, key):
+    if key is not None:
+        raise TypeError(
+            "'key' is an invalid keyword argument for sphere files")
+    error = IOError('{} header could not be read as sphere'.format(rfilename))
+    file_ = open(rfilename, 'rb')
+    try:
+        header = _read_sphere_header(file_, error)
+        data = _copy_sphere_samples(file_, header, dtype, error)
+    finally:
+        file_.close()
+    if dtype:
+        data = data.astype(dtype)
     return data
 
 
@@ -309,11 +499,13 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
     6. If `rfilename` ends with `.pt`, the file is assumed to be a binary
        in PyTorch format. If set, the results will be cast as the numpy
        data type `dtype`.
-    7. If ``pydrobert.kaldi`` can be imported, it will try to read an
+    7. If `rfilename` ends with `.sph`, the file is assumed to be a NIST SPHERE
+       file. If set, the results will be cast as the numpy data type `dtype`
+    8. If ``pydrobert.kaldi`` can be imported, it will try to read an
        object of kaldi data type `dtype` (defaults to ``BaseMatrix``)
        from a basic kaldi input stream. If this fails, we continue
        to step 7.
-    8. Otherwise, the routine `numpy.fromfile` will be used to load the
+    9. Otherwise, the routine `numpy.fromfile` will be used to load the
        data (of type `dtype`, if provided). `numpy.tofile` does not
        keep track of shape data, so any read data will be 1D.
 
@@ -351,6 +543,8 @@ def read_signal(rfilename, dtype=None, key=None, **kwargs):
         data = _numpy_archive_read_signal(rfilename, dtype, key, **kwargs)
     elif rfilename.endswith('.pt'):
         data = _torch_read_signal(rfilename, dtype, key, **kwargs)
+    elif rfilename.endswith('.sph'):
+        data = _sphere_read_signal(rfilename, dtype, key, **kwargs)
     else:
         try:
             data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
