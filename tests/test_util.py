@@ -108,18 +108,54 @@ def test_read_wave(temp_dir, use_scipy, channels, sampwidth):
     assert np.allclose(wave_buffer_1, wave_buffer_2)
 
 
-def test_read_sphere():
+@pytest.mark.parametrize('name', [
+    '123_1pcbe', '123_1pcle', '123_1ulaw', '123_2alaw', '123_2pcbe',
+    '123_2pcle', '123_2ulaw',
+])
+def test_read_sphere(name):
     audio_dir = os.path.join(os.path.dirname(__file__), 'audio')
-    for name in {
-            '123_1pcbe', '123_1pcle', '123_1ulaw', '123_2alaw', '123_2pcbe',
-            '123_2pcle', '123_2ulaw'}:
+    if name.endswith('alaw'):
         sph_file = os.path.join(audio_dir, name + '.sph')
-        wav_file = os.path.join(audio_dir, name + '.wav')
-        assert os.path.isfile(sph_file)
-        assert os.path.isfile(wav_file)
-        sph = util.read_signal(sph_file, dtype=np.int32)
-        wav = util.read_signal(wav_file, dtype=np.int32)
-        assert np.all(sph == wav)
+    else:
+        sph_file = os.path.join(audio_dir, name + '_shn.sph')
+    wav_file = os.path.join(audio_dir, name + '.wav')
+    assert os.path.isfile(sph_file)
+    assert os.path.isfile(wav_file)
+    wav = util.read_signal(wav_file, dtype=np.int32)
+    sph = util.read_signal(sph_file, dtype=np.int32)
+    assert np.all(sph == wav)
+
+
+@pytest.mark.parametrize('env_var,suffix', [
+    ('WSJ_DIR', '.wv1'),
+    ('TIMIT_DIR', '.sph'),
+])
+def test_read_sphere_corpus(temp_dir, env_var, suffix):
+    num_utts = 50
+    env_dir = os.environ.get(env_var, None)
+    if env_dir is None:
+        pytest.skip('Corpus dir not set')
+    sph2pipe_path = os.environ.get('SPH2PIPE', None)
+    if sph2pipe_path is None:
+        pytest.skip('SPH2PIPE dir not set')
+    try:
+        import pathlib
+    except ImportError:
+        pathlib = pytest.importorskip('pathlib2')
+    sphere_files = [str(x) for (x, _) in zip(
+        pathlib.Path(env_dir).glob('**/*' + suffix),
+        range(num_utts)
+    )]
+    import subprocess
+    wav_files = []
+    for utt_idx, src in enumerate(sphere_files):
+        wav_file = os.path.join(temp_dir, '{}.wav'.format(utt_idx))
+        wav_files.append(wav_file)
+        assert not subprocess.call([sph2pipe_path, '-f', 'wav', src, wav_file])
+    for wav_path, sph_path in zip(wav_files, sphere_files):
+        wav = util.read_signal(wav_path, dtype=np.int32)
+        sph = util.read_signal(sph_path, dtype=np.int32, force_as='sph')
+        assert (wav == sph).all()
 
 
 @pytest.mark.parametrize('key', [True, False])
@@ -145,7 +181,7 @@ def test_read_hdf5(temp_dir, key):
 def test_read_torch(temp_dir):
     torch = pytest.importorskip('torch')
     torch.manual_seed(10)
-    rfilename = 'foo.pt'
+    rfilename = os.path.join(temp_dir, 'foo.pt')
     exp = torch.randn(10, 4)
     torch.save(exp, rfilename)
     exp = exp.numpy()
