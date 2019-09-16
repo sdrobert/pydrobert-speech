@@ -129,7 +129,7 @@ def copy_shortened_samples(inpbuf, file_, data, error):
     sampsdone = 0
 
     assert inpbuf[:4] == MAGIC
-    version, = struct.unpack('b', bytes(inpbuf[4:5]))
+    version, = struct.unpack('b', inpbuf[4:5].tobytes())
     # what's the point of nmean here if we just read it later?
     if version == 1:
         nmean = DEFAULT_V0NMEAN
@@ -141,11 +141,11 @@ def copy_shortened_samples(inpbuf, file_, data, error):
     def word_get():
         inpbuf = word_get.inpbuf
         if len(inpbuf) < 4:
-            inpbuf = bytes(inpbuf) + file_.read(BUFSIZ - len(inpbuf))
+            inpbuf = inpbuf.tobytes() + file_.read(BUFSIZ - len(inpbuf))
             inpbuf = memoryview(inpbuf)
             if len(inpbuf) < 4:
                 raise error
-        buffer, = struct.unpack('>l', bytes(inpbuf[:4]))
+        buffer, = struct.unpack('>l', inpbuf[:4].tobytes())
         word_get.inpbuf = inpbuf[4:]
         return buffer
     word_get.inpbuf = inpbuf[5:]
