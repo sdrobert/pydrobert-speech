@@ -236,7 +236,7 @@ def compute_feats_from_kaldi_tables(args=None):
     postprocessors = []
     try:
         if isinstance(options.postprocess, dict):
-            postproccessors.append(alias_factory_subclass_from_arg(
+            postprocessors.append(alias_factory_subclass_from_arg(
                 PostProcessor, options.postprocess))
         else:
             for element in options.postprocess:
