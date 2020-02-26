@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This code was adapted from the sphinx2pipe_2.5 tool. The original license
+# This code was adapted from the sphere2pipe_2.5 tool. The original license
 # is below
 
 # Various portions of source code from Tony Robinson's "shorten-2.0"
@@ -125,7 +125,7 @@ def fix_bitshift(buffer, nitem, bitshift, ftype):
 
 def copy_shortened_samples(inpbuf, file_, data, error):
     inpbuf = memoryview(inpbuf)
-    maxnlpc = lpcqoffset = cmd = nscan = bitshift = 0
+    maxnlpc = lpcqoffset = cmd = bitshift = 0
     sampsdone = 0
 
     assert inpbuf[:4] == MAGIC
@@ -215,7 +215,7 @@ def copy_shortened_samples(inpbuf, file_, data, error):
         # it's part of the buffer. let's just see if this ever triggers
         if not nskip:
             warnings.warn('skipping {} bytes due to nskip'.format(nskip))
-        uvar_get(xbite_size)
+        uvar_get(XBITESIZE)
 
     nwrap = max(maxnlpc, NWRAP)
     # careful! shorten_x.c shifts index i to index i - nwrap. Thus, whenever
@@ -278,7 +278,7 @@ def copy_shortened_samples(inpbuf, file_, data, error):
                     cbuffer[i] = var_get(resn)
                     cbuffer[i] += 3 * (cbuffer[i - 1] - cbuffer[i - 2])
                     cbuffer[i] += cbuffer[i - 3]
-            else:
+            else:  # FN_QLPC
                 nlpc = uvar_get(LPCQSIZE)
                 for i in range(nlpc):
                     qlpc[i] = var_get(LPCQUANT)
@@ -311,9 +311,9 @@ def copy_shortened_samples(inpbuf, file_, data, error):
                 data = data[nitem:]
                 sampsdone += blocksize
             chan = (chan + 1) % nchan
-        elif FN_BLOCKSIZE:
+        elif cmd == FN_BLOCKSIZE:
             blocksize = ulong_get()
-        elif FN_BITSHIFT:
+        elif cmd == FN_BITSHIFT:
             bitshift = uvar_get(BITSHIFTSIZE)
         else:
             raise error
@@ -372,11 +372,17 @@ def copy_samples(file_, header, dtype, error):
 
 
 def sphere_read_signal(rfilename, dtype, key):
-    error = IOError('{} header could not be read as sphere'.format(rfilename))
     file_ = open(rfilename, 'rb')
     try:
-        header = read_header(file_, error)
-        data = copy_samples(file_, header, dtype, error)
+        header = read_header(
+            file_,
+            IOError('{} header could not be read as sphere'.format(rfilename))
+        )
+        data = copy_samples(
+            file_, header, dtype,
+            IOError(
+                '{} data could not be read as sphere despite good header'
+                ''.format(rfilename)))
     finally:
         file_.close()
     if dtype:

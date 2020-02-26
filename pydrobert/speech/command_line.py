@@ -236,7 +236,7 @@ def compute_feats_from_kaldi_tables(args=None):
     postprocessors = []
     try:
         if isinstance(options.postprocess, dict):
-            postproccessors.append(alias_factory_subclass_from_arg(
+            postprocessors.append(alias_factory_subclass_from_arg(
                 PostProcessor, options.postprocess))
         else:
             for element in options.postprocess:
@@ -463,7 +463,7 @@ def signals_to_torch_feat_dir(args=None):
                 PreProcessor, element))
     postprocessors = []
     if isinstance(options.postprocess, dict):
-        postproccessors.append(alias_factory_subclass_from_arg(
+        postprocessors.append(alias_factory_subclass_from_arg(
             PostProcessor, options.postprocess))
     else:
         for element in options.postprocess:
