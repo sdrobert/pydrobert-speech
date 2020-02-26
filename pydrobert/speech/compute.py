@@ -241,6 +241,14 @@ class LinearFilterBankFrameComputer(FrameComputer):
         return self._bank.num_filts + int(self._include_energy)
 
 
+def _power(x):
+    return np.linalg.norm(x, ord=2) ** 2
+
+
+def _mag(x):
+    return np.sum(np.abs(x))
+
+
 class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     """Compute features of a signal by integrating STFTs
 
@@ -360,9 +368,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         else:
             self._dft_size = self._frame_length
         if self._power:
-            self._nonlin_op = lambda x: np.linalg.norm(x, ord=2) ** 2
+            self._nonlin_op = _power
         else:
-            self._nonlin_op = lambda x: np.sum(np.abs(x))
+            self._nonlin_op = _mag
         self._truncated_filts = []
         self._filt_start_idxs = []
         for filt_idx in range(bank.num_filts):
