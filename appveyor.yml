@@ -1,5 +1,4 @@
 version: build.{build}.branch.{branch}
-image: Ubuntu
 
 environment:
   matrix:
