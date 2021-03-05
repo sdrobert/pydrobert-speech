@@ -8,10 +8,13 @@ environment:
     - TOXENV: py38
     - TOXENV: py39  # not there yet
 
-build: off
+stack: python 3.7
+
+init:
+  - cmd: set PATH=C:\Python37;C:\Python37\Scripts;%PATH%
 
 install:
-  - python3 -m pip install tox
+  - python -m pip install tox tox-appveyor
 
 test_script:
-  - python3 -m tox
+  - python -m tox
