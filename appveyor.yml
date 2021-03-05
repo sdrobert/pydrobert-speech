@@ -4,14 +4,18 @@ image: Visual Studio 2019
 environment:
   matrix:
     - TOXENV: py36
+      PYTHON: C:\Python36-x64
     - TOXENV: py37
+      PYTHON: C:\Python37-x64
     - TOXENV: py38
+      PYTHON: C:\Python38-x64
     - TOXENV: py39
+      PYTHON: C:\Python39-x64
 
 build: off
 
 install:
-  - py -3.7 -m pip install -U pip tox wheel tox-appveyor
+  - %PYTHON% -m pip install -U pip tox wheel
 
 test_script:
-  - py -3.7 -m tox
+  - %PYTHON% -m tox -e %envname%
