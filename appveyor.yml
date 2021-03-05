@@ -24,5 +24,5 @@ test_script:
   - python -m tox
 
 branches:
-  exclude:
+  except:
     - /docs/
