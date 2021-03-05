@@ -1,0 +1,17 @@
+version: build.{build}.branch.{branch}
+image: Ubuntu
+
+environment:
+  matrix:
+    - TOXENV: py36
+    - TOXENV: py37
+    - TOXENV: py38
+    # - TOXENV: py39  # not there yet
+
+build: off
+
+install:
+  - py -3.6 -m pip install wheel tox tox-appveyor
+
+test_script:
+  - py -3.6 -m tox

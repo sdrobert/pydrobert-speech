@@ -2,9 +2,9 @@
    :maxdepth: 2
    :caption: Contents:
 
-.. include:: overview.rst
-
-.. include:: modules.rst
+   overview
+   modules
+   references
 
 Indices and tables
 ==================

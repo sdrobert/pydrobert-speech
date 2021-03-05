@@ -23,8 +23,12 @@ requirements:
     - setuptools
     - setuptools_scm
   run:
-    - python
+    - python >= 3.6
     - numpy
+  run_constrained:
+    - pydrobert-param >0.2.0
+    - pydrobert-kaldi >0.5.3
+    - pydrobert-pytorch >0.2.1
 
 build:
   noarch: python
@@ -45,7 +49,9 @@ test:
     - scipy
     - h5py
     - pytorch
-    - pydrobert-kaldi
+    # FIXME(sdrobert): once the run_constraints can be satisfied, add these
+    # tests back
+    # - pydrobert-kaldi
   imports:
     - pydrobert
     - pydrobert.speech
@@ -60,6 +66,8 @@ test:
     - pydrobert.speech.util
     - pydrobert.speech.vis
   commands:
+    # - compute-feats-from-kaldi-tables -h
+    - signals-to-torch-feat-dir -h
     - pytest
 
 about:

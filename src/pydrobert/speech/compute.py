@@ -1,4 +1,4 @@
-# Copyright 2019 Sean Robertson
+# Copyright 2021 Sean Robertson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,13 +14,11 @@
 
 """Compute features from speech signals"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
 
 from itertools import count
+from typing import Mapping, Optional, Union
 
 import numpy as np
 
@@ -32,28 +30,22 @@ from pydrobert.speech.filters import LinearFilterBank
 from pydrobert.speech.filters import WindowFunction
 from pydrobert.speech.util import alias_factory_subclass_from_arg
 
-__author__ = "Sean Robertson"
-__email__ = "sdrobert@cs.toronto.edu"
-__license__ = "Apache 2.0"
-__copyright__ = "Copyright 2019 Sean Robertson"
-
 __all__ = [
-    'FrameComputer',
-    'LinearFilterBankFrameComputer',
-    'ShortTimeFourierTransformFrameComputer',
-    'STFTFrameComputer',
-    'ShortIntegrationFrameComputer',
-    'SIFrameComputer',
-    'frame_by_frame_calculation',
+    "FrameComputer",
+    "LinearFilterBankFrameComputer",
+    "ShortTimeFourierTransformFrameComputer",
+    "STFTFrameComputer",
+    "ShortIntegrationFrameComputer",
+    "SIFrameComputer",
+    "frame_by_frame_calculation",
 ]
 
 
 class FrameComputer(AliasedFactory):
     """Construct features from a signal from fixed-length segments
 
-    A signal is treated as a (possibly overlapping) time series of
-    frames. Each frame is transformed into a fixed-length vector of
-    coefficients.
+    A signal is treated as a (possibly overlapping) time series of frames. Each frame is
+    transformed into a fixed-length vector of coefficients.
 
     Features can be computed one at a time, for example:
 
@@ -65,14 +57,14 @@ class FrameComputer(AliasedFactory):
     >>>     signal = signal[chunk_size:]
     >>> feats = computer.finalize()
 
-    Or all at once (which can be much faster, depending on how the
-    computer is optimized):
+    Or all at once (which can be much faster, depending on how the computer is
+    optimized):
 
     >>> feats = computer.compute_full(signal)
 
-    The k-th frame can be roughly localized to the signal offset to about
-    ``signal[k * computer.frame_shift]``. The signal's exact region of
-    influence is dictated by the `frame_style` property.
+    The k-th frame can be roughly localized to the signal offset to about ``signal[k *
+    computer.frame_shift]``. The signal's exact region of influence is dictated by the
+    `frame_style` property.
 
     Attributes
     ----------
@@ -87,7 +79,7 @@ class FrameComputer(AliasedFactory):
     """
 
     @abc.abstractproperty
-    def frame_style(self):
+    def frame_style(self) -> str:
         """Dictates how the signal is split into frames
 
         If ``'causal'``, the k-th frame is computed over the indices ``signal[k
@@ -100,12 +92,12 @@ class FrameComputer(AliasedFactory):
         pass
 
     @abc.abstractproperty
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         """Number of samples in a second of a target recording"""
         pass
 
     @abc.abstractproperty
-    def frame_length(self):
+    def frame_length(self) -> int:
         """Number of samples which dictate a feature vector
 
         .. warning:: Can be different from `get_next_segment_length`
@@ -113,36 +105,36 @@ class FrameComputer(AliasedFactory):
         pass
 
     @property
-    def frame_length_ms(self):
+    def frame_length_ms(self) -> float:
         """Number of milliseconds of audio which dictate a feature vector"""
         return self.frame_length * 1000 / self.sampling_rate
 
     @abc.abstractproperty
-    def frame_shift(self):
+    def frame_shift(self) -> int:
         """Number of samples absorbed between successive frame computations"""
         pass
 
     @property
-    def frame_shift_ms(self):
+    def frame_shift_ms(self) -> float:
         """Number of milliseconds between succecssive frame computations"""
         return self.frame_shift * 1000 / self.sampling_rate
 
     @abc.abstractproperty
-    def num_coeffs(self):
+    def num_coeffs(self) -> int:
         """Number of coefficients returned per frame"""
         pass
 
     @abc.abstractproperty
-    def started(self):
+    def started(self) -> bool:
         """Whether computations for a signal have started
 
-        Becomes ``True`` after the first call to ``compute_chunk()``. Becomes
+        Becomes :obj:`True` after the first call to ``compute_chunk()``. Becomes
         ``False`` after call to ``finalize()``
         """
         pass
 
     @abc.abstractmethod
-    def compute_chunk(self, chunk):
+    def compute_chunk(self, chunk: np.ndarray) -> np.ndarray:
         """Compute some coefficients, given a chunk of audio
 
         Parameters
@@ -162,7 +154,7 @@ class FrameComputer(AliasedFactory):
         pass
 
     @abc.abstractmethod
-    def finalize(self):
+    def finalize(self) -> np.ndarray:
         """Conclude processing a stream of audio, processing any stored buffer
 
         Returns
@@ -173,7 +165,7 @@ class FrameComputer(AliasedFactory):
         """
         pass
 
-    def compute_full(self, signal):
+    def compute_full(self, signal: np.ndarray) -> np.ndarray:
         """Compute a full signal's worth of feature coefficients
 
         Parameters
@@ -198,12 +190,12 @@ class FrameComputer(AliasedFactory):
 
 
 class LinearFilterBankFrameComputer(FrameComputer):
-    '''Frame computers whose features are derived from linear filter banks
+    """Frame computers whose features are derived from linear filter banks
 
-    Computers based on linear filter banks have a predictable number of
-    coefficients and organization. Like the banks, the features with
-    lower indices correspond to filters with lower bandwidths.
-    `num_coeffs` will be simply `bank.num_filts + int(include_energy)`.
+    Computers based on linear filter banks have a predictable number of coefficients and
+    organization. Like the banks, the features with lower indices correspond to filters
+    with lower bandwidths. `num_coeffs` will be simply ``bank.num_filts +
+    int(include_energy)``.
 
     Parameters
     ----------
@@ -213,31 +205,33 @@ class LinearFilterBankFrameComputer(FrameComputer):
         with `pydrobert.speech.alias_factory_subclass_from_arg`
     include_energy : bool, optional
         Whether to include a coefficient based on the energy of the
-        signal within the frame. If ``True``, the energy coefficient
+        signal within the frame. If :obj:`True`, the energy coefficient
         will be inserted at index 0.
 
     Attributes
     ----------
     bank : pydrobert.speech.filters.LinearFilterBank
     includes_energy : bool
-    '''
+    """
 
-    def __init__(self, bank, include_energy=False):
+    def __init__(
+        self, bank: Union[LinearFilterBank, Mapping, str], include_energy: bool = False
+    ):
         self._bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._include_energy = bool(include_energy)
 
     @property
-    def bank(self):
-        '''The LinearFilterBank from which features are derived'''
+    def bank(self) -> LinearFilterBank:
+        """The LinearFilterBank from which features are derived"""
         return self._bank
 
     @property
-    def includes_energy(self):
-        '''Whether the first coefficient is an energy coefficient'''
+    def includes_energy(self) -> bool:
+        """Whether the first coefficient is an energy coefficient"""
         return self._include_energy
 
     @property
-    def num_coeffs(self):
+    def num_coeffs(self) -> int:
         return self._bank.num_filts + int(self._include_energy)
 
 
@@ -254,56 +248,51 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
 
     Computations are per frame and as follows:
 
-    1. The current frame is multiplied with some window (rectangular,
-       Hamming, Hanning, etc)
-    2. An DFT is performed on the result
+    1. The current frame is multiplied with some window (rectangular, Hamming, Hanning,
+       etc)
+    2. A DFT is performed on the result
     3. For each filter in the provided input bank:
 
-       a. Multiply the result of 2. with the frequency response of the
-          filter
-       b. Sum either the pointwise square or absolute value of elements
-          in the buffer from 3a.
+       a. Multiply the result of 2. with the frequency response of the filter
+       b. Sum either the pointwise square or absolute value of elements in the buffer
+          from 3a.
        c. Optionally take the log of the sum
 
     Warning
     --------
-    This behaviour differs from that of [povey2011]_ or [young]_ in three ways.
-    First, the sum (3b) comes after the filtering (3a), which changes the
-    result in the squared case. Second, the sum is over the full power
-    spectrum, rather than just between 0 and the Nyquist. This doubles the
-    value at the end of 3c. if a real filter is used. Third, frame boundaries
-    are calculated diffferently.
+    This behaviour differs from that of [povey2011]_ or [young]_ in three ways. First,
+    the sum (3b) comes after the filtering (3a), which changes the result in the squared
+    case. Second, the sum is over the full power spectrum, rather than just between 0
+    and the Nyquist. This doubles the value at the end of 3c. if a real filter is used.
+    Third, frame boundaries are calculated diffferently.
 
     Parameters
     ----------
-    bank : LinearFilterBank
+    bank : LinearFilterBank or dict or str
     frame_length_ms : float, optional
-        The length of a frame, in milliseconds. Defaults to the length
-        of the largest filter in the bank
+        The length of a frame, in milliseconds. Defaults to the length of the largest
+        filter in the bank
     frame_shift_ms : float, optional
         The offset between successive frames, in milliseconds
     frame_style : {'causal', 'centered'}, optional
-        Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
-        otherwise.
+        Defaults to ``'centered'`` if ``bank.is_zero_phase``, ``'causal'`` otherwise.
     include_energy : bool, optional
     pad_to_nearest_power_of_two : bool, optional
-        Whether the DFT should be a padded to a power of two for
-        computational efficiency
+        Whether the DFT should be a padded to a power of two for computational
+        efficiency
     window_function : pydrobert.speech.filters.WindowFunction, dict, or str
-        The window used in step 1. Can be a WindowFunction or something
-        compatible with
-        `pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
-        `pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
-        ``'causal'``, otherwise `pydrobert.speech.filters.HannWindow`.
+        The window used in step 1. Can be a :class:`WindowFunction` or something
+        compatible with :func:`pydrobert.speech.alias_factory_subclass_from_arg`.
+        Defaults to :class:`pydrobert.speech.filters.GammaWindow` when `frame_style` is
+        ``'causal'``, otherwise :class:`pydrobert.speech.filters.HannWindow`.
     use_log : bool, optional
         Whether to take the log of the sum from 3b.
     use_power : bool, optional
         Whether to sum the power spectrum or the magnitude spectrum
     kaldi_shift : bool, optional
-        If ``True``, the k-th frame will be computed using the signal
-        between ``signal[ k - frame_length // 2 + frame_shift // 2:k +
-        (frame_length + 1) // 2 + frame_shift // 2]``. These are the frame
-        bounds for Kaldi [povey2011]_.
+        If :obj:`True`, the k-th frame will be computed using the signal between
+        ``signal[ k - frame_length // 2 + frame_shift // 2:k + (frame_length + 1) // 2
+        + frame_shift // 2]``. These are the frame bounds for Kaldi [povey2011]_.
 
     Attributes
     ----------
@@ -314,19 +303,27 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     frame_length_ms : float
     frame_shift : int
     frame_shift_ms : float
-    includes_energy : bool
+    include_energy : bool
     num_coeffs : int
     started : bool
     kaldi_shift : bool
     """
 
-    aliases = {'stft'}
+    aliases = {"stft"}
 
     def __init__(
-            self, bank, frame_length_ms=None, frame_shift_ms=10,
-            frame_style=None, include_energy=False,
-            pad_to_nearest_power_of_two=True, window_function=None,
-            use_log=True, use_power=False, kaldi_shift=False):
+        self,
+        bank: Union[LinearFilterBank, Mapping, str],
+        frame_length_ms: Optional[float] = None,
+        frame_shift_ms: Optional[float] = 10,
+        frame_style: Optional[str] = None,
+        include_energy: bool = False,
+        pad_to_nearest_power_of_two: bool = True,
+        window_function: Optional[Union[WindowFunction, Mapping, str]] = None,
+        use_log: bool = True,
+        use_power: bool = False,
+        kaldi_shift: bool = False,
+    ):
         bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
         self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
@@ -339,29 +336,34 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._chunk_dtype = np.float64
         self._kaldi_shift = kaldi_shift
         if frame_style is None:
-            frame_style = 'centered' if bank.is_zero_phase else 'causal'
-        elif frame_style not in ('centered', 'causal'):
+            frame_style = "centered" if bank.is_zero_phase else "causal"
+        elif frame_style not in ("centered", "causal"):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
         self._frame_style = frame_style
         if frame_length_ms is None:
             self._frame_length = max(
                 max(right - left for left, right in bank.supports),
                 # ensure at least one dft bin is nonzero per filter
-                int(np.ceil(2 * self._rate / min(
-                    right - left for left, right in bank.supports_hz))),
+                int(
+                    np.ceil(
+                        2
+                        * self._rate
+                        / min(right - left for left, right in bank.supports_hz)
+                    )
+                ),
             )
         else:
-            self._frame_length = int(
-                0.001 * frame_length_ms * bank.sampling_rate)
+            self._frame_length = int(0.001 * frame_length_ms * bank.sampling_rate)
         self._buf = np.empty(self._frame_length, dtype=np.float64)
         if window_function is None:
-            if frame_style == 'causal':
+            if frame_style == "causal":
                 window_function = GammaWindow()
             else:
                 window_function = HannWindow()
         else:
             window_function = alias_factory_subclass_from_arg(
-                WindowFunction, window_function)
+                WindowFunction, window_function
+            )
         self._window = window_function.get_impulse_response(self._frame_length)
         if pad_to_nearest_power_of_two:
             self._dft_size = int(2 ** np.ceil(np.log2(self._frame_length)))
@@ -375,34 +377,36 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._filt_start_idxs = []
         for filt_idx in range(bank.num_filts):
             start_idx, truncated_filt = bank.get_truncated_response(
-                filt_idx, self._dft_size)
+                filt_idx, self._dft_size
+            )
             self._filt_start_idxs.append(start_idx)
             self._truncated_filts.append(truncated_filt)
         super(ShortTimeFourierTransformFrameComputer, self).__init__(
-            bank, include_energy=include_energy)
+            bank, include_energy=include_energy
+        )
 
     @property
-    def frame_style(self):
+    def frame_style(self) -> str:
         return self._frame_style
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def frame_length(self):
+    def frame_length(self) -> int:
         return self._frame_length
 
     @property
-    def frame_shift(self):
+    def frame_shift(self) -> int:
         return self._frame_shift
 
     @property
-    def started(self):
+    def started(self) -> bool:
         return self._started
 
     @property
-    def kaldi_shift(self):
+    def kaldi_shift(self) -> bool:
         return self._kaldi_shift
 
     def _compute_frame(self, frame, coeffs):
@@ -412,19 +416,20 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         if self.includes_energy:
             coeffs[0] = np.inner(frame, frame) / self._frame_length
             if not self._power:
-                coeffs[0] **= .5
+                coeffs[0] **= 0.5
             if self._log:
                 coeffs[0] = np.log(max(coeffs[0], config.LOG_FLOOR_VALUE))
             coeffs = coeffs[1:]
         if config.USE_FFTPACK:
             from scipy import fftpack
+
             is_odd = self._dft_size % 2
-            buffered_frame = np.zeros(
-                self._dft_size + 2 - is_odd, dtype=np.float64)
-            buffered_frame[1:self._frame_length + 1] = frame
-            buffered_frame[1:self._frame_length + 1] *= self._window
-            buffered_frame[1:self._dft_size + 1] = fftpack.rfft(
-                buffered_frame[1:self._dft_size + 1], overwrite_x=True)
+            buffered_frame = np.zeros(self._dft_size + 2 - is_odd, dtype=np.float64)
+            buffered_frame[1 : self._frame_length + 1] = frame
+            buffered_frame[1 : self._frame_length + 1] *= self._window
+            buffered_frame[1 : self._dft_size + 1] = fftpack.rfft(
+                buffered_frame[1 : self._dft_size + 1], overwrite_x=True
+            )
             buffered_frame[0] = buffered_frame[1]
             buffered_frame[1] = 0
             half_spect = buffered_frame.view(np.complex128)
@@ -441,18 +446,22 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             val = 0
             while consumed < trunc_len:
                 if conjugate:
-                    seg_len = min(
-                        start_idx + trunc_len - consumed,
-                        half_len - 2 + half_len % 2
-                    ) - start_idx
+                    seg_len = (
+                        min(
+                            start_idx + trunc_len - consumed,
+                            half_len - 2 + half_len % 2,
+                        )
+                        - start_idx
+                    )
                     seg_len = max(0, seg_len)
                     if seg_len:
                         val += self._nonlin_op(
                             half_spect[
-                                (-2 + (half_len % 2) - start_idx):
-                                (-2 + (half_len % 2) - start_idx - seg_len):-1
-                            ].conj() * truncated_filt[
-                                consumed:consumed + seg_len]
+                                (-2 + (half_len % 2) - start_idx) : (
+                                    -2 + (half_len % 2) - start_idx - seg_len
+                                ) : -1
+                            ].conj()
+                            * truncated_filt[consumed : consumed + seg_len]
                         )
                     start_idx -= half_len - 2 + half_len % 2
                 else:
@@ -461,9 +470,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                     seg_len = max(0, seg_len)
                     if seg_len:
                         val += self._nonlin_op(
-                            half_spect[
-                                start_idx:start_idx + seg_len
-                            ] * truncated_filt[consumed:consumed + seg_len]
+                            half_spect[start_idx : start_idx + seg_len]
+                            * truncated_filt[consumed : consumed + seg_len]
                         )
                     start_idx -= half_len
                 conjugate = not conjugate
@@ -475,14 +483,14 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
                 val = np.log(max(val, config.LOG_FLOOR_VALUE))
             coeffs[filt_idx] = val
 
-    def compute_chunk(self, chunk):
+    def compute_chunk(self, chunk: np.ndarray) -> np.ndarray:
         self._chunk_dtype = chunk.dtype  # needed for `finalize`
         # algorithm should work when frame shift is greater than frame
         # length - buf_len may be negative, which will skip samples
         buf_len = self._buf_len
         chunk_len = len(chunk)
         total_len = chunk_len + buf_len
-        noncausal_first = self._frame_style == 'centered'
+        noncausal_first = self._frame_style == "centered"
         noncausal_first &= self._first_frame
         if noncausal_first:
             if self._kaldi_shift:
@@ -494,38 +502,38 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             frame_length = self._frame_length
         frame_shift = self._frame_shift
         num_frames = max(0, (total_len - frame_length) // frame_shift + 1)
-        coeffs = np.empty(
-            (num_frames, self.num_coeffs), dtype=self._chunk_dtype)
+        coeffs = np.empty((num_frames, self.num_coeffs), dtype=self._chunk_dtype)
         for frame_idx in range(num_frames):
             frame_start_idx = frame_idx * frame_shift
             if frame_start_idx < buf_len:
-                frame = np.concatenate([
-                    self._buf[-(buf_len - frame_start_idx):],
-                    chunk[:frame_length - buf_len + frame_start_idx],
-                ])
+                frame = np.concatenate(
+                    [
+                        self._buf[-(buf_len - frame_start_idx) :],
+                        chunk[: frame_length - buf_len + frame_start_idx],
+                    ]
+                )
             else:
                 frame = chunk[
-                    (frame_start_idx - buf_len):
-                    (frame_start_idx - buf_len + frame_length)
+                    (frame_start_idx - buf_len) : (
+                        frame_start_idx - buf_len + frame_length
+                    )
                 ]
             if noncausal_first:
                 # the first frame's l.h.s is a reflection of its r.h.s.
                 # shove the reflection into the buf - later frames
                 # might need it
-                chunk = chunk[(frame_length - buf_len):]
-                chunk_len -= (frame_length - buf_len)
+                chunk = chunk[(frame_length - buf_len) :]
+                chunk_len -= frame_length - buf_len
                 frame_length = self._frame_length
                 if self._kaldi_shift:
                     self._buf[:] = np.pad(
                         frame,
                         (self._frame_length // 2 - self._frame_shift // 2, 0),
-                        'symmetric'
+                        "symmetric",
                     )
                 else:
                     self._buf[:] = np.pad(
-                        frame,
-                        ((frame_length + 1) // 2 - 1, 0),
-                        'symmetric'
+                        frame, ((frame_length + 1) // 2 - 1, 0), "symmetric"
                     )
                 frame = self._buf
                 total_len = chunk_len + frame_length
@@ -539,25 +547,27 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
             throw_away = total_len - rem_len
             if throw_away < buf_len:
                 rem_ring_len = buf_len - throw_away
-                assert rem_ring_len < rem_len or \
-                    (rem_ring_len <= rem_len and not len(chunk))
+                assert rem_ring_len < rem_len or (
+                    rem_ring_len <= rem_len and not len(chunk)
+                )
                 self._buf[
-                    self._frame_length - rem_len:
-                    self._frame_length - rem_len + rem_ring_len
-                ] = self._buf[self._frame_length - rem_ring_len:]
-                self._buf[
-                    self._frame_length - (rem_len - rem_ring_len):] = chunk
+                    self._frame_length
+                    - rem_len : self._frame_length
+                    - rem_len
+                    + rem_ring_len
+                ] = self._buf[self._frame_length - rem_ring_len :]
+                self._buf[self._frame_length - (rem_len - rem_ring_len) :] = chunk
             else:
                 self._buf[-rem_len:] = chunk[-rem_len:]
         self._buf_len = rem_len
         self._started = True
         return coeffs
 
-    def finalize(self):
+    def finalize(self) -> np.ndarray:
         buf_len = self._buf_len
         frame_length = self._frame_length
         frame_shift = self._frame_shift
-        if self._frame_style == 'causal':
+        if self._frame_style == "causal":
             pad_left = 0
         elif self._kaldi_shift:
             pad_left = frame_length // 2 - frame_shift // 2
@@ -571,16 +581,11 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         if num_frames >= 1:
             pad_right = (num_frames - 1) * frame_shift + frame_length - buf_len
             pad_right -= pad_left
-            coeffs = np.empty(
-                (num_frames, self.num_coeffs), dtype=self._chunk_dtype)
-            frames = np.pad(
-                self._buf[-buf_len:], (pad_left, pad_right),
-                'symmetric',
-            )
+            coeffs = np.empty((num_frames, self.num_coeffs), dtype=self._chunk_dtype)
+            frames = np.pad(self._buf[-buf_len:], (pad_left, pad_right), "symmetric",)
             for frame_idx in range(num_frames):
                 frame = frames[
-                    frame_idx * frame_shift:
-                    frame_idx * frame_shift + frame_length
+                    frame_idx * frame_shift : frame_idx * frame_shift + frame_length
                 ]
                 self._compute_frame(frame, coeffs[frame_idx])
         else:
@@ -590,15 +595,15 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         self._first_frame = True
         return coeffs
 
-    def compute_full(self, signal):
+    def compute_full(self, signal: np.ndarray) -> np.ndarray:
         if self.started:
-            raise ValueError('Already started computing frames')
+            raise ValueError("Already started computing frames")
         # there should be a nicer way to calculate this
         frame_length = self._frame_length
         frame_shift = self._frame_shift
         if len(signal) < frame_length // 2 + 1:
             return np.empty((0, self.num_coeffs), dtype=signal.dtype)
-        if self._frame_style == 'causal':
+        if self._frame_style == "causal":
             pad_left = 0
         elif self._kaldi_shift:
             pad_left = frame_length // 2 - frame_shift // 2
@@ -616,13 +621,12 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         total_len = (num_frames - 1) * frame_shift - pad_left + frame_length
         pad_right = max(0, total_len - len(signal))
         if pad_left or pad_right:
-            signal = np.pad(signal, (pad_left, pad_right), 'symmetric')
+            signal = np.pad(signal, (pad_left, pad_right), "symmetric")
         coeffs = np.zeros((num_frames, self.num_coeffs), dtype=signal.dtype)
         for frame_idx in range(num_frames):
             frame_left = frame_idx * frame_shift
             self._compute_frame(
-                signal[frame_left:frame_left + frame_length],
-                coeffs[frame_idx]
+                signal[frame_left : frame_left + frame_length], coeffs[frame_idx]
             )
         return coeffs
 
@@ -649,7 +653,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 
     Parameters
     ----------
-    bank : pydrobert.speech.filters.LinearFilterBank
+    bank : pydrobert.speech.filters.LinearFilterBank or dict or str
     frame_shift_ms : float, optional
         The offset between successive frames, in milliseconds. Also the
         length of the integration
@@ -662,11 +666,11 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         Pad the DFTs used in computation to a power of two for
         efficient computation
     window_function : pydrobert.speech.filters.WindowFunction, dict, or str
-        The window used to weigh integration. Can be a WindowFunction or
+        The window used to weigh integration. Can be a :class:`WindowFunction` or
         something compatible with
-        `pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
-        `pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
-        ``'causal'``, otherwise `pydrobert.speech.filters.HannWindow`.
+        :func:`pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
+        :class:`pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
+        ``'causal'``, otherwise :class:`pydrobert.speech.filters.HannWindow`.
     use_power : bool, optional
         Whether the pointwise linearity is the signal's power or
         magnitude
@@ -686,15 +690,22 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     includes_energy : bool
     """
 
-    aliases = {'si'}
+    aliases = {"si"}
 
     def __init__(
-            self, bank, frame_shift_ms=10, frame_style=None,
-            include_energy=False, pad_to_nearest_power_of_two=True,
-            window_function=None, use_power=False, use_log=True):
+        self,
+        bank: Union[LinearFilterBank, Mapping, str],
+        frame_shift_ms: float = 10,
+        frame_style: Optional[str] = None,
+        include_energy: bool = False,
+        pad_to_nearest_power_of_two: bool = True,
+        window_function: Union[WindowFunction, Mapping, str] = None,
+        use_power: bool = False,
+        use_log: bool = True,
+    ):
         bank = alias_factory_subclass_from_arg(LinearFilterBank, bank)
         self._rate = bank.sampling_rate
-        self._frame_shift = int(.001 * frame_shift_ms * self._rate)
+        self._frame_shift = int(0.001 * frame_shift_ms * self._rate)
         self._log = bool(use_log)
         self._power = bool(use_power)
         self._real = bank.is_real
@@ -702,25 +713,25 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._x_rem, self._y_rem, self._skip = 0, 0, 0
         self._started = False
         if frame_style is None:
-            frame_style = 'centered' if bank.is_zero_phase else 'causal'
-        elif frame_style not in ('centered', 'causal'):
+            frame_style = "centered" if bank.is_zero_phase else "causal"
+        elif frame_style not in ("centered", "causal"):
             raise ValueError('Invalid frame style: "{}"'.format(frame_style))
         self._frame_style = frame_style
         if window_function is None:
-            if frame_style == 'causal':
+            if frame_style == "causal":
                 window_function = GammaWindow()
             else:
                 window_function = HannWindow()
         else:
             window_function = alias_factory_subclass_from_arg(
-                WindowFunction, window_function)
+                WindowFunction, window_function
+            )
         window = window_function.get_impulse_response(2 * self._frame_shift)
         self._window = window.reshape(2, self._frame_shift)
-        if frame_style == 'centered':
+        if frame_style == "centered":
             # we will recenter all filters so that their zero sample
             # is at max_support // 2
-            self._max_support = max(
-                right - left for left, right in bank.supports)
+            self._max_support = max(right - left for left, right in bank.supports)
             self._translation = self._max_support // 2
         else:
             # we will shift all filters by whatever the minimum value
@@ -758,37 +769,35 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._filts.append(dirac_filter)
         for filt_idx in range(bank.num_filts):
             filt = bank.get_impulse_response(filt_idx, self._dft_size)
-            if frame_style == 'centered':
+            if frame_style == "centered":
                 left_samp, right_samp = bank.supports[filt_idx]
                 mid_samp = (left_samp + right_samp) // 2
                 filt = np.roll(filt, self._translation - mid_samp + 1)
             else:
                 filt = np.roll(filt, self._translation)
             # we clamp the support in time to make the filter FIR.
-            self._filts.append(self._compute_dft(filt[:self._max_support]))
+            self._filts.append(self._compute_dft(filt[: self._max_support]))
         # we don't have to store the filtered signal, just the values
         # that are accumulated in each frame shift. Since integration windows
         # are not in general uniform, we add an index for taking the dot
         # product of the first and second half of the window
         y_blocks = self._dft_size - self._max_support + 2 * self._frame_shift
         y_blocks = int(np.ceil(y_blocks / self._frame_shift))
-        self._y_buf = np.empty(
-            (y_blocks, 2, len(self._filts)),
-            dtype=np.float64
-        )
+        self._y_buf = np.empty((y_blocks, 2, len(self._filts)), dtype=np.float64)
         super(ShortIntegrationFrameComputer, self).__init__(
-            bank, include_energy=include_energy)
+            bank, include_energy=include_energy
+        )
 
     @property
-    def frame_style(self):
+    def frame_style(self) -> str:
         return self._frame_style
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def frame_length(self):
+    def frame_length(self) -> int:
         return self._frame_length
 
     @property
@@ -796,10 +805,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         return self._frame_shift
 
     @property
-    def started(self):
+    def started(self) -> bool:
         return self._started
 
-    def compute_chunk(self, chunk):
+    def compute_chunk(self, chunk: np.ndarray) -> np.ndarray:
         self._compute_preamble(chunk)
         chunk = self._handle_skip(chunk)
         chunk_len = len(chunk)
@@ -817,8 +826,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         cur_frame, chunk_copied = 0, 0
         for dft_idx in range(num_dfts):
             end_idx = min(
-                (dft_idx + 1) * valid_samples_per_dft - self._x_rem,
-                chunk_len
+                (dft_idx + 1) * valid_samples_per_dft - self._x_rem, chunk_len
             )
             assert end_idx >= 0
             y_keep = end_idx - dft_idx * valid_samples_per_dft + self._x_rem
@@ -826,10 +834,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             if start_idx < 0:
                 chunk_to_copy = end_idx - chunk_copied
                 assert chunk_to_copy < self._dft_size
-                self._x_buf[:self._dft_size - chunk_to_copy] = \
-                    self._x_buf[chunk_to_copy:]
-                self._x_buf[self._dft_size - chunk_to_copy:] = \
-                    chunk[chunk_copied:end_idx]
+                self._x_buf[: self._dft_size - chunk_to_copy] = self._x_buf[
+                    chunk_to_copy:
+                ]
+                self._x_buf[self._dft_size - chunk_to_copy :] = chunk[
+                    chunk_copied:end_idx
+                ]
                 chunk_copied = end_idx
                 cur_buf = self._x_buf
             else:
@@ -848,12 +858,12 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         self._x_rem = max(0, num_raw - num_dfts * valid_samples_per_dft)
         return coeffs
 
-    def finalize(self):
+    def finalize(self) -> np.ndarray:
         coeffs = np.empty((0, self.num_coeffs), dtype=self._ret_dtype)
         if self._started:
             frame_shift = self._frame_shift
             frame_length = self._frame_length
-            if self._frame_style == 'centered':
+            if self._frame_style == "centered":
                 # we 'borrowed' a half frame's worth of coefficients
                 # from the start of the sequence in order to center the
                 # integration, so we discount that from the remaining
@@ -863,42 +873,35 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 borrowed = 0
             buf_len = self._translation - self._skip + self._x_rem
             buf_len += self._y_rem - borrowed
-            num_frames = max(
-                0,
-                (buf_len + frame_shift // 2) // frame_shift
-            )
+            num_frames = max(0, (buf_len + frame_shift // 2) // frame_shift)
             if num_frames >= 1:
                 pad_right = (num_frames - 1) * frame_shift + frame_length
                 pad_right -= buf_len
-                coeffs = self.compute_chunk(np.zeros(
-                    pad_right,
-                    dtype=self._ret_dtype))[:num_frames]
+                coeffs = self.compute_chunk(np.zeros(pad_right, dtype=self._ret_dtype))[
+                    :num_frames
+                ]
         self._started = False
         return coeffs
 
-    def compute_full(self, signal):
+    def compute_full(self, signal: np.ndarray) -> np.ndarray:
         if self._started:
-            raise ValueError('Already started computing frames')
-        return np.concatenate([
-            self.compute_chunk(signal),
-            self.finalize()
-        ])
+            raise ValueError("Already started computing frames")
+        return np.concatenate([self.compute_chunk(signal), self.finalize()])
 
     def _compute_preamble(self, chunk):
         # check for data type consistency, handle stuff if just started
         if self._started:
             if chunk.dtype != self._ret_dtype:
-                raise ValueError(
-                    'Chunk does not share a type with previous chunks')
+                raise ValueError("Chunk does not share a type with previous chunks")
         else:
             if not np.issubdtype(chunk.dtype, np.floating):
-                raise ValueError('Chunk must be a float type')
+                raise ValueError("Chunk must be a float type")
             self._ret_dtype = chunk.dtype
             self._x_buf.fill(0)
             self._y_buf.fill(0)
             self._x_rem = 0
             self._y_rem = 0
-            if self._frame_style == 'centered':
+            if self._frame_style == "centered":
                 self._skip = self._translation - self._frame_shift
                 if self._skip < 0:
                     self._x_rem = -self._skip
@@ -917,10 +920,10 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         consumed = min(self._skip, len(chunk))
         x_len = len(self._x_buf)
         if consumed < x_len:
-            self._x_buf[:x_len - consumed] = self._x_buf[consumed:]
-            self._x_buf[x_len - consumed:] = chunk[:consumed]
+            self._x_buf[: x_len - consumed] = self._x_buf[consumed:]
+            self._x_buf[x_len - consumed :] = chunk[:consumed]
         else:
-            self._x_buf[:] = chunk[consumed - x_len:consumed]
+            self._x_buf[:] = chunk[consumed - x_len : consumed]
         self._skip -= consumed
         return chunk[consumed:]
 
@@ -937,10 +940,16 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             else:
                 y_valid[:] = np.abs(y_valid)
             del Y_buf
-            for block_end, block_idx in zip(range(
-                    second_block_start,
-                    y_keep + self._frame_shift,
-                    self._frame_shift), count(block_offs)):
+            for block_end, block_idx in zip(
+                list(
+                    range(
+                        second_block_start,
+                        y_keep + self._frame_shift,
+                        self._frame_shift,
+                    )
+                ),
+                count(block_offs),
+            ):
                 active_end = min(block_end, y_keep)
                 active_start = max(0, block_end - self._frame_shift)
                 y_active = y_valid[active_start:block_end].real
@@ -949,7 +958,8 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
                 window_active = self._window[:, window_start:window_end]
                 # block_accum = np.sum(y_active * window_active, axis=1)
                 self._y_buf[block_idx, :, filt_idx] += np.sum(
-                    y_active * window_active, axis=1)
+                    y_active * window_active, axis=1
+                )
         self._y_rem += y_keep
 
     def _compute_dft(self, buff):
@@ -958,11 +968,14 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         assert len(buff) <= self._dft_size
         if config.USE_FFTPACK and self._real:
             from scipy import fftpack
+
             buffered_frame = np.zeros(
-                self._dft_size + 2 - self._dft_size % 2, dtype=np.float64)
-            buffered_frame[1:len(buff) + 1] = buff
-            buffered_frame[1:self._dft_size + 1] = fftpack.rfft(
-                buffered_frame[1:self._dft_size + 1], overwrite_x=True)
+                self._dft_size + 2 - self._dft_size % 2, dtype=np.float64
+            )
+            buffered_frame[1 : len(buff) + 1] = buff
+            buffered_frame[1 : self._dft_size + 1] = fftpack.rfft(
+                buffered_frame[1 : self._dft_size + 1], overwrite_x=True
+            )
             buffered_frame[0] = buffered_frame[1]
             buffered_frame[1] = 0
             fourier_frame = buffered_frame.view(np.complex128)
@@ -970,8 +983,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             fourier_frame = np.fft.rfft(buff, n=self._dft_size)
         elif config.USE_FFTPACK:
             from scipy import fftpack
+
             complex_frame = np.zeros(self._dft_size, dtype=np.complex128)
-            complex_frame[:len(buff)] = buff  # implicit upcast if f32
+            complex_frame[: len(buff)] = buff  # implicit upcast if f32
             fourier_frame = fftpack.fft(complex_frame, overwrite_x=True)
         else:
             fourier_frame = np.fft.fft(buff, n=self._dft_size)
@@ -984,6 +998,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         assert fourier_buff.dtype == np.complex128
         if config.USE_FFTPACK and self._real:
             from scipy import fftpack
+
             fourier_buff = fourier_buff.view(np.float64)
             fourier_buff[1] = fourier_buff[0]
             if self._dft_size % 2:
@@ -995,6 +1010,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             idft = np.fft.irfft(fourier_buff, n=self._dft_size)
         elif config.USE_FFTPACK:
             from scipy import fftpack
+
             idft = fftpack.ifft(fourier_buff, overwrite_x=True)
         else:
             idft = np.fft.ifft(fourier_buff)
@@ -1020,17 +1036,19 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
 SIFrameComputer = ShortIntegrationFrameComputer
 
 
-def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
+def frame_by_frame_calculation(
+    computer: FrameComputer, signal: np.ndarray, chunk_size: int = 2 ** 10
+):
     """Compute feature representation of entire signal iteratively
 
-    This function constructs a feature matrix of a signal through
-    successive calls to `computer.compute_chunk`. Its return value
-    should be identical to that of calling
-    `computer.compute_full(signal)`, but is possibly much slower.
-    `computer.compute_full` should be favoured.
+    This function constructs a feature matrix of a signal through successive calls to
+    ``computer.compute_chunk``. Its return value should be identical to that of calling
+    ``computer.compute_full(signal)``, but is possibly much slower.
+    ``computer.compute_full`` should be favoured.
 
     Parameters
     ----------
+    computer : FrameComputer
     signal : array-like
         A 1D float array of the entire signal
     chunk_size : int
@@ -1046,11 +1064,10 @@ def frame_by_frame_calculation(computer, signal, chunk_size=2 ** 10):
     Raises
     ------
     ValueError
-        If already begin computing frames (``computer.started ==
-        True``)
+        If already begin computing frames (``computer.started == True``)
     """
     if computer.started:
-        raise ValueError('Already started computing frames')
+        raise ValueError("Already started computing frames")
     coeffs = []
     while len(signal):
         coeffs.append(computer.compute_chunk(signal[:chunk_size]))
