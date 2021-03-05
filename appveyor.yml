@@ -11,7 +11,7 @@ environment:
 build: off
 
 install:
-  - pip install tox
+  - python3 -m pip install tox
 
 test_script:
-  - tox
+  - python3 -m tox
