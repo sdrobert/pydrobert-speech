@@ -10,7 +10,7 @@ environment:
 build: off
 
 install:
-  - py -3.6 -m pip install wheel tox tox-appveyor tox-wheel
+  - pip install tox
 
 test_script:
-  - py -3.6 -m tox
+  - tox
