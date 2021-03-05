@@ -6,17 +6,12 @@ environment:
     - TOXENV: py36
     - TOXENV: py37
     - TOXENV: py38
-    - TOXENV: py39  # not there yet
-
-stack: python 3.7
+    - TOXENV: py39
 
 build: off
 
-init:
-  - cmd: set PATH=C:\Python37;C:\Python37\Scripts;%PATH%
-
 install:
-  - python -m pip install tox tox-appveyor
+  - py -3.7 -m pip install -U pip tox wheel tox-appveyor
 
 test_script:
-  - python -m tox
+  - py -3.7 -m tox

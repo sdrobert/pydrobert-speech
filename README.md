@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.com/sdrobert/pydrobert-speech.svg?branch=master)](https://travis-ci.com/sdrobert/pydrobert-speech)
 [![Documentation Status](https://readthedocs.org/projects/pydrobert-speech/badge/?version=latest)](https://pydrobert-speech.readthedocs.io/en/latest/?badge=latest)
+[![Build status](https://ci.appveyor.com/api/projects/status/abn39mww84fydxqe/branch/master?svg=true)](https://ci.appveyor.com/project/sdrobert/pydrobert-speech/branch/master)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 # pydrobert-speech
@@ -36,7 +36,7 @@ feats = computer.compute_full(signal)
 
 If you plan on using a [PyTorch](https://pytorch.org) `DataLoader` or Kaldi
 tables in your ASR pipeline, you can compute all a corpus' features by
-using the commmands `signals-to-torch-feat-dir` (requires *pytorch* package)
+using the commands `signals-to-torch-feat-dir` (requires *pytorch* package)
 or `compute-feats-from-kaldi-tables` (requires *pydrobert-kaldi* package).
 
 This package can compute much more than f-banks, with many different

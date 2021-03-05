@@ -23,7 +23,7 @@ requirements:
     - setuptools
     - setuptools_scm
   run:
-    - python >= 3.6
+    - python >=3.6
     - numpy
   run_constrained:
     - pydrobert-param >0.2.0
