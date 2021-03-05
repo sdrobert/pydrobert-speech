@@ -22,3 +22,7 @@ install:
 
 test_script:
   - python -m tox
+
+branches:
+  exclude:
+    - /docs/
