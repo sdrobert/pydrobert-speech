@@ -19,16 +19,20 @@ source:
 
 requirements:
   build:
-    - python
     - setuptools
     - setuptools_scm
   run:
-    - python
+    - python >=3.6
     - numpy
+  run_constrained:
+    - pydrobert-param >0.2.0
+    - pydrobert-kaldi >0.5.3
+    - pydrobert-pytorch >0.2.1
 
 build:
   noarch: python
   number: {{ build_num }}
+  skip: True  # [py < 36]
   entry_points:
     - compute-feats-from-kaldi-tables = pydrobert.speech.command_line:compute_feats_from_kaldi_tables
     - signals-to-torch-feat-dir = pydrobert.speech.command_line:signals_to_torch_feat_dir
@@ -44,7 +48,8 @@ test:
     - pytest
     - scipy
     - h5py
-    - pytorch
+    # pytorch for 3.9 currently needs conda-forge
+    - pytorch  # [py < 39]
     - pydrobert-kaldi
   imports:
     - pydrobert
@@ -60,6 +65,8 @@ test:
     - pydrobert.speech.util
     - pydrobert.speech.vis
   commands:
+    - compute-feats-from-kaldi-tables -h
+    - signals-to-torch-feat-dir -h  # [py < 39]
     - pytest
 
 about:

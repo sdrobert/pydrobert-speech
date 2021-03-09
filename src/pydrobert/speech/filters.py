@@ -1,4 +1,4 @@
-# Copyright 2019 Sean Robertson
+# Copyright 2021 Sean Robertson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
 
 """Filters and filter banks"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
+from typing import Mapping, Optional, Tuple, Union
 
 import numpy as np
 
@@ -30,22 +28,17 @@ from pydrobert.speech.util import alias_factory_subclass_from_arg
 from pydrobert.speech.util import angular_to_hertz
 from pydrobert.speech.util import hertz_to_angular
 
-__author__ = "Sean Robertson"
-__email__ = "sdrobert@cs.toronto.edu"
-__license__ = "Apache 2.0"
-__copyright__ = "Copyright 2019 Sean Robertson"
-
 __all__ = [
-    'LinearFilterBank',
-    'TriangularOverlappingFilterBank',
-    'GaborFilterBank',
-    'ComplexGammatoneFilterBank',
-    'WindowFunction',
-    'BartlettWindow',
-    'BlackmanWindow',
-    'HammingWindow',
-    'HannWindow',
-    'GammaWindow',
+    "LinearFilterBank",
+    "TriangularOverlappingFilterBank",
+    "GaborFilterBank",
+    "ComplexGammatoneFilterBank",
+    "WindowFunction",
+    "BartlettWindow",
+    "BlackmanWindow",
+    "HammingWindow",
+    "HannWindow",
+    "GammaWindow",
 ]
 
 # banks
@@ -54,10 +47,9 @@ __all__ = [
 class LinearFilterBank(AliasedFactory):
     """A collection of linear, time invariant filters
 
-    A ``LinearFilterBank`` instance is expected to provide factory
-    methods for instantiating a fixed number of LTI filters in either
-    the time or frequency domain. Filters should be organized lowest
-    frequency first.
+    A :class:`LinearFilterBank` instance is expected to provide factory methods for
+    instantiating a fixed number of LTI filters in either the time or frequency domain.
+    Filters should be organized lowest frequency first.
 
     Attributes
     ----------
@@ -73,90 +65,85 @@ class LinearFilterBank(AliasedFactory):
     """
 
     @abc.abstractproperty
-    def is_real(self):
+    def is_real(self) -> bool:
         """Whether the filters are real or complex"""
         pass
 
     @abc.abstractproperty
-    def is_analytic(self):
+    def is_analytic(self) -> bool:
         """Whether the filters are (approximately) analytic"""
         pass
 
     @abc.abstractproperty
-    def is_zero_phase(self):
+    def is_zero_phase(self) -> bool:
         """Whether the filters are zero phase or not
 
-        Zero phase filters are even functions with no imaginary part
-        in the fourier domain. Their impulse responses center around 0.
+        Zero phase filters are even functions with no imaginary part in the fourier
+        domain. Their impulse responses center around 0.
         """
         pass
 
     @abc.abstractproperty
-    def num_filts(self):
+    def num_filts(self) -> int:
         """Number of filters in the bank"""
         pass
 
     @abc.abstractproperty
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         """Number of samples in a second of a target recording"""
         pass
 
     @abc.abstractproperty
-    def supports_hz(self):
+    def supports_hz(self) -> Tuple:
         """Boundaries of effective support of filter freq responses, in Hz.
 
-        Returns a tuple of length `num_filts` containing pairs of floats
-        of the low and high frequencies. Frequencies outside the span
-        have a response of approximately (with magnitude up to
-        `speech.EFFECTIVE_SUPPORT_SIGNAL`) zero.
+        Returns a tuple of length `num_filts` containing pairs of floats of the low and
+        high frequencies. Frequencies outside the span have a response of approximately
+        (with magnitude up to :obj:`pydrobert.speech.EFFECTIVE_SUPPORT_SIGNAL`) zero.
 
-        The boundaries need not be tight, i.e. the region inside the
-        boundaries could be zero. It is more important to guarantee that
-        the region outside the boundaries is approximately zero.
+        The boundaries need not be tight, i.e. the region inside the boundaries could be
+        zero. It is more important to guarantee that the region outside the boundaries
+        is approximately zero.
 
-        The boundaries ignore the Hermitian symmetry of the filter if it
-        is real. Bounds of ``(10, 20)`` for a real filter imply that the
-        region ``(-20, -10)`` could also be nonzero.
+        The boundaries ignore the Hermitian symmetry of the filter if it is real. Bounds
+        of ``(10, 20)`` for a real filter imply that the region ``(-20, -10)`` could
+        also be nonzero.
 
-        The user is responsible for adjusting the for the periodicity
-        induced by sampling. For example, if the boundaries are
-        ``(-5, 10)`` and the filter is sampled at 15Hz, then all bins
-        of an associated DFT could be nonzero.
+        The user is responsible for adjusting the for the periodicity induced by
+        sampling. For example, if the boundaries are ``(-5, 10)`` and the filter is
+        sampled at 15Hz, then all bins of an associated DFT could be nonzero.
         """
         pass
 
     @abc.abstractproperty
-    def supports(self):
+    def supports(self) -> Tuple:
         """Boundaries of effective support of filter impulse resps, in samples
 
-        Returns a tuple of length `num_filts` containing pairs of
-        integers of the first and last (effectively) nonzero samples.
+        Returns a tuple of length `num_filts` containing pairs of integers of the first
+        and last (effectively) nonzero samples.
 
-        The boundaries need not be tight, i.e. the region inside the
-        boundaries could be zero. It is more important to guarantee that
-        the region outside the boundaries is approximately zero.
+        The boundaries need not be tight, i.e. the region inside the boundaries could be
+        zero. It is more important to guarantee that the region outside the boundaries
+        is approximately zero.
 
-        If a filter is instantiated using a buffer that is unable to
-        fully contain the supported region, samples will wrap around the
-        boundaries of the buffer.
+        If a filter is instantiated using a buffer that is unable to fully contain the
+        supported region, samples will wrap around the boundaries of the buffer.
 
-        Noncausal filters will have start indices less than 0. These
-        samples will wrap to the end of the filter buffer when the
-        filter is instantiated.
+        Noncausal filters will have start indices less than 0. These samples will wrap
+        to the end of the filter buffer when the filter is instantiated.
         """
         pass
 
     @property
-    def supports_ms(self):
+    def supports_ms(self) -> tuple:
         """Boundaries of effective support of filter impulse resps, in ms"""
         return tuple(
-            (
-                s[0] * 1000 / self.sampling_rate,
-                s[1] * 1000 / self.sampling_rate,
-            ) for s in self.supports)
+            (s[0] * 1000 / self.sampling_rate, s[1] * 1000 / self.sampling_rate,)
+            for s in self.supports
+        )
 
     @abc.abstractmethod
-    def get_impulse_response(self, filt_idx, width):
+    def get_impulse_response(self, filt_idx: int, width: int) -> np.ndarray:
         """Construct filter impulse response in a fixed-width buffer
 
         Construct the filter in the time domain.
@@ -166,8 +153,8 @@ class LinearFilterBank(AliasedFactory):
         filt_idx : int
             The index of the filter to generate. Less than `num_filts`
         width : int
-            The length of the buffer, in samples. If less than the
-            support of the filter, the filter will alias.
+            The length of the buffer, in samples. If less than the support of the
+            filter, the filter will alias.
 
         Returns
         -------
@@ -177,12 +164,14 @@ class LinearFilterBank(AliasedFactory):
         pass
 
     @abc.abstractmethod
-    def get_frequency_response(self, filt_idx, width, half=False):
+    def get_frequency_response(
+        self, filt_idx: int, width: int, half: bool = False
+    ) -> np.ndarray:
         """Construct filter frequency response in a fixed-width buffer
 
-        Construct the 2pi-periodized filter in the frequency domain.
-        Zero-phase filters `is_zero_phase` are returned as 8-byte float
-        arrays. Otherwise, they will be 16-byte complex floats.
+        Construct the 2pi-periodized filter in the frequency domain. Zero-phase filters
+        `is_zero_phase` are returned as 8-byte float arrays. Otherwise, they will be
+        16-byte complex floats.
 
         Parameters
         ----------
@@ -205,17 +194,17 @@ class LinearFilterBank(AliasedFactory):
         pass
 
     @abc.abstractmethod
-    def get_truncated_response(self, filt_idx, width):
+    def get_truncated_response(
+        self, filt_idx: int, width: int
+    ) -> Tuple[int, np.ndarray]:
         """Get nonzero region of filter frequency response
 
-        Many filters will be compactly supported in frequency (or
-        approximately so). This method generates a tuple `(bin_idx,
-        buf)` of the nonzero region.
+        Many filters will be compactly supported in frequency (or approximately so).
+        This method generates a tuple `(bin_idx, buf)` of the nonzero region.
 
-        In the case of a complex filter, ``bin_idx + len(buf)`` may be
-        greater than `width`; the filter wraps around in this case. The
-        full frequency response can be calculated from the truncated
-        response by:
+        In the case of a complex filter, ``bin_idx + len(buf)`` may be greater than
+        `width`; the filter wraps around in this case. The full frequency response can
+        be calculated from the truncated response by:
 
         >>> bin_idx, trnc = bank.get_truncated_response(filt_idx, width)
         >>> full = numpy.zeros(width, dtype=trnc.dtype)
@@ -223,10 +212,10 @@ class LinearFilterBank(AliasedFactory):
         >>> full[bin_idx:bin_idx + wrap] = trnc[:wrap]
         >>> full[:len(trnc) - wrap] = tnc[wrap:]
 
-        In the case of a real filter, only the nonzero region between
-        ``[0, pi]`` (half-spectrum) is returned. No wrapping can occur
-        since it would inevitably interfere with itself due to conjugate
-        symmetry. The half-spectrum can easily be recovered by:
+        In the case of a real filter, only the nonzero region between ``[0, pi]``
+        (half-spectrum) is returned. No wrapping can occur since it would inevitably
+        interfere with itself due to conjugate symmetry. The half-spectrum can easily be
+        recovered by:
 
         >>> half_width = (width + width % 2) // 2 + 1 - width % 2
         >>> half = numpy.zeros(half_width, dtype=trnc.dtype)
@@ -238,8 +227,8 @@ class LinearFilterBank(AliasedFactory):
         >>> full[width - bin_idx - len(trnc) + 1:width - bin_idx + 1] = \\
         ...     trnc[:None if bin_idx else 0:-1].conj()
 
-        (the embedded if-statement is necessary when bin_idx is 0, as
-        the full fft excludes its symmetric bin)
+        (the embedded if-statement is necessary when bin_idx is 0, as the full fft
+        excludes its symmetric bin)
 
         Parameters
         ----------
@@ -251,7 +240,6 @@ class LinearFilterBank(AliasedFactory):
         Returns
         -------
         tuple of int, array
-
         """
         pass
 
@@ -259,29 +247,28 @@ class LinearFilterBank(AliasedFactory):
 class TriangularOverlappingFilterBank(LinearFilterBank):
     """Triangular frequency response whose vertices are along the scale
 
-    The vertices of the filters are sampled uniformly along the passed scale.
-    If the scale is nonlinear, the triangles will be asymmetrical. This is
-    closely related to, but not identical to, the filters described in
-    [povey2011]_ and [young]_.
+    The vertices of the filters are sampled uniformly along the passed scale. If the
+    scale is nonlinear, the triangles will be asymmetrical. This is closely related to,
+    but not identical to, the filters described in [povey2011]_ and [young]_.
 
     Parameters
     ----------
     scaling_function : pydrobert.speech.ScalingFunction, str, or dict
-        Dictates the layout of filters in the Fourier domain. Can be
-        a ScalingFunction or something compatible with
-        `pydrobert.speech.alias_factory_subclass_from_arg`
+        Dictates the layout of filters in the Fourier domain. Can be a
+        :class:`ScalingFunction` or something compatible with
+        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively.
-        The default for high_hz is the Nyquist
+        The topmost and bottommost edge of the filters, respectively. The default for
+        `high_hz` is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
     analytic : bool, optional
-        Whether to use an analytic form of the bank. The analytic form is
-        easily derived from the real form in [povey2011]_ and [young]_. Since
-        the filter is compactly supported in frequency, the analytic form is
-        simply the suppression of the ``[-pi, 0)`` frequencies
+        Whether to use an analytic form of the bank. The analytic form is easily derived
+        from the real form in [povey2011]_ and [young]_. Since the filter is compactly
+        supported in frequency, the analytic form is simply the suppression of the
+        ``[-pi, 0)`` frequencies
 
     Attributes
     ----------
@@ -301,19 +288,26 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         ``high_hz <= low_hz``
     """
 
-    aliases = {'tri', 'triangular'}
+    aliases = {"tri", "triangular"}
 
     def __init__(
-            self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
-            sampling_rate=16000, analytic=False):
+        self,
+        scaling_function: Union[ScalingFunction, Mapping, str],
+        num_filts: int = 40,
+        high_hz: Optional[float] = None,
+        low_hz: float = 20.0,
+        sampling_rate: float = 16000,
+        analytic: bool = False,
+    ):
         scaling_function = alias_factory_subclass_from_arg(
-            ScalingFunction, scaling_function)
+            ScalingFunction, scaling_function
+        )
         if low_hz < 0 or (
-                high_hz and (
-                    high_hz <= low_hz or high_hz > sampling_rate // 2)):
+            high_hz and (high_hz <= low_hz or high_hz > sampling_rate // 2)
+        ):
             raise ValueError(
-                'Invalid frequency range: ({:.2f},{:.2f}'.format(
-                    low_hz, high_hz))
+                "Invalid frequency range: ({:.2f},{:.2f}".format(low_hz, high_hz)
+            )
         self._rate = sampling_rate
         if high_hz is None:
             high_hz = sampling_rate // 2
@@ -328,27 +322,27 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         self._analytic = analytic
 
     @property
-    def is_real(self):
+    def is_real(self) -> bool:
         return not self._analytic
 
     @property
-    def is_analytic(self):
+    def is_analytic(self) -> bool:
         return self._analytic
 
     @property
-    def is_zero_phase(self):
+    def is_zero_phase(self) -> bool:
         return True
 
     @property
-    def num_filts(self):
+    def num_filts(self) -> int:
         return len(self._vertices) - 2
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def centers_hz(self):
+    def centers_hz(self) -> Tuple[float]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -357,14 +351,13 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return self._vertices[1:-1]
 
     @property
-    def supports_hz(self):
+    def supports_hz(self) -> tuple:
         return tuple(
-            (low, high)
-            for low, high in zip(self._vertices[:-2], self._vertices[2:])
+            (low, high) for low, high in zip(self._vertices[:-2], self._vertices[2:])
         )
 
     @property
-    def supports(self):
+    def supports(self) -> tuple:
         # A given filter is bound from above by
         # 2(w_r - w_l) / ((w_c - w_l)(w_r - w_c)t^2pi)
         supports = []
@@ -376,15 +369,14 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
             K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
             K /= np.sqrt(mid - left) * np.sqrt(right - mid)
             K = int(np.ceil(K))
-            supports.append((- K // 2 - 1, K // 2 + 1))
+            supports.append((-K // 2 - 1, K // 2 + 1))
         return tuple(supports)
 
-    def get_impulse_response(self, filt_idx, width):
+    def get_impulse_response(self, filt_idx: int, width: int) -> np.ndarray:
         left = hertz_to_angular(self._vertices[filt_idx], self._rate)
         mid = hertz_to_angular(self._vertices[filt_idx + 1], self._rate)
         right = hertz_to_angular(self._vertices[filt_idx + 2], self._rate)
-        res = np.zeros(
-            width, dtype=np.complex128 if self._analytic else np.float64)
+        res = np.zeros(width, dtype=np.complex128 if self._analytic else np.float64)
         # for numerical stability (angles can get pretty small)
         if right - mid > mid - left:
             denom = right - mid
@@ -415,7 +407,9 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         res /= denom
         return res
 
-    def get_frequency_response(self, filt_idx, width, half=False):
+    def get_frequency_response(
+        self, filt_idx: int, width: int, half: bool = False
+    ) -> np.ndarray:
         left = self._vertices[filt_idx]
         mid = self._vertices[filt_idx + 1]
         right = self._vertices[filt_idx + 2]
@@ -441,7 +435,9 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
                 res[-idx] = val
         return res
 
-    def get_truncated_response(self, filt_idx, width):
+    def get_truncated_response(
+        self, filt_idx: int, width: int
+    ) -> Tuple[int, np.ndarray]:
         left = self._vertices[filt_idx]
         mid = self._vertices[filt_idx + 1]
         right = self._vertices[filt_idx + 2]
@@ -460,7 +456,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
 
 class Fbank(LinearFilterBank):
-    '''A mel-triangular filter bank that is square-rooted
+    """A mel-triangular filter bank that is square-rooted
 
     An ``Fbank`` instance is intended to replicate the filters from Kaldi
     [povey2011]_ and HTK [young]_. Its scale is fixed to Mel-scale. Like a
@@ -501,20 +497,25 @@ class Fbank(LinearFilterBank):
     before filtering. This module's spectrogram takes the power spectrum after
     filtering. To recreate the frequency response of the alternate order, we
     can take the pointwise square root of the frequency response.
-    '''
+    """
 
-    aliases = {'fbank'}
+    aliases = {"fbank"}
 
     def __init__(
-            self, num_filts=40, high_hz=None, low_hz=20., sampling_rate=16000,
-            analytic=False):
+        self,
+        num_filts: int = 40,
+        high_hz: Optional[float] = None,
+        low_hz: float = 20.0,
+        sampling_rate: float = 16000,
+        analytic: bool = False,
+    ):
         scaling_function = MelScaling()
         if low_hz < 0 or (
-                high_hz and (
-                    high_hz <= low_hz or high_hz > sampling_rate // 2)):
+            high_hz and (high_hz <= low_hz or high_hz > sampling_rate // 2)
+        ):
             raise ValueError(
-                'Invalid frequency range: ({:.2f},{:.2f}'.format(
-                    low_hz, high_hz))
+                "Invalid frequency range: ({:.2f},{:.2f}".format(low_hz, high_hz)
+            )
         self._rate = sampling_rate
         if high_hz is None:
             high_hz = sampling_rate // 2
@@ -529,27 +530,27 @@ class Fbank(LinearFilterBank):
         self._analytic = analytic
 
     @property
-    def is_real(self):
+    def is_real(self) -> bool:
         return not self._analytic
 
     @property
-    def is_analytic(self):
+    def is_analytic(self) -> bool:
         return self._analytic
 
     @property
-    def is_zero_phase(self):
+    def is_zero_phase(self) -> bool:
         return True
 
     @property
-    def num_filts(self):
+    def num_filts(self) -> int:
         return len(self._vertices) - 2
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def centers_hz(self):
+    def centers_hz(self) -> Tuple[float]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -558,14 +559,13 @@ class Fbank(LinearFilterBank):
         return self._vertices[1:-1]
 
     @property
-    def supports_hz(self):
+    def supports_hz(self) -> tuple:
         return tuple(
-            (low, high)
-            for low, high in zip(self._vertices[:-2], self._vertices[2:])
+            (low, high) for low, high in zip(self._vertices[:-2], self._vertices[2:])
         )
 
     @property
-    def supports(self):
+    def supports(self) -> tuple:
         # A given filter is bound above for t > 0 by
         # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
         #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
@@ -579,23 +579,23 @@ class Fbank(LinearFilterBank):
             K /= (right - mid) * (mid - left)
             K /= np.sqrt(config.EFFECTIVE_SUPPORT_THRESHOLD)
             K /= np.sqrt(mid - left) * np.sqrt(right - mid)
-            K **= .3333
+            K **= 0.3333
             K = int(np.ceil(K))
-            supports.append((- K // 2 - 1, K // 2 + 1))
+            supports.append((-K // 2 - 1, K // 2 + 1))
         return tuple(supports)
 
-    def get_impulse_response(self, filt_idx, width):
+    def get_impulse_response(self, filt_idx: int, width: int) -> np.ndarray:
         # For the time being, I'll just invert the frequency response
         if self.is_analytic:
-            freq_response = self.get_frequency_response(
-                filt_idx, width, half=False)
+            freq_response = self.get_frequency_response(filt_idx, width, half=False)
             return np.fft.ifft(freq_response)
         else:
-            freq_response = self.get_frequency_response(
-                filt_idx, width, half=True)
+            freq_response = self.get_frequency_response(filt_idx, width, half=True)
             return np.fft.irfft(freq_response, n=width)
 
-    def get_frequency_response(self, filt_idx, width, half=False):
+    def get_frequency_response(
+        self, filt_idx: int, width: int, half: bool = False
+    ) -> np.ndarray:
         scaling_function = MelScaling()
         left_hz = self._vertices[filt_idx]
         mid_hz = self._vertices[filt_idx + 1]
@@ -621,12 +621,12 @@ class Fbank(LinearFilterBank):
                 val = (mel - left_mel) / (mid_mel - left_mel)
             else:
                 val = (right_mel - mel) / (right_mel - mid_mel)
-            res[idx] = val ** .5
+            res[idx] = val ** 0.5
             if not half and not self._analytic:
-                res[-idx] = val ** .5
+                res[-idx] = val ** 0.5
         return res
 
-    def get_truncated_response(self, filt_idx, width):
+    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
         scaling_function = MelScaling()
         left_hz = self._vertices[filt_idx]
         mid_hz = self._vertices[filt_idx + 1]
@@ -646,14 +646,14 @@ class Fbank(LinearFilterBank):
                 res[idx - left_idx] = (mel - left_mel) / (mid_mel - left_mel)
             else:
                 res[idx - left_idx] = (right_mel - mel) / (right_mel - mid_mel)
-        return left_idx, res ** .5
+        return left_idx, res ** 0.5
 
 
 class GaborFilterBank(LinearFilterBank):
     r"""Gabor filters with ERBs between points from a scale
 
-    Gabor filters are complex, mostly analytic filters that have a Gaussian
-    envelope in both the time and frequency domains. They are defined as
+    Gabor filters are complex, mostly analytic filters that have a Gaussian envelope in
+    both the time and frequency domains. They are defined as
 
     .. math::
 
@@ -667,36 +667,34 @@ class GaborFilterBank(LinearFilterBank):
          \widehat{f}(\omega) = C \sqrt{2\sigma} \pi^{1/4}
                                e^{\frac{-\sigma^2(\xi - \omega)^2}{2}}
 
-    in the frequency domain. Though Gaussians never truly reach 0, in either
-    domain, they are effectively compactly supported. Gabor filters are optimal
-    with respect to their time-bandwidth product.
+    in the frequency domain. Though Gaussians never truly reach 0, in either domain,
+    they are effectively compactly supported. Gabor filters are optimal with respect to
+    their time-bandwidth product.
 
-    `scaling_function` is used to split up the frequencies between `high_hz`
-    and `low_hz` into a series of filters. Every subsequent filter's width is
-    scaled such that, if the filters are all of the same height, the
-    intersection with the precedent filter's response matches the filter's
-    Equivalent Rectangular Bandwidth (``erb == True``) or its 3dB bandwidths (
-    ``erb == False``). The ERB is the width of a rectangular filter with the
-    same height as the filter's maximum frequency response that has the same
-    :math:`L_2` norm.
+    `scaling_function` is used to split up the frequencies between `high_hz` and
+    `low_hz` into a series of filters. Every subsequent filter's width is scaled such
+    that, if the filters are all of the same height, the intersection with the precedent
+    filter's response matches the filter's Equivalent Rectangular Bandwidth (``erb ==
+    True``) or its 3dB bandwidths (``erb == False``). The ERB is the width of a
+    rectangular filter with the same height as the filter's maximum frequency response
+    that has the same :math:`L^2` norm.
 
     Parameters
     ----------
     scaling_function : pydrobert.speech.ScalingFunction, str, or dict
-        Dictates the layout of filters in the Fourier domain. Can be
-        a ScalingFunction or something compatible with
-        `pydrobert.speech.alias_factory_subclass_from_arg`
+        Dictates the layout of filters in the Fourier domain. Can be a
+        :class:`ScalingFunction` or something compatible with
+        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int
         The number of filters in the bank
     high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively.
-        The default for high_hz is the Nyquist
+        The topmost and bottommost edge of the filters, respectively. The default for
+        `high_hz` is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
     scale_l2_norm : bool
-        Whether to scale the l2 norm of each filter to 1. Otherwise the
-        frequency response of each filter will max out at an absolute
-        value of 1.
+        Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
+        response of each filter will max out at an absolute value of 1.
     erb : bool
 
     Attributes
@@ -714,25 +712,33 @@ class GaborFilterBank(LinearFilterBank):
 
     See Also
     --------
-    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
-        value below which counts as zero
+    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD
+        The absolute value below which counts as zero
     """
 
-    aliases = {'gabor'}
+    aliases = {"gabor"}
 
     def __init__(
-            self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
-            sampling_rate=16000, scale_l2_norm=False, erb=False):
+        self,
+        scaling_function: Union[ScalingFunction, Mapping, str],
+        num_filts: int = 40,
+        high_hz: Optional[float] = None,
+        low_hz: float = 20.0,
+        sampling_rate: float = 16000,
+        scale_l2_norm: bool = False,
+        erb: bool = False,
+    ):
         scaling_function = alias_factory_subclass_from_arg(
-            ScalingFunction, scaling_function)
+            ScalingFunction, scaling_function
+        )
         self._scale_l2_norm = scale_l2_norm
         self._erb = erb
         if low_hz < 0 or (
-                high_hz and (
-                    high_hz <= low_hz or high_hz > sampling_rate // 2)):
+            high_hz and (high_hz <= low_hz or high_hz > sampling_rate // 2)
+        ):
             raise ValueError(
-                'Invalid frequency range: ({:.2f},{:.2f}'.format(
-                    low_hz, high_hz))
+                "Invalid frequency range: ({:.2f},{:.2f}".format(low_hz, high_hz)
+            )
         self._rate = sampling_rate
         if high_hz is None:
             high_hz = sampling_rate // 2
@@ -745,8 +751,7 @@ class GaborFilterBank(LinearFilterBank):
         # high_hz and the last filter center. Intersections are spaced
         # uniformly in the scaled domain
         edges = tuple(
-            scaling_function.scale_to_hertz(
-                scale_low + scale_delta * (idx + .5))
+            scaling_function.scale_to_hertz(scale_low + scale_delta * (idx + 0.5))
             for idx in range(0, num_filts + 1)
         )
         centers_hz = []
@@ -761,8 +766,8 @@ class GaborFilterBank(LinearFilterBank):
         t_support_const = -2 * np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
         f_support_const = t_support_const
         if scale_l2_norm:
-            f_support_const += log_2 + .5 * log_pi
-            t_support_const -= .5 * log_pi
+            f_support_const += log_2 + 0.5 * log_pi
+            t_support_const -= 0.5 * log_pi
         else:
             t_support_const -= log_2 + log_pi
         if erb:
@@ -773,19 +778,17 @@ class GaborFilterBank(LinearFilterBank):
             center_hz = (left_intersect + right_intersect) / 2
             center_ang = hertz_to_angular(center_hz, self._rate)
             std = bandwidth_const / hertz_to_angular(
-                center_hz - left_intersect, self._rate)
+                center_hz - left_intersect, self._rate
+            )
             log_std = np.log(std)
             if scale_l2_norm:
                 diff_ang = np.sqrt(log_std + f_support_const) / std
-                wrap_diff_ang = np.sqrt(
-                    log_std + f_support_const + log_2) / std
-                diff_samps = int(np.ceil(
-                    std * np.sqrt(t_support_const - log_std)))
+                wrap_diff_ang = np.sqrt(log_std + f_support_const + log_2) / std
+                diff_samps = int(np.ceil(std * np.sqrt(t_support_const - log_std)))
             else:
                 diff_ang = np.sqrt(f_support_const) / std
                 wrap_diff_ang = np.sqrt(f_support_const + log_2) / std
-                diff_samps = int(np.ceil(std * np.sqrt(
-                    t_support_const - 2 * log_std)))
+                diff_samps = int(np.ceil(std * np.sqrt(t_support_const - 2 * log_std)))
             supp_ang_low = center_ang - diff_ang
             if supp_ang_low < 0:
                 self._wrap_below = True
@@ -801,36 +804,33 @@ class GaborFilterBank(LinearFilterBank):
         self._supports_ang = tuple(supports_ang)
         self._wrap_supports_ang = tuple(wrap_supports_ang)
         self._supports_hz = tuple(
-            (
-                angular_to_hertz(ang_l, self._rate),
-                angular_to_hertz(ang_h, self._rate),
-            )
+            (angular_to_hertz(ang_l, self._rate), angular_to_hertz(ang_h, self._rate),)
             for ang_l, ang_h in supports_ang
         )
         self._supports = tuple(supports)
 
     @property
-    def is_real(self):
+    def is_real(self) -> bool:
         return False
 
     @property
-    def is_analytic(self):
+    def is_analytic(self) -> bool:
         return not self._wrap_below
 
     @property
-    def num_filts(self):
+    def num_filts(self) -> int:
         return len(self._centers_hz)
 
     @property
-    def is_zero_phase(self):
+    def is_zero_phase(self) -> bool:
         return True
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def centers_hz(self):
+    def centers_hz(self) -> Tuple[float]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -839,32 +839,32 @@ class GaborFilterBank(LinearFilterBank):
         return self._centers_hz
 
     @property
-    def supports_hz(self):
+    def supports_hz(self) -> tuple:
         return self._supports_hz
 
     @property
-    def supports(self):
+    def supports(self) -> tuple:
         return self._supports
 
     @property
-    def scaled_l2_norm(self):
+    def scaled_l2_norm(self) -> bool:
         return self._scale_l2_norm
 
     @property
-    def erb(self):
+    def erb(self) -> bool:
         return self._erb
 
-    def get_impulse_response(self, filt_idx, width):
+    def get_impulse_response(self, filt_idx: int, width: int) -> np.ndarray:
         center_ang = self._centers_ang[filt_idx]
         std = self._stds[filt_idx]
         res = np.zeros(width, dtype=np.complex128)
         if self._scale_l2_norm:
-            const_term = -.5 * np.log(std) - .25 * np.log(np.pi)
+            const_term = -0.5 * np.log(std) - 0.25 * np.log(np.pi)
         else:
-            const_term = -.5 * np.log(2 * np.pi) - np.log(std)
+            const_term = -0.5 * np.log(2 * np.pi) - np.log(std)
         denom_term = 2 * std ** 2
         for t in range(width + 1):
-            val = -t ** 2 / denom_term + const_term + 1j * center_ang * t
+            val = -(t ** 2) / denom_term + const_term + 1j * center_ang * t
             val = np.exp(val)
             if t != width:
                 res[t] += val
@@ -872,7 +872,9 @@ class GaborFilterBank(LinearFilterBank):
                 res[-t] += val.conj()
         return res
 
-    def get_frequency_response(self, filt_idx, width, half=False):
+    def get_frequency_response(
+        self, filt_idx: int, width: int, half: bool = False
+    ) -> np.ndarray:
         center_ang = self._centers_ang[filt_idx]
         lowest_ang, highest_ang = self._supports_ang[filt_idx]
         std = self._stds[filt_idx]
@@ -884,21 +886,22 @@ class GaborFilterBank(LinearFilterBank):
                 dft_size = width // 2 + 1
         res = np.zeros(dft_size, dtype=np.float64)
         if self._scale_l2_norm:
-            const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+            const_term = 0.5 * np.log(2 * std) + 0.25 * np.log(np.pi)
         else:
             const_term = 0
         num_term = -(std ** 2) / 2
         for idx in range(dft_size):
             for period in range(
-                    -1 - int(max(-lowest_ang, 0) / (2 * np.pi)),
-                    2 + int(highest_ang / (2 * np.pi))):
+                -1 - int(max(-lowest_ang, 0) / (2 * np.pi)),
+                2 + int(highest_ang / (2 * np.pi)),
+            ):
                 omega = (idx / width + period) * 2 * np.pi
                 val = num_term * (center_ang - omega) ** 2 + const_term
                 val = np.exp(val)
                 res[idx] += val
         return res
 
-    def get_truncated_response(self, filt_idx, width):
+    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
         # wrap_supports_ang contains the angular supports of each filter
         # if the effective support threshold were halved. If this
         # support exceeds the 2pi period, overlap from aliasing in the
@@ -913,14 +916,15 @@ class GaborFilterBank(LinearFilterBank):
         right_idx = int(width * highest_ang / (2 * np.pi))
         res = np.zeros(1 + right_idx - left_idx, dtype=np.float64)
         if self._scale_l2_norm:
-            const_term = .5 * np.log(2 * std) + .25 * np.log(np.pi)
+            const_term = 0.5 * np.log(2 * std) + 0.25 * np.log(np.pi)
         else:
             const_term = 0
         num_term = -(std ** 2) / 2
         for idx in range(left_idx, right_idx + 1):
             for period in range(
-                    -int(max(-lowest_ang, 0) / (2 * np.pi)),
-                    1 + int(highest_ang / (2 * np.pi))):
+                -int(max(-lowest_ang, 0) / (2 * np.pi)),
+                1 + int(highest_ang / (2 * np.pi)),
+            ):
                 omega = (idx / width + period) * 2 * np.pi
                 val = num_term * (center_ang - omega) ** 2 + const_term
                 val = np.exp(val)
@@ -929,7 +933,7 @@ class GaborFilterBank(LinearFilterBank):
 
 
 class ComplexGammatoneFilterBank(LinearFilterBank):
-    r'''Gammatone filters with complex carriers
+    r"""Gammatone filters with complex carriers
 
     A complex gammatone filter [flanagan1960]_ [aertsen1981]_ can be defined as
 
@@ -937,52 +941,48 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
         h(t) = c t^{n - 1} e^{- \alpha t + i\xi t} u(t)
 
-    in the time domain, where :math:`\alpha` is the bandwidth parameter,
-    :math:`\xi` is the carrier frequency, :math:`n` is the order of the
-    function, :math:`u(t)` is the step function, and :math:`c` is a
-    normalization constant. In the frequency domain, the filter is defined as
+    in the time domain, where :math:`\alpha` is the bandwidth parameter, :math:`\xi` is
+    the carrier frequency, :math:`n` is the order of the function, :math:`u(t)` is the
+    step function, and :math:`c` is a normalization constant. In the frequency domain,
+    the filter is defined as
 
     .. math::
 
         H(\omega) = \frac{c(n - 1)!)}{\left(
             \alpha + i(\omega - \xi) \right)^n}
 
-    For large :math:`\xi`, the complex gammatone is approximately
-    analytic.
+    For large :math:`\xi`, the complex gammatone is approximately analytic.
 
-    `scaling_function` is used to split up the frequencies between `high_hz`
-    and `low_hz` into a series of filters. Every subsequent filter's width is
-    scaled such that, if the filters are all of the same height, the
-    intersection with the precedent filter's response matches the filter's
-    Equivalent Rectangular Bandwidth (``erb == True``) or its 3dB bandwidths
-    (``erb == False``). The ERB is the width of a rectangular filter with the
-    same height as the filter's maximum frequency response that has the same
-    :math:`L_2` norm.
+    `scaling_function` is used to split up the frequencies between `high_hz` and
+    `low_hz` into a series of filters. Every subsequent filter's width is scaled such
+    that, if the filters are all of the same height, the intersection with the precedent
+    filter's response matches the filter's Equivalent Rectangular Bandwidth (``erb ==
+    True``) or its 3dB bandwidths (``erb == False``). The ERB is the width of a
+    rectangular filter with the same height as the filter's maximum frequency response
+    that has the same :math:`L^2` norm.
 
     Parameters
     ----------
     scaling_function : pydrobert.speech.ScalingFunction, str, or dict
-        Dictates the layout of filters in the Fourier domain. Can be
-        a ScalingFunction or something compatible with
-        `pydrobert.speech.alias_factory_subclass_from_arg`
+        Dictates the layout of filters in the Fourier domain. Can be a
+        :class:`ScalingFunction` or something compatible with
+        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively.
-        The default for high_hz is the Nyquist
+        The topmost and bottommost edge of the filters, respectively. The default for
+        high_hz is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
     order : int, optional
-        The :math:`n` parameter in the Gammatone. Should be positive.
-        Larger orders will make the gammatone more symmetrical.
+        The :math:`n` parameter in the Gammatone. Should be positive. Larger orders
+        will make the gammatone more symmetrical.
     max_centered : bool, optional
-        While normally causal, setting `max_centered` to true will shift
-        all filters in the bank such that the maximum absolute value
-        in time is centered at sample 0.
+        While normally causal, setting `max_centered` to true will shift all filters in
+        the bank such that the maximum absolute value in time is centered at sample 0.
     scale_l2_norm : bool
-        Whether to scale the l2 norm of each filter to 1. Otherwise the
-        frequency response of each filter will max out at an absolute
-        value of 1.
+        Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
+        response of each filter will max out at an absolute value of 1.
     erb : bool
 
     Attributes
@@ -1001,28 +1001,37 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     See Also
     --------
-    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD : the absolute
-        value below which counts as zero
-    '''
+    pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD
+        The absolute value below which counts as zero
+    """
 
-    aliases = {'gammatone', 'tonebank'}
+    aliases = {"gammatone", "tonebank"}
 
     def __init__(
-            self, scaling_function, num_filts=40, high_hz=None, low_hz=20.,
-            sampling_rate=16000, order=4, max_centered=False,
-            scale_l2_norm=False, erb=False):
+        self,
+        scaling_function: Union[ScalingFunction, Mapping, str],
+        num_filts: int = 40,
+        high_hz: Optional[float] = None,
+        low_hz: float = 20.0,
+        sampling_rate: float = 16000,
+        order: int = 4,
+        max_centered: bool = False,
+        scale_l2_norm: bool = False,
+        erb: bool = False,
+    ):
         scaling_function = alias_factory_subclass_from_arg(
-            ScalingFunction, scaling_function)
+            ScalingFunction, scaling_function
+        )
         self._scale_l2_norm = scale_l2_norm
         self._erb = erb
         if low_hz < 0 or (
-                high_hz and (
-                    high_hz <= low_hz or high_hz > sampling_rate // 2)):
+            high_hz and (high_hz <= low_hz or high_hz > sampling_rate // 2)
+        ):
             raise ValueError(
-                'Invalid frequency range: ({:.2f},{:.2f}'.format(
-                    low_hz, high_hz))
+                "Invalid frequency range: ({:.2f},{:.2f}".format(low_hz, high_hz)
+            )
         if not isinstance(order, int) or order <= 0:
-            raise ValueError('order must be a positive integer')
+            raise ValueError("order must be a positive integer")
         self._order = order
         self._rate = sampling_rate
         if high_hz is None:
@@ -1032,8 +1041,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         scale_delta = (scale_high - scale_low) / (num_filts + 1)
         # see gabor filters for more info
         edges = tuple(
-            scaling_function.scale_to_hertz(
-                scale_low + scale_delta * (idx + .5))
+            scaling_function.scale_to_hertz(scale_low + scale_delta * (idx + 0.5))
             for idx in range(0, num_filts + 1)
         )
         self._centers_hz = []
@@ -1054,16 +1062,16 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
             alpha_const += 2 * log_factorial
             alpha_const -= log_double_factorial
         else:
-            alpha_const = - .5 * np.log(4 * (2 ** (1 / order)) - 4)
+            alpha_const = -0.5 * np.log(4 * (2 ** (1 / order)) - 4)
         for left_intersect, right_intersect in zip(edges[:-1], edges[1:]):
             center_hz = (left_intersect + right_intersect) / 2
             xi = hertz_to_angular(center_hz, self._rate)
-            log_alpha = alpha_const + np.log(hertz_to_angular(
-                right_intersect - left_intersect, self._rate))
+            log_alpha = alpha_const + np.log(
+                hertz_to_angular(right_intersect - left_intersect, self._rate)
+            )
             alpha = np.exp(log_alpha)
             if scale_l2_norm:
-                log_c = .5 * (
-                    log_2 + log_alpha + log_double_factorial)
+                log_c = 0.5 * (log_2 + log_alpha + log_double_factorial)
                 log_c -= order * (log_alpha + log_2)
             else:
                 log_c = order * log_alpha - log_factorial
@@ -1075,8 +1083,8 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
             supp_a = (2 / order) * (log_c + log_factorial - log_eps)
             wrap_supp_a = supp_a + (2 / order) * log_2
             supp_b = np.exp(2 * log_alpha)
-            diff_ang = (np.exp(supp_a) - supp_b) ** .5
-            wrap_diff_ang = (np.exp(wrap_supp_a) - supp_b) ** .5
+            diff_ang = (np.exp(supp_a) - supp_b) ** 0.5
+            wrap_diff_ang = (np.exp(wrap_supp_a) - supp_b) ** 0.5
             self._centers_hz.append(center_hz)
             self._xis.append(xi)
             self._alphas.append(alpha)
@@ -1095,39 +1103,37 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         self._supports_ang = tuple(self._supports_ang)
         self._wrap_supports_ang = tuple(self._wrap_supports_ang)
         self._supports_hz = tuple(
-            (
-                angular_to_hertz(ang_l, self._rate),
-                angular_to_hertz(ang_h, self._rate),
-            )
-            for ang_l, ang_h in self._supports_ang)
+            (angular_to_hertz(ang_l, self._rate), angular_to_hertz(ang_h, self._rate),)
+            for ang_l, ang_h in self._supports_ang
+        )
         self._supports = tuple(self._supports)
 
     @property
-    def is_real(self):
+    def is_real(self) -> bool:
         return False
 
     @property
-    def is_analytic(self):
+    def is_analytic(self) -> bool:
         return not self._wrap_below
 
     @property
-    def num_filts(self):
+    def num_filts(self) -> int:
         return len(self._centers_hz)
 
     @property
-    def order(self):
+    def order(self) -> int:
         return self._order
 
     @property
-    def is_zero_phase(self):
+    def is_zero_phase(self) -> bool:
         return False
 
     @property
-    def sampling_rate(self):
+    def sampling_rate(self) -> float:
         return self._rate
 
     @property
-    def centers_hz(self):
+    def centers_hz(self) -> Tuple[float]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -1136,22 +1142,22 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         return self._centers_hz
 
     @property
-    def supports_hz(self):
+    def supports_hz(self) -> tuple:
         return self._supports_hz
 
     @property
-    def supports(self):
+    def supports(self) -> tuple:
         return self._supports
 
     @property
-    def scaled_l2_norm(self):
+    def scaled_l2_norm(self) -> bool:
         return self._scale_l2_norm
 
     @property
-    def erb(self):
+    def erb(self) -> bool:
         return self._erb
 
-    def get_impulse_response(self, filt_idx, width):
+    def get_impulse_response(self, filt_idx: int, width: int) -> np.ndarray:
         left_sup, right_sup = self.supports[filt_idx]
         left_period = int(np.floor(left_sup / width))
         right_period = int(np.ceil(right_sup / width))
@@ -1162,7 +1168,9 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
                 res[idx] += self._h(t, filt_idx)
         return res
 
-    def get_frequency_response(self, filt_idx, width, half=False):
+    def get_frequency_response(
+        self, filt_idx: int, width: int, half: bool = False
+    ) -> np.ndarray:
         left_sup, right_sup = self._supports_ang[filt_idx]
         left_period = int(np.floor(left_sup / 2 / np.pi))
         right_period = int(np.ceil(right_sup / 2 / np.pi))
@@ -1180,7 +1188,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
                 res[idx] += self._H(omega, filt_idx)
         return res
 
-    def get_truncated_response(self, filt_idx, width):
+    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
         left_sup, right_sup = self._supports_ang[filt_idx]
         wrap_ang = self._wrap_supports_ang[filt_idx]
         # wrap_ang is the additional support needed to hit
@@ -1223,18 +1231,20 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         # calculate the nonzero region of the temp support of filt idx
         alpha = self._alphas[idx]
         c = self._cs[idx]
-        xi = self._xis[idx]
+        # xi = self._xis[idx]
         offset = self._offsets[idx]
         n = self._order
         eps = config.EFFECTIVE_SUPPORT_THRESHOLD
         if n == 1:
             right = int(np.ceil((np.log(c) - np.log(eps) / alpha)))
         else:
+
             def _d(t):
                 # derivative of abs func
                 v = c * np.exp(-alpha * t) * t ** (n - 2)
                 v *= (n - 1) - alpha * t
                 return v
+
             right = (n - 1 + np.sqrt((n - 1) / 2)) / alpha
             h_0 = np.abs(self._h(right, idx))
             while h_0 > eps:
@@ -1248,80 +1258,80 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
 
 class WindowFunction(AliasedFactory):
-    '''A real linear filter, usually lowpass'''
+    """A real linear filter, usually lowpass"""
 
     @abc.abstractmethod
-    def get_impulse_response(self, width):
-        '''Write the filter into a numpy array of fixed width'''
+    def get_impulse_response(self, width: int) -> np.ndarray:
+        """Write the filter into a numpy array of fixed width"""
         pass
 
 
 class BartlettWindow(WindowFunction):
-    '''A unit-normalized triangular window
+    """A unit-normalized triangular window
 
     See Also
     --------
     numpy.bartlett
-    '''
+    """
 
-    aliases = {'bartlett', 'triangular', 'tri'}
+    aliases = {"bartlett", "triangular", "tri"}
 
-    def get_impulse_response(self, width):
+    def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.bartlett(width)
         window /= max(1, width - 1) / 2
         return window
 
 
 class BlackmanWindow(WindowFunction):
-    '''A unit-normalized Blackman window
+    """A unit-normalized Blackman window
 
     See Also
     --------
     numpy.blackman
-    '''
+    """
 
-    aliases = {'blackman', 'black'}
+    aliases = {"blackman", "black"}
 
-    def get_impulse_response(self, width):
+    def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.blackman(width)
         window /= 0.42 * max(1, width - 1)
         return window
 
 
 class HammingWindow(WindowFunction):
-    '''A unit-normalized Hamming window
+    """A unit-normalized Hamming window
 
     See Also
     --------
     numpy.hamming
-    '''
+    """
 
-    aliases = {'hamming'}
+    aliases = {"hamming"}
 
-    def get_impulse_response(self, width):
+    def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.hamming(width)
         window /= 0.54 * max(1, width - 1)
         return window
 
 
 class HannWindow(WindowFunction):
-    '''A unit-normalized Hann window
+    """A unit-normalized Hann window
 
     See Also
     --------
     numpy.hanning
-    '''
+    """
 
-    aliases = {'hanning', 'hann'}
+    aliases = {"hanning", "hann"}
 
-    def get_impulse_response(self, width):
+    def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.hanning(width)
         window /= 0.5 * max(1, width - 1)
         return window
 
 
 class GammaWindow(WindowFunction):
-    r'''A lowpass filter based on the Gamma function
+    r"""A lowpass filter based on the Gamma function
 
     A Gamma function is defined as:
 
@@ -1348,16 +1358,16 @@ class GammaWindow(WindowFunction):
     Attributes
     ----------
     order : int
-    peak : int
-    '''
+    peak : float
+    """
 
-    aliases = {'gamma'}
+    aliases = {"gamma"}
 
-    def __init__(self, order=4, peak=.75):
+    def __init__(self, order: int = 4, peak: float = 0.75):
         self.order = order
         self.peak = peak
 
-    def get_impulse_response(self, width):
+    def get_impulse_response(self, width: np.ndarray) -> np.ndarray:
         if width <= 0:
             return np.array([], dtype=float)
         elif width == 1:
@@ -1373,6 +1383,5 @@ class GammaWindow(WindowFunction):
             offs = width
         ln_c = self.order * np.log(alpha)
         ln_c -= np.log(np.math.factorial(self.order - 1))
-        ret[:offs] = ret[:offs] ** (self.order - 1) * np.exp(
-            -alpha * ret[:offs] + ln_c)
+        ret[:offs] = ret[:offs] ** (self.order - 1) * np.exp(-alpha * ret[:offs] + ln_c)
         return ret

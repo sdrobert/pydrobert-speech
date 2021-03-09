@@ -1,10 +1,7 @@
 pydrobert.speech package
 ========================
 
-Submodules
-----------
-
-pydrobert.speech.command\_line module
+pydrobert.speech.command_line module
 -------------------------------------
 
 .. automodule:: pydrobert.speech.command_line

@@ -1,4 +1,4 @@
-# Copyright 2019 Sean Robertson
+# Copyright 2021 Sean Robertson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,65 +14,56 @@
 
 """Classes for pre-processing speech signals"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
+from typing import Optional
 
 import numpy as np
 
 from pydrobert.speech import AliasedFactory
 
-__author__ = "Sean Robertson"
-__email__ = "sdrobert@cs.toronto.edu"
-__license__ = "Apache 2.0"
-__copyright__ = "Copyright 2019 Sean Robertson"
-
 __all__ = [
-    'PreProcessor',
-    'Dither',
-    'Preemphasize',
+    "PreProcessor",
+    "Dither",
+    "Preemphasize",
 ]
 
 
 class PreProcessor(AliasedFactory):
-    '''A container for pre-processing signals with a transform'''
+    """A container for pre-processing signals with a transform"""
 
     @abc.abstractmethod
-    def apply(self, signal, axis=-1, in_place=False):
-        '''Applies the transformation to a signal tensor
+    def apply(self, signal: np.ndarray, axis: int = -1, in_place=False) -> np.ndarray:
+        """Applies the transformation to a signal tensor
 
-        Consult the class documentation for more details on what the
-        transformation is.
+        Consult the class documentation for more details on what the transformation is.
 
         Parameters
         ----------
         signal : array-like
-        axis : int
+        axis : int, optional
             The axis of `signal` to apply the transformation along
-        in_place : bool
-            Whether it is okay to modify `signal` (True) or whether a copy
-            should be made (False)
+        in_place : bool, optional
+            Whether it is okay to modify `signal` (:obj:`True`) or whether a copy should
+            be made (:obj:`False`)
 
         Returns
         -------
         array-like
             The transformed features
-        '''
+        """
         pass
 
 
 class Dither(PreProcessor):
-    '''Add random noise to a signal tensor
+    """Add random noise to a signal tensor
 
-    The default axis of `apply` has been set to None, which will
-    generate random noise for each coefficient. This is likely the
-    desired behaviour. Setting axis to an integer will add random values
-    along 1D slices of that axis.
+    The default axis of `apply` has been set to None, which will generate random noise
+    for each coefficient. This is likely the desired behaviour. Setting axis to an
+    integer will add random values along 1D slices of that axis.
 
-    Intermediate values are calculated as 64-bit floats. The result is
-    cast back to the input data type.
+    Intermediate values are calculated as 64-bit floats. The result is cast back to the
+    input data type.
 
     Parameters
     ----------
@@ -82,15 +73,17 @@ class Dither(PreProcessor):
     Attributes
     ----------
     coeff : float
-    '''
+    """
 
-    aliases = {'dither', 'dithering'}
+    aliases = {"dither", "dithering"}
 
-    def __init__(self, coeff=1.):
+    def __init__(self, coeff: float = 1.0):
         self.coeff = coeff
         super(Dither, self).__init__()
 
-    def apply(self, signal, axis=None, in_place=False):
+    def apply(
+        self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
+    ) -> np.ndarray:
         signal_dtype = signal.dtype
         if not in_place or signal.dtype != np.float64:
             signal = signal.astype(np.float64)
@@ -104,7 +97,7 @@ class Dither(PreProcessor):
 
 
 class Preemphasize(PreProcessor):
-    '''Attenuate the low frequencies of a signal by taking sample differences
+    """Attenuate the low frequencies of a signal by taking sample differences
 
     The following transformation is applied along the target axis
 
@@ -113,11 +106,11 @@ class Preemphasize(PreProcessor):
         new[i] = old[i] - coeff * old[i-1] for i > 1
         new[0] = old[0]
 
-    This is essentially a convolution with a Haar wavelet for positive
-    `coeff`. It emphasizes high frequencies.
+    This is essentially a convolution with a Haar wavelet for positive `coeff`. It
+    emphasizes high frequencies.
 
-    Intermediate values are calculated as 64-bit floats. The result is
-    cast back to the input data type.
+    Intermediate values are calculated as 64-bit floats. The result is cast back to the
+    input data type.
 
     Parameters
     ----------
@@ -126,15 +119,17 @@ class Preemphasize(PreProcessor):
     Attributes
     ----------
     coeff : float
-    '''
+    """
 
-    aliases = {'preemphasize', 'preemphasis', 'preemph'}
+    aliases = {"preemphasize", "preemphasis", "preemph"}
 
-    def __init__(self, coeff=.97):
+    def __init__(self, coeff: float = 0.97):
         self.coeff = coeff
         super(Preemphasize, self).__init__()
 
-    def apply(self, signal, axis=-1, in_place=False):
+    def apply(
+        self, signal: np.ndarray, axis: int = -1, in_place: bool = False
+    ) -> np.ndarray:
         signal_dtype = signal.dtype
         if not in_place or signal_dtype != np.float64:
             signal = signal.astype(np.float64)
@@ -145,6 +140,5 @@ class Preemphasize(PreProcessor):
             tensor_slice_subhd = [slice(None)] * len(signal.shape)
             tensor_slice_mind[axis] = slice(1, None)
             tensor_slice_subhd[axis] = slice(-1, None)
-            signal[tensor_slice_mind] -= (
-                self.coeff * signal[tensor_slice_subhd])
+            signal[tensor_slice_mind] -= self.coeff * signal[tensor_slice_subhd]
         return signal.astype(signal_dtype, copy=False)

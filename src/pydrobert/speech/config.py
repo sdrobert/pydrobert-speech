@@ -1,4 +1,4 @@
-# Copyright 2019 Sean Robertson
+# Copyright 2021 Sean Robertson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-'''Package constants used throughout pydrobert.speech'''
-
-__author__ = "Sean Robertson"
-__email__ = "sdrobert@cs.toronto.edu"
-__license__ = "Apache 2.0"
-__copyright__ = "Copyright 2019 Sean Robertson"
+"""Package constants used throughout pydrobert.speech"""
 
 USE_FFTPACK = False
 """
@@ -26,7 +21,8 @@ one. This is set automatically to ``True`` if `scipy.fftpack` can be
 imported. It can be set to ``False`` to use the numpy implementation.
 """
 try:
-    from scipy import fftpack
+    from scipy import fftpack  # noqa: F401
+
     USE_FFTPACK = True
 except ImportError:
     pass

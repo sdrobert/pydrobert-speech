@@ -1,38 +1,31 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
 import pytest
 
 from pydrobert.speech import post
 
 
-@pytest.fixture(params=[
-    np.float64,
-    np.float32,
-    np.int32,
-    np.int16
-], ids=[
-    'f64',
-    'f32',
-    'i32',
-    'i16',
-], scope='module')
+@pytest.fixture(
+    params=[np.float64, np.float32, np.int32, np.int16],
+    ids=["f64", "f32", "i32", "i16"],
+    scope="module",
+)
 def dtype(request):
     return request.param
 
 
-@pytest.mark.parametrize('norm_var', [True, False])
-@pytest.mark.parametrize('buff', [
-    x * np.random.randint(1, 100) + np.random.randint(-10, 10)
-    for x in [
-        np.random.random((100, 1)),
-        np.random.random((1, 10)),
-        np.random.random((5, 5)),
-        np.random.random((10, 4, 3)),
-    ]
-])
+@pytest.mark.parametrize("norm_var", [True, False])
+@pytest.mark.parametrize(
+    "buff",
+    [
+        x * np.random.randint(1, 100) + np.random.randint(-10, 10)
+        for x in [
+            np.random.random((100, 1)),
+            np.random.random((1, 10)),
+            np.random.random((5, 5)),
+            np.random.random((10, 4, 3)),
+        ]
+    ],
+)
 def test_standardize_local(norm_var, buff, dtype):
     if np.allclose(buff, buff[:1].ravel()[0]):
         pytest.skip()
@@ -40,8 +33,7 @@ def test_standardize_local(norm_var, buff, dtype):
     stand = post.Standardize(norm_var=norm_var)
     for axis in range(len(buff.shape)):
         buff_2 = buff.copy()
-        other_axes = tuple(
-            idx for idx in range(len(buff.shape)) if idx != axis)
+        other_axes = tuple(idx for idx in range(len(buff.shape)) if idx != axis)
         if sum(buff_2.shape[idx] for idx in other_axes) == len(other_axes):
             continue
         # we make sure that one sample along the target axis is
@@ -61,17 +53,20 @@ def test_standardize_local(norm_var, buff, dtype):
             assert np.allclose(s_buff.var(axis=other_axes), 1), axis
 
 
-@pytest.mark.parametrize('norm_var', [True, False])
-@pytest.mark.parametrize('buff', [
-    np.random.random((5, 100)) * np.random.randint(1, 100, 100) + (
-        np.random.randint(-10, 10, 100)),
-    np.random.random((8, 1, 10)) * np.random.randint(1, 100, 10) + (
-        + np.random.randint(-10, 10, 10)),
-    np.random.random((3, 10, 20)) * np.random.randint(1, 100, 20) + (
-        + np.random.randint(-10, 10, 20)),
-    np.random.random((2, 50, 2, 3)) * np.random.randint(1, 100, 3) + (
-        + np.random.randint(-10, 10, 3)),
-])
+@pytest.mark.parametrize("norm_var", [True, False])
+@pytest.mark.parametrize(
+    "buff",
+    [
+        np.random.random((5, 100)) * np.random.randint(1, 100, 100)
+        + (np.random.randint(-10, 10, 100)),
+        np.random.random((8, 1, 10)) * np.random.randint(1, 100, 10)
+        + (+np.random.randint(-10, 10, 10)),
+        np.random.random((3, 10, 20)) * np.random.randint(1, 100, 20)
+        + (+np.random.randint(-10, 10, 20)),
+        np.random.random((2, 50, 2, 3)) * np.random.randint(1, 100, 3)
+        + (+np.random.randint(-10, 10, 3)),
+    ],
+)
 def test_standardize_global(norm_var, buff, dtype):
     buff = buff.astype(dtype)
     if np.allclose(buff, buff[:1].ravel()[0]):
@@ -113,45 +108,46 @@ def test_standardize_write_read(temp_file_1_name):
     assert np.allclose(x_1_p_2, x_1_p_3)
 
 
-@pytest.mark.parametrize('buff', [
-    np.random.random(10),
-    np.random.random((2, 5)),
-    np.random.random((3, 6, 4)),
-    np.random.random((5, 4, 0, 0, 1)),
-])
-@pytest.mark.parametrize('concatenate', [True, False])
-@pytest.mark.parametrize('num_deltas', list(range(5)))
+@pytest.mark.parametrize(
+    "buff",
+    [
+        np.random.random(10),
+        np.random.random((2, 5)),
+        np.random.random((3, 6, 4)),
+        np.random.random((5, 4, 0, 0, 1)),
+    ],
+)
+@pytest.mark.parametrize("concatenate", [True, False])
+@pytest.mark.parametrize("num_deltas", list(range(5)))
 def test_delta_shapes(buff, concatenate, num_deltas):
     for target_axis in range(len(buff.shape) + 1 - int(concatenate)):
         deltas = post.Deltas(
-            num_deltas, concatenate=concatenate, target_axis=target_axis)
+            num_deltas, concatenate=concatenate, target_axis=target_axis
+        )
         for axis in range(len(buff.shape)):
             new_shape = list(buff.shape)
             if concatenate:
                 new_shape[target_axis] *= num_deltas + 1
             else:
                 new_shape.insert(target_axis, num_deltas + 1)
-            assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), \
-                buff.shape
+            assert deltas.apply(buff, axis=axis).shape == tuple(new_shape), buff.shape
 
 
 class KaldiDeltas(object):
-    '''Replicate Kaldi delta logic for comparative purposes'''
+    """Replicate Kaldi delta logic for comparative purposes"""
 
     def __init__(self, num_deltas, window=2):
         self._scales = [np.ones(1, dtype=np.float64)]
         for last_idx in range(num_deltas):
             prev_scale = self._scales[last_idx]
-            cur_scale = np.zeros(
-                len(prev_scale) + window * 2, dtype=np.float64)
+            cur_scale = np.zeros(len(prev_scale) + window * 2, dtype=np.float64)
             prev_offset = (len(prev_scale) - 1) // 2
             cur_offset = prev_offset + window
             normalizer = 0
             for j in range(-window, window + 1):
                 normalizer += j * j
                 for k in range(-prev_offset, prev_offset + 1):
-                    cur_scale[j + k + cur_offset] += \
-                        j * prev_scale[k + prev_offset]
+                    cur_scale[j + k + cur_offset] += j * prev_scale[k + prev_offset]
             cur_scale /= normalizer
             self._scales.append(cur_scale)
 
@@ -161,7 +157,7 @@ class KaldiDeltas(object):
         assert len(out_row) == feat_dim * len(self._scales)
         for idx, scale in enumerate(self._scales):
             max_offset = (len(scale) - 1) // 2
-            sub_row = out_row[idx * feat_dim:(idx + 1) * feat_dim]
+            sub_row = out_row[idx * feat_dim : (idx + 1) * feat_dim]
             for j in range(-max_offset, max_offset + 1):
                 offset_frame = r + j
                 if offset_frame < 0:
@@ -173,25 +169,24 @@ class KaldiDeltas(object):
     def apply(self, features):
         assert len(features.shape) == 2
         out = np.zeros(
-            (features.shape[0], features.shape[1] * len(self._scales)),
-            dtype=np.float64
+            (features.shape[0], features.shape[1] * len(self._scales)), dtype=np.float64
         )
         for r, out_row in enumerate(out):
             self._process(r, features, out_row)
         return out.astype(features.dtype, copy=False)
 
 
-@pytest.mark.parametrize('buff', [
-    np.random.random((1, 3)),
-    np.random.random((3, 1)),
-    np.random.random((20, 50)),
-])
-@pytest.mark.parametrize('num_deltas', list(range(5)))
-@pytest.mark.parametrize('window', list(range(1, 6)))
+@pytest.mark.parametrize(
+    "buff",
+    [np.random.random((1, 3)), np.random.random((3, 1)), np.random.random((20, 50))],
+)
+@pytest.mark.parametrize("num_deltas", list(range(5)))
+@pytest.mark.parametrize("window", list(range(1, 6)))
 def test_compare_to_kaldi(buff, num_deltas, window, dtype):
     buff = buff.astype(dtype)
     deltas = post.Deltas(
-        num_deltas, concatenate=True, context_window=window, target_axis=1)
+        num_deltas, concatenate=True, context_window=window, target_axis=1
+    )
     kaldi_deltas = KaldiDeltas(num_deltas, window)
     delta_res = deltas.apply(buff, axis=0)
     kaldi_res = kaldi_deltas.apply(buff)
