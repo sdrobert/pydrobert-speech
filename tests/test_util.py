@@ -124,9 +124,7 @@ def test_read_sphere(name):
     assert np.all(sph == wav)
 
 
-@pytest.mark.parametrize(
-    "env_var,suffix", [("WSJ_DIR", ".wv1"), ("TIMIT_DIR", ".sph")]
-)
+@pytest.mark.parametrize("env_var,suffix", [("WSJ_DIR", ".wv1"), ("TIMIT_DIR", ".sph")])
 def test_read_sphere_corpus(temp_dir, env_var, suffix):
     num_utts = 50
     env_dir = os.environ.get(env_var, None)
