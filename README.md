@@ -8,7 +8,7 @@ This pure-python library allows for flexible computation of speech features.
 
 For example, given feature configuration called `fbanks.json`:
 
-``` json
+```json
 {
   "name": "stft",
   "bank": "fbank",

@@ -49,7 +49,7 @@ class PreProcessor(AliasedFactory):
 
         Returns
         -------
-        array-like
+        out : array-like
             The transformed features
         """
         pass

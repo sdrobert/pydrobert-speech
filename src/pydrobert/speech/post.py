@@ -57,7 +57,7 @@ class PostProcessor(AliasedFactory):
 
         Returns
         -------
-        array-like
+        out : np.ndarray
             The transformed features
         """
         pass
@@ -82,10 +82,6 @@ class Standardize(PostProcessor):
     ----------
     rfilename : str, optional
     norm_var : bool, optional
-
-    Attributes
-    ----------
-    have_stats : bool
 
     Notes
     -----
@@ -315,14 +311,15 @@ class Standardize(PostProcessor):
     ) -> None:
         r"""Save accumulated statistics to file
 
-        If `wfilename` ends in `.npy`, stats will be written using :func:`numpy.save`.
+        If `wfilename` ends in :obj:`'.npy'`, stats will be written using
+        :func:`numpy.save`.
 
-        If `wfilename` ends in `.npz`, stats will be written to a numpy archive. If
-        `overwrite` is `False`, other key-values will be loaded first if possible, then
-        resaved. If `key` is set, data will be indexed by `key` in the archive.
-        Otherwise, the data will be stored at the first unused key of the pattern
-        ``'arr_\d+'``. If `compress` is :obj:`True`, :func:`numpy.savez_compressed` will
-        be used over :func:`numpy.savez`.
+        If `wfilename` ends in :obj:`'.npz'`, stats will be written to a numpy archive.
+        If `overwrite` is :obj:`False`, other key-values will be loaded first if
+        possible, then resaved. If `key` is set, data will be indexed by `key` in the
+        archive. Otherwise, the data will be stored at the first unused key of the
+        pattern :obj:`'arr_\d+'`. If `compress` is :obj:`True`,
+        :func:`numpy.savez_compressed` will be used over :func:`numpy.savez`.
 
         Otherwise, data will be written using :func:`numpy.ndarray.tofile`
 
@@ -430,8 +427,8 @@ class Deltas(PostProcessor):
     context_window : int, optional
         The length of the filter to either side of the window. Positive
     pad_mode : str or function, optional
-        How to pad the input sequence when correlating. Additional
-        keyword arguments will be passed to ``numpy.pad()``
+        How to pad the input sequence when correlating. Additional keyword arguments
+        will be passed to :func:`numpy.pad`
 
     Attributes
     ----------

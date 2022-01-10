@@ -158,6 +158,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         add_verbose=True,
         logger=logger,
         version=speech.__version__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "wav_rspecifier", type="kaldi_rspecifier", help="Input wave table rspecifier"
@@ -171,7 +172,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         "computer_config",
         type=_json_type,
         help="JSON file or string to configure a "
-        "``pydrobert.speech.compute.FrameComputer`` object to calculate "
+        "'pydrobert.speech.compute.FrameComputer' object to calculate "
         "features with",
     )
     parser.add_argument(
@@ -191,7 +192,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         type=_json_type,
         default=tuple(),
         help="JSON list of configurations for "
-        "``pydrobert.speech.pre.PreProcessor`` objects. Audio will be "
+        "'pydrobert.speech.pre.PreProcessor' objects. Audio will be "
         "preprocessed in the same order as the list",
     )
     parser.add_argument(
@@ -199,7 +200,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         type=_json_type,
         default=tuple(),
         help="JSON List of configurations for "
-        "``pydrobert.speech.post.PostProcessor`` objects. Features will be "
+        "'pydrobert.speech.post.PostProcessor' objects. Features will be "
         "postprocessed in the same order as the list",
     )
     parser.add_argument(
@@ -217,8 +218,8 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
 def compute_feats_from_kaldi_tables(args: Optional[Sequence[str]] = None) -> None:
     """Store features from a kaldi archive in a kaldi archive
 
-    This command is intended to replace Kaldi's [povey2011]_ series of
-    ``compute-<something>-feats`` scripts in a Kaldi pipeline.
+    This command is intended to replace Kaldi's (https://kaldi-asr.org/) series of
+    "compute-<something>-feats" scripts in a Kaldi pipeline.
     """
     from pydrobert.kaldi.logging import register_logger_for_kaldi  # type: ignore
     from pydrobert.kaldi.io.enums import KaldiDataType  # type: ignore
@@ -332,11 +333,14 @@ def compute_feats_from_kaldi_tables(args: Optional[Sequence[str]] = None) -> Non
 
 
 def _signals_to_torch_feat_dir_parse_args(args):
-    parser = argparse.ArgumentParser(description=signals_to_torch_feat_dir.__doc__)
+    parser = argparse.ArgumentParser(
+        description=signals_to_torch_feat_dir.__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "map",
         type=argparse.FileType("r"),
-        help="Path to the file containing ``utterance, path`` pairs",
+        help="Path to the file containing (<utterance>, <path>) pairs",
     )
     parser.add_argument(
         "computer_config",
@@ -344,15 +348,14 @@ def _signals_to_torch_feat_dir_parse_args(args):
         nargs="?",
         default=None,
         help="JSON file or string to configure a "
-        "pydrobert.speech.compute.FrameComputer object to calculate "
-        "features with. If unspecified, the audio (with channels removed) "
-        "will be stored directly with shape ``(S, 1)``, where ``S`` is the "
-        "number of samples",
+        "pydrobert.speech.compute.FrameComputer object to calculate features with. If "
+        "unspecified, the audio (with channels removed)  will be stored directly with "
+        "shape (S, 1), where S is the number of samples",
     )
     parser.add_argument(
         "dir",
-        help="Directory to output features to. If the directory does "
-        "not exist, it will be created",
+        help="Directory to output features to. If the directory does not exist, it "
+        "will be created",
     )
     parser.add_argument(
         "--channel",
@@ -365,22 +368,22 @@ def _signals_to_torch_feat_dir_parse_args(args):
         type=_json_type,
         default=tuple(),
         help="JSON list of configurations for "
-        "``pydrobert.speech.pre.PreProcessor`` objects. Audio will be "
-        "preprocessed in the same order as the list",
+        "'pydrobert.speech.pre.PreProcessor' objects. Audio will be preprocessed in "
+        "the same order as the list",
     )
     parser.add_argument(
         "--postprocess",
         type=_json_type,
         default=tuple(),
         help="JSON List of configurations for "
-        "``pydrobert.speech.post.PostProcessor`` objects. Features will be "
-        "postprocessed in the same order as the list",
+        "'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed "
+        "in the same order as the list",
     )
     parser.add_argument(
         "--force-as",
         default=None,
         choices={"tab", "wav", "hdf5", "npy", "npz", "pt", "sph", "kaldi", "file"},
-        help="Force the paths in `map` to be interpreted as a specific type "
+        help="Force the paths in 'map' to be interpreted as a specific type "
         "of data. tab: kaldi table (key is utterance id); wav: wave file; "
         "hdf5: HDF5 archive (key is utterance id); npy: Numpy binary; npz: "
         "numpy archive (key is utterance id); pt: PyTorch binary; sph: NIST "
@@ -405,48 +408,44 @@ def _signals_to_torch_feat_dir_parse_args(args):
         "--num-workers",
         type=_nonneg_int_type,
         default=0,
-        help="The number of workers simultaneously computing features. Should "
-        'not affect determinism when used in tandem with "--seed". 0 means '
-        "all work is done on the main thread",
+        help="The number of workers simultaneously computing features. Should not "
+        "affect determinism when used in tandem with --seed. '0' means all work is "
+        "done on the main thread",
     )
     return parser.parse_args(args)
 
 
 def signals_to_torch_feat_dir(args=None):
-    """Convert a map of signals to a torch ``SpectDataSet``
+    """Convert a map of signals to a torch SpectDataSet
 
-    This command serves to process audio signals and convert them into a
-    format that can be leveraged by ``SpectDataSet`` in
-    `pydrobert-pytorch <https://github.com/sdrobert/pydrobert-pytorch>`_.
-    It reads in a text file of format::
+    This command serves to process audio signals and convert them into a format that can
+    be leveraged by "SpectDataSet" in "pydrobert-pytorch"
+    (https://github.com/sdrobert/pydrobert-pytorch). It reads in a text file of
+    format
 
         <utt_id_1> <path_to_signal_1>
         <utt_id_2> <path_to_signal_2>
         ...
 
     computes features according to passed-in settings, and stores them in the
-    target directory as::
+    target directory as
 
         dir/
             <file_prefix><utt_id_1><file_suffix>
             <file_prefix><utt_id_2><file_suffix>
             ...
 
-    Each signal is read using the utility
-    ``pydrobert.speech.util.read_signal()``, which is a bit slow, but very
-    robust to different file types (such as wave files, hdf5, numpy binaries,
-    or Pytorch binaries). A signal is expected to have shape ``(C, S)``, where
-    ``C`` is some number of channels and ``S`` is some number of samples. The
-    signal can have shape ``(S,)`` if the flag ``--channels=-1``.
+    Each signal is read using the utility "pydrobert.speech.util.read_signal()", which
+    is a bit slow, but very robust to different file types (such as wave files, hdf5,
+    numpy binaries, or Pytorch binaries). A signal is expected to have shape (C, S),
+    where C is some number of channels and S is some number of samples. The
+    signal can have shape (S,) if the flag "--channels" is set to "-1".
 
-    Features are output as ``torch.FloatTensor`` of shape ``(T, F)``, where
-    ``T`` is some number of frames and ``F`` is some number of filters.
+    Features are output as "torch.FloatTensor" of shape "(T, F)", where "T" is some
+    number of frames and "F" is some number of filters.
 
-    Warning
-    -------
-    No checks are performed to ensure that read signals match the feature
-    computer's sampling rate (this info may not even exist for some
-    sources).
+    No checks are performed to ensure that read signals match the feature computer's
+    sampling rate (this info may not even exist for some sources).
     """
     try:
         options = _signals_to_torch_feat_dir_parse_args(args)

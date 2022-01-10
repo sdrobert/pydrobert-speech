@@ -19,6 +19,7 @@ import abc
 
 from itertools import count
 from typing import Mapping, Optional, Union
+from typing_extensions import Literal
 
 import numpy as np
 
@@ -65,26 +66,15 @@ class FrameComputer(AliasedFactory):
     The k-th frame can be roughly localized to the signal offset to about ``signal[k *
     computer.frame_shift]``. The signal's exact region of influence is dictated by the
     `frame_style` property.
-
-    Attributes
-    ----------
-    frame_style : {'causal', 'centered'}
-    sampling_rate : float
-    frame_length : int
-    frame_length_ms : float
-    frame_shift : int
-    frame_shift_ms : float
-    num_coeffs : int
-    started : bool
     """
 
     @abc.abstractproperty
-    def frame_style(self) -> str:
+    def frame_style(self) -> Literal["causal", "centered"]:
         """Dictates how the signal is split into frames
 
-        If ``'causal'``, the k-th frame is computed over the indices ``signal[k
+        If :obj:`'causal'`, the k-th frame is computed over the indices ``signal[k
         * frame_shift:k * frame_shift + frame_length]`` (at most). If
-        ``'centered'``, the k-th frame is computed over the indices ``signal[k
+        :obj:`'centered'`, the k-th frame is computed over the indices ``signal[k
         * frame_shift - (frame_length + 1) // 2 + 1:k * frame_shift +
         frame_length // 2 + 1]``. Any range beyond the bounds of the signal is
         generated in an implementation-specific way.
@@ -98,10 +88,7 @@ class FrameComputer(AliasedFactory):
 
     @abc.abstractproperty
     def frame_length(self) -> int:
-        """Number of samples which dictate a feature vector
-
-        .. warning:: Can be different from `get_next_segment_length`
-        """
+        """Number of samples which dictate a feature vector"""
         pass
 
     @property
@@ -128,8 +115,8 @@ class FrameComputer(AliasedFactory):
     def started(self) -> bool:
         """Whether computations for a signal have started
 
-        Becomes :obj:`True` after the first call to ``compute_chunk()``. Becomes
-        ``False`` after call to ``finalize()``
+        Becomes :obj:`True` after the first call to :func:`compute_chunk`. Becomes
+        :obj:`False` after call to :func:`finalize`
         """
         pass
 
@@ -146,10 +133,10 @@ class FrameComputer(AliasedFactory):
 
         Returns
         -------
-        array-like
-            A 2D float array of shape ``(num_frames, num_coeffs)``.
-            ``num_frames`` is nonnegative (possibly 0). Contains some
-            number of feature vectors, ordered in time over axis 0.
+        chunk : np.ndarray
+            A 2D float array of shape ``(num_frames, num_coeffs)``. ``num_frames`` is
+            nonnegative (possibly 0). Contains some number of feature vectors, ordered
+            in time over axis 0.
         """
         pass
 
@@ -159,7 +146,7 @@ class FrameComputer(AliasedFactory):
 
         Returns
         -------
-        array-like
+        chunk : np.ndarray
             A 2D float array of shape ``(num_frames, num_coeffs)``.
             ``num_frames`` is either 1 or 0.
         """
@@ -175,7 +162,7 @@ class FrameComputer(AliasedFactory):
 
         Returns
         -------
-        array-like
+        spec : np.ndarray
             A 2D float array of shape ``(num_frames, num_coeffs)``.
             ``num_frames`` is nonnegative (possibly 0). Contains some
             number of feature vectors, ordered in time over axis 0.
@@ -184,7 +171,7 @@ class FrameComputer(AliasedFactory):
         ------
         ValueError
             If already begin computing frames (``started=True``), and
-            `reset` has not been called
+            :func:`finalize` has not been called
         """
         return frame_by_frame_calculation(self, signal)
 
@@ -201,17 +188,12 @@ class LinearFilterBankFrameComputer(FrameComputer):
     ----------
     bank : pydrobert.speech.filters.LinearFilterBank, dict, or str
         Each filter in the bank corresponds to a coefficient in a
-        frame vector. Can be a LinearFilterBank or something compatible
-        with `pydrobert.speech.alias_factory_subclass_from_arg`
+        frame vector. Can be a :class:`LinearFilterBank` or something compatible
+        with :func:`pydrobert.speech.alias_factory_subclass_from_arg`
     include_energy : bool, optional
         Whether to include a coefficient based on the energy of the
         signal within the frame. If :obj:`True`, the energy coefficient
         will be inserted at index 0.
-
-    Attributes
-    ----------
-    bank : pydrobert.speech.filters.LinearFilterBank
-    includes_energy : bool
     """
 
     def __init__(
@@ -275,7 +257,8 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     frame_shift_ms : float, optional
         The offset between successive frames, in milliseconds
     frame_style : {'causal', 'centered'}, optional
-        Defaults to ``'centered'`` if ``bank.is_zero_phase``, ``'causal'`` otherwise.
+        Defaults to :obj:`'centered'` if ``bank.is_zero_phase``, :obj:`'causal'`
+        otherwise.
     include_energy : bool, optional
     pad_to_nearest_power_of_two : bool, optional
         Whether the DFT should be a padded to a power of two for computational
@@ -284,7 +267,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         The window used in step 1. Can be a :class:`WindowFunction` or something
         compatible with :func:`pydrobert.speech.alias_factory_subclass_from_arg`.
         Defaults to :class:`pydrobert.speech.filters.GammaWindow` when `frame_style` is
-        ``'causal'``, otherwise :class:`pydrobert.speech.filters.HannWindow`.
+        :obj:`'causal'`, otherwise :class:`pydrobert.speech.filters.HannWindow`.
     use_log : bool, optional
         Whether to take the log of the sum from 3b.
     use_power : bool, optional
@@ -293,20 +276,6 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         If :obj:`True`, the k-th frame will be computed using the signal between
         ``signal[ k - frame_length // 2 + frame_shift // 2:k + (frame_length + 1) // 2
         + frame_shift // 2]``. These are the frame bounds for Kaldi [povey2011]_.
-
-    Attributes
-    ----------
-    bank : pydrobert.speech.filters.LinearFilterBank
-    frame_style : {'causal', 'centered'}
-    sampling_rate : float
-    frame_length : int
-    frame_length_ms : float
-    frame_shift : int
-    frame_shift_ms : float
-    include_energy : bool
-    num_coeffs : int
-    started : bool
-    kaldi_shift : bool
     """
 
     aliases = {"stft"}
@@ -637,57 +606,42 @@ STFTFrameComputer = ShortTimeFourierTransformFrameComputer
 class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     """Compute features by integrating over the filter modulus
 
-    Each filter in the bank is convolved with the signal. A pointwise
-    nonlinearity pushes the frequency band towards zero. Most of the
-    energy of the signal can be captured in a short time integration.
-    Though best suited to processing whole utterances at once, short
-    integration is compatable with the frame analogy if the frame is
-    assumed to be the cone of influence of the maximum-length filter.
+    Each filter in the bank is convolved with the signal. A pointwise nonlinearity
+    pushes the frequency band towards zero. Most of the energy of the signal can be
+    captured in a short time integration. Though best suited to processing whole
+    utterances at once, short integration is compatable with the frame analogy if the
+    frame is assumed to be the cone of influence of the maximum-length filter.
 
-    For computational purposes, each filter's impulse response is
-    clamped to zero outside the support of the largest filter in the
-    bank, making it a finite impulse response filter. This effectively
-    decreases the frequency resolution of the filters which aren't
-    already FIR. For better frequency resolution at the cost of
-    computational time, increase `EFFECTIVE_SUPPORT_THRESHOLD`.
+    For computational purposes, each filter's impulse response is clamped to zero
+    outside the support of the largest filter in the bank, making it a finite impulse
+    response filter. This effectively decreases the frequency resolution of the filters
+    which aren't already FIR. For better frequency resolution at the cost of
+    computational time, increase
+    :obj:`pydrobert.speech.config.EFFECTIVE_SUPPORT_THRESHOLD`.
 
     Parameters
     ----------
     bank : pydrobert.speech.filters.LinearFilterBank or dict or str
     frame_shift_ms : float, optional
-        The offset between successive frames, in milliseconds. Also the
-        length of the integration
+        The offset between successive frames, in milliseconds. Also the length of the
+        integration
     frame_style : {'causal', 'centered'}, optional
-        Defaults to ``'centered'`` if `bank.is_zero_phase`, ``'causal'``
-        otherwise. If ``'centered'`` each filter of the bank is
-        translated so that its support lies in the center of the frame
+        Defaults to :obj:`'centered'` if `bank.is_zero_phase`, :obj:`'causal'`
+        otherwise. If :obj:`'centered'` each filter of the bank is translated so that
+        its support lies in the center of the frame
     include_energy : bool, optional
     pad_to_nearest_power_of_two : bool, optional
-        Pad the DFTs used in computation to a power of two for
-        efficient computation
+        Pad the DFTs used in computation to a power of two for efficient computation
     window_function : pydrobert.speech.filters.WindowFunction, dict, or str
         The window used to weigh integration. Can be a :class:`WindowFunction` or
         something compatible with
         :func:`pydrobert.speech.alias_factory_subclass_from_arg`. Defaults to
         :class:`pydrobert.speech.filters.GammaWindow` when ``frame_style`` is
-        ``'causal'``, otherwise :class:`pydrobert.speech.filters.HannWindow`.
+        :obj:`'causal'`, otherwise :class:`pydrobert.speech.filters.HannWindow`.
     use_power : bool, optional
-        Whether the pointwise linearity is the signal's power or
-        magnitude
+        Whether the pointwise linearity is the signal's power or magnitude
     use_log : bool, optional
         Whether to take the log of the integration
-
-    Attributes
-    ----------
-    frame_style : {'causal', 'centered'}
-    sampling_rate : float
-    frame_length : int
-    frame_length_ms : float
-    frame_shift : int
-    frame_shift_ms : float
-    num_coeffs : int
-    started : bool
-    includes_energy : bool
     """
 
     aliases = {"si"}
@@ -1056,10 +1010,10 @@ def frame_by_frame_calculation(
 
     Returns
     -------
-    array-like
-        A 2D float array of shape ``(num_frames, num_coeffs)``.
-        ``num_frames`` is nonnegative (possibly 0). Contains some number
-        of feature vectors, ordered in time over axis 0.
+    spec : array-like
+        A 2D float array of shape ``(num_frames, num_coeffs)``. ``num_frames`` is
+        nonnegative (possibly 0). Contains some number of feature vectors, ordered in
+        time over axis 0.
 
     Raises
     ------

@@ -16,9 +16,9 @@
 
 USE_FFTPACK = False
 """
-The scipy implementation of the FFT can be much faster than the numpy
-one. This is set automatically to ``True`` if `scipy.fftpack` can be
-imported. It can be set to ``False`` to use the numpy implementation.
+The scipy implementation of the FFT can be much faster than the numpy one. This is set
+automatically to :obj:`True` if `scipy.fftpack` can be imported. It can be set to
+:obj:`False` to use the numpy implementation.
 """
 try:
     from scipy import fftpack  # noqa: F401
@@ -29,10 +29,10 @@ except ImportError:
 
 EFFECTIVE_SUPPORT_THRESHOLD = 5e-4
 """
-No function is compactly supported in both the time and Fourier domains,
-but large regions of either domain can be very close to zero. This
-value serves as a threshold for zero. The higher it is, the more
-accurate computations will be, but the longer they will take
+No function is compactly supported in both the time and Fourier domains, but large
+regions of either domain can be very close to zero. This value serves as a threshold for
+zero. The higher it is, the more accurate computations will be, but the longer they will
+take
 """
 
 LOG_FLOOR_VALUE = 1e-5

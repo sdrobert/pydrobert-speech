@@ -62,15 +62,12 @@ except ImportError:
 gauss_quant.__doc__ = """\
 Gaussian quantile function
 
-Given a probability from a univariate Gaussian, determine the
-value of the random variable such that the probability of
-drawing a value l.t.e. to that value is equal to the
-probability. In other words, the so-called inverse cumulative
-distribution function.
+Given a probability from a univariate Gaussian, determine the value of the random
+variable such that the probability of drawing a value l.t.e. to that value is equal to
+the probability. In other words, the so-called inverse cumulative distribution function.
 
-If ``scipy`` can be imported, this function uses ``scipy.norm.ppf``
-to calculate the result. Otherwise, it uses the approximation from
-Odeh & Evans 1974 (thru Brophy 1985)
+If `scipy` can be imported, this function uses :func:`scipy.norm.ppf` to calculate the
+result. Otherwise, it uses the approximation from Odeh & Evans 1974 (thru Brophy 1985)
 
 Parameters
 ----------
@@ -83,7 +80,7 @@ std : float
 
 Returns
 -------
-float
+q : float
     The random variable value
 """
 
@@ -122,8 +119,8 @@ def circshift_fourier(
     shift : float
         The number of samples to be translated by.
     start_idx : int, optional
-        If `filt` is a truncated frequency response, this parameter
-        indicates at what index in the dft the nonzero region starts
+        If `filt` is a truncated frequency response, this parameter indicates at what
+        index in the dft the nonzero region starts
     dft_size : int, optional
         The dft_size of the filter. Defaults to
         ``len(filt) + start_idx``
@@ -132,7 +129,7 @@ def circshift_fourier(
 
     Returns
     -------
-    array-like of complex128
+    out : np.ndarray of complex128
         The filter frequency response, shifted by `u`
     """
     shift %= dft_size
@@ -292,34 +289,34 @@ def read_signal(
     sort, the way it goes about doing so depends on the setting of `rfilename`,
     processed in the following order:
 
-    1. If `rfilename` starts with the regular expression ``r'^(ark|scp)(,\w+)*:'``, the
-       file is treated as a Kaldi table and opened with the kaldi data type `dtype`
-       (defaults to `BaseMatrix`). The package :mod:`pydrobert.kaldi` will be imported
-       to handle reading. If `key` is set, the value associated with that key is
-       retrieved. Otherwise the first listed value is returned.
-    2. If `rfilename` ends with ``.wav``, the file is assumed to be a wave file. The
-       function will rely on the :mod:`scipy` package to load the file if :mod:`scipy`
-       can be imported. Otherwise, it uses the standard :mod:`wave` package. The type of
-       data encodings each package can handle varies, though neither can handle
-       compressed data.
-    3. If `rfilename` ends with ``.hdf5``, the file is assumed to be an HDF5 file. HDF5
-       and :mod:`h5py` must be installed on the host system to read this way. If `key`
-       is set, the data will assumed to be indexed by `key` on the archive. Otherwise, a
-       depth-first search of the archive will be performed for the first data set. If
-       set, data will be cast to as the numpy data type `dtype`
-    4. If `rfilename` ends with ``.npy``, the file is assumed to be a binary in Numpy
-       format. If set, the result will be cast as the numpy data type `dtype`.
-    5. If `rfilename` ends with ``.npz``, the file is assumed to be an archive in numpy
-       format. If `key` is swet, the data indexed by `key` will be loaded. Otherwise the
-       data indexed by the key ``'arr_0'`` will be loaded. If set, the result will be
-       cast as the numpy data type `dtype`.
-    6. If `rfilename` ends with ``.pt``, the file is assumed to be a binary in PyTorch
-       format. If set, the results will be cast as the numpy data type `dtype`.
-    7. If `rfilename` ends with ``.sph``, the file is assumed to be a NIST SPHERE file.
-       If set, the results will be cast as the numpy data type `dtype`
+    1. If `rfilename` starts with the regular expression :obj:`r'^(ark|scp)(,\w+)*:'`,
+       the file is treated as a Kaldi table and opened with the kaldi data type `dtype`
+       (defaults to :class:`BaseMatrix`). The package :mod:`pydrobert.kaldi` will be
+       imported to handle reading. If `key` is set, the value associated with that key
+       is retrieved. Otherwise the first listed value is returned.
+    2. If `rfilename` ends with :obj:`'.wav'`, the file is assumed to be a wave file.
+       The function will rely on the :mod:`scipy` package to load the file if
+       :mod:`scipy` can be imported. Otherwise, it uses the standard :mod:`wave`
+       package. The type of data encodings each package can handle varies, though
+       neither can handle compressed data.
+    3. If `rfilename` ends with :obj:`'.hdf5'`, the file is assumed to be an HDF5 file.
+       HDF5 and :mod:`h5py` must be installed on the host system to read this way. If
+       `key` is set, the data will assumed to be indexed by `key` on the archive.
+       Otherwise, a depth-first search of the archive will be performed for the first
+       data set. If set, data will be cast to as the numpy data type `dtype`
+    4. If `rfilename` ends with :obj:`'.npy'`, the file is assumed to be a binary in
+       Numpy format. If set, the result will be cast as the numpy data type `dtype`.
+    5. If `rfilename` ends with :obj:`'.npz'`, the file is assumed to be an archive in
+       Numpy format. If `key` is swet, the data indexed by `key` will be loaded.
+       Otherwise the data indexed by the key :obj:`'arr_0'` will be loaded. If set, the
+       result will be cast as the numpy data type `dtype`.
+    6. If `rfilename` ends with :obj:`'.pt'`, the file is assumed to be a binary in
+       PyTorch format. If set, the results will be cast as the numpy data type `dtype`.
+    7. If `rfilename` ends with :obj:`'.sph'`, the file is assumed to be a NIST SPHERE
+       file. If set, the results will be cast as the numpy data type `dtype`
     8. If :mod:`pydrobert.kaldi` can be imported, it will try to read an object of kaldi
-       data type `dtype` (defaults to ``BaseMatrix``) from a basic kaldi input stream.
-       If this fails, we continue to step 9.
+       data type `dtype` (defaults to :class:`BaseMatrix`) from a basic kaldi input
+       stream. If this fails, we continue to step 9.
     9. Otherwise, the routine :func:`numpy.fromfile` will be used to load the data (of
        type `dtype`, if provided). :func:`numpy.tofile` does not keep track of shape
        data, so any read data will be 1D.
@@ -342,7 +339,7 @@ def read_signal(
 
     Returns
     -------
-    array-like
+    signal : np.ndarray
 
     Notes
     -----
@@ -407,18 +404,18 @@ def alias_factory_subclass_from_arg(
 ) -> AliasedFactory:
     """Boilerplate for getting an instance of an AliasedFactory
 
-    Rather than an instance itself, a function could receive the
-    arguments to initialize an AliasedFactory with ``from_alias``.
-    This function uses the following strategy to try and do so
+    Rather than an instance itself, a function could receive the arguments to initialize
+    an :class:`AliasedFactory` with :func:`AliasedFactory.from_alias`. This function
+    uses the following strategy to try and do so
 
-    1. If ``arg`` is an instance of ``factory_class``, return ``arg``
-    2. If ``arg`` is a string, use it as the alias
-    3. a. Copy ``arg`` to a dictionary
-       b. Pop the key ``'alias'`` and treat the rest as keyword arguments
-       c. If the key ``'alias'`` is not found, try ``'name'``
+    1. If `arg` is an instance of `factory_class`, return `arg`
+    2. If `arg` is a :class:`str`, use it as the alias
+    3. a. Copy `arg` to a dictionary
+       b. Pop the key :obj:`'alias'` and treat the rest as keyword arguments
+       c. If the key :obj:`'alias'` is not found, try :obj:`'name'`
 
-    This function is intentionally limited in order to work nicely with
-    JSON config files.
+    This function is intentionally limited in order to work nicely with JSON config
+    files.
     """
     if isinstance(arg, factory_class):
         return arg

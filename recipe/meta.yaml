@@ -54,16 +54,6 @@ test:
   imports:
     - pydrobert
     - pydrobert.speech
-    - pydrobert.speech.command_line
-    - pydrobert.speech.compute
-    - pydrobert.speech.config
-    - pydrobert.speech.corpus
-    - pydrobert.speech.filters
-    - pydrobert.speech.post
-    - pydrobert.speech.pre
-    - pydrobert.speech.scales
-    - pydrobert.speech.util
-    - pydrobert.speech.vis
   commands:
     - compute-feats-from-kaldi-tables -h
     - signals-to-torch-feat-dir -h  # [py < 39]
