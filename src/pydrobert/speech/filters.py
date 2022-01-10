@@ -50,18 +50,6 @@ class LinearFilterBank(AliasedFactory):
     A :class:`LinearFilterBank` instance is expected to provide factory methods for
     instantiating a fixed number of LTI filters in either the time or frequency domain.
     Filters should be organized lowest frequency first.
-
-    Attributes
-    ----------
-    is_real : bool
-    is_analytic : bool
-    is_zero_phase : bool
-    num_filts : int
-    sampling_rate : float
-    centers_hz : tuple
-    supports_hz : tuple
-    supports : tuple
-    supports_ms : tuple
     """
 
     @abc.abstractproperty
@@ -71,7 +59,11 @@ class LinearFilterBank(AliasedFactory):
 
     @abc.abstractproperty
     def is_analytic(self) -> bool:
-        """Whether the filters are (approximately) analytic"""
+        """Whether the filters are (approximately) analytic
+        
+        An analytic signal has no negative frequency components. A real signal cannot
+        be analytic.
+        """
         pass
 
     @abc.abstractproperty
@@ -94,7 +86,7 @@ class LinearFilterBank(AliasedFactory):
         pass
 
     @abc.abstractproperty
-    def supports_hz(self) -> Tuple:
+    def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
         """Boundaries of effective support of filter freq responses, in Hz.
 
         Returns a tuple of length `num_filts` containing pairs of floats of the low and
@@ -116,7 +108,7 @@ class LinearFilterBank(AliasedFactory):
         pass
 
     @abc.abstractproperty
-    def supports(self) -> Tuple:
+    def supports(self) -> Tuple[Tuple[float, float], ...]:
         """Boundaries of effective support of filter impulse resps, in samples
 
         Returns a tuple of length `num_filts` containing pairs of integers of the first
@@ -135,7 +127,7 @@ class LinearFilterBank(AliasedFactory):
         pass
 
     @property
-    def supports_ms(self) -> tuple:
+    def supports_ms(self) -> Tuple[Tuple[float, float], ...]:
         """Boundaries of effective support of filter impulse resps, in ms"""
         return tuple(
             (s[0] * 1000 / self.sampling_rate, s[1] * 1000 / self.sampling_rate,)
@@ -158,7 +150,7 @@ class LinearFilterBank(AliasedFactory):
 
         Returns
         -------
-        array-like
+        ir : np.ndarray
             1D float64 or complex128 numpy array of length `width`
         """
         pass
@@ -170,8 +162,8 @@ class LinearFilterBank(AliasedFactory):
         """Construct filter frequency response in a fixed-width buffer
 
         Construct the 2pi-periodized filter in the frequency domain. Zero-phase filters
-        `is_zero_phase` are returned as 8-byte float arrays. Otherwise, they will be
-        16-byte complex floats.
+        are returned as 8-byte float arrays. Otherwise, they will be 16-byte complex
+        floats.
 
         Parameters
         ----------
@@ -180,15 +172,14 @@ class LinearFilterBank(AliasedFactory):
         width : int
             The length of the DFT to output
         half : bool, optional
-            Whether to return only the DFT bins between [0,pi]
+            Whether to return only the DFT bins between ``[0,pi]``
 
         Results
         -------
-        array-like
-            If `half` is `False`, returns a 1D float64 or complex128
-            numpy array of length `width`. If `half` is `True` and
-            `width` is even, the returned array is of length
-            ``width // 2 + 1``. If `width` is odd, the returned array
+        fr : np.ndarray
+            If `half` is :obj:`False`, returns a 1D float64 or complex128 numpy array of
+            length `width`. If `half` is :obj:`True` and `width` is even, the returned
+            array is of length ``width // 2 + 1``. If `width` is odd, the returned array
             is of length ``(width + 1) // 2``.
         """
         pass
@@ -239,7 +230,7 @@ class LinearFilterBank(AliasedFactory):
 
         Returns
         -------
-        tuple of int, array
+        tfr: tuple of int, array
         """
         pass
 
@@ -253,7 +244,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
+    scaling_function : pydrobert.speech.scales.ScalingFunction, str, or dict
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
         :func:`pydrobert.speech.alias_factory_subclass_from_arg`
@@ -268,23 +259,13 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         Whether to use an analytic form of the bank. The analytic form is easily derived
         from the real form in [povey2011]_ and [young]_. Since the filter is compactly
         supported in frequency, the analytic form is simply the suppression of the
-        ``[-pi, 0)`` frequencies
 
-    Attributes
-    ----------
-    centers_hz : tuple
-    is_real : bool
-    is_analytic : bool
-    num_filts : int
-    sampling_rate : float
-    supports_hz : tuple
-    supports : tuple
-    supports_ms : tuple
+        ``[-pi, 0)`` frequencies
 
     Raises
     ------
     ValueError
-        If `high_hz` is above the Nyquist, or `low_hz` is below 0, or
+        If `high_hz` is above the Nyquist, or `low_hz` is below :obj:`0`, or
         ``high_hz <= low_hz``
     """
 
@@ -342,22 +323,22 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         return self._rate
 
     @property
-    def centers_hz(self) -> Tuple[float]:
+    def centers_hz(self) -> Tuple[float, ...]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
-        This property gives the so-called "center frequencies" - the
-        point of maximum gain - of each filter.
+        This property gives the so-called "center frequencies" - the point of maximum
+        gain - of each filter.
         """
         return self._vertices[1:-1]
 
     @property
-    def supports_hz(self) -> tuple:
+    def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
         return tuple(
             (low, high) for low, high in zip(self._vertices[:-2], self._vertices[2:])
         )
 
     @property
-    def supports(self) -> tuple:
+    def supports(self) -> Tuple[Tuple[float, float], ...]:
         # A given filter is bound from above by
         # 2(w_r - w_l) / ((w_c - w_l)(w_r - w_c)t^2pi)
         supports = []
@@ -458,27 +439,26 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 class Fbank(LinearFilterBank):
     """A mel-triangular filter bank that is square-rooted
 
-    An ``Fbank`` instance is intended to replicate the filters from Kaldi
-    [povey2011]_ and HTK [young]_. Its scale is fixed to Mel-scale. Like a
-    ``TriangularOverlappingFilterBank``, ``Fbank`` places the vertices of
-    triangular filters uniformly along the target scale. However, an ``Fbank``
-    is triangular in the Mel-scale, whereas the triangular bank is triangular
-    in frequency.
+    An ``Fbank`` instance is intended to replicate the filters from Kaldi [povey2011]_
+    and HTK [young]_. Its scale is fixed to Mel-scale. Like a
+    ``TriangularOverlappingFilterBank``, ``Fbank`` places the vertices of triangular
+    filters uniformly along the target scale. However, an ``Fbank`` is triangular in the
+    Mel-scale, whereas the triangular bank is triangular in frequency.
 
     Parameters
     ----------
     num_filts : int, optional
         The number of filters in the bank
     high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively.
-        The default for high_hz is the Nyquist
+        The topmost and bottommost edge of the filters, respectively. The default for
+        high_hz is the Nyquist
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
     analytic : bool, optional
-        Whether to use an analytic form of the bank. The analytic form
-        is easily derived from the real form in [1]_ and [2]_. Since
-        the filter is compactly supported in frequency, the analytic
-        form is simply the suppression of the ``[-pi, 0)`` frequencies
+        Whether to use an analytic form of the bank. The analytic form is easily derived
+        from the real form in [povey2011]_ and [young]_. Since the filter is compactly
+        supported in frequency, the analytic form is simply the suppression of the
+        ``[-pi, 0)`` frequencies
 
     Attributes
     ----------
@@ -493,10 +473,10 @@ class Fbank(LinearFilterBank):
 
     Notes
     -----
-    In a standard mel-filterbank spectrogram, the power spectrum is calculated
-    before filtering. This module's spectrogram takes the power spectrum after
-    filtering. To recreate the frequency response of the alternate order, we
-    can take the pointwise square root of the frequency response.
+    In a standard mel-filterbank spectrogram, the power spectrum is calculated before
+    filtering. This module's spectrogram takes the power spectrum after filtering. To
+    recreate the frequency response of the alternate order, we can take the pointwise
+    square root of the frequency response.
     """
 
     aliases = {"fbank"}
@@ -550,22 +530,22 @@ class Fbank(LinearFilterBank):
         return self._rate
 
     @property
-    def centers_hz(self) -> Tuple[float]:
+    def centers_hz(self) -> Tuple[float, ...]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
-        This property gives the so-called "center frequencies" - the
-        point of maximum gain - of each filter.
+        This property gives the so-called "center frequencies" - the point of maximum
+        gain - of each filter.
         """
         return self._vertices[1:-1]
 
     @property
-    def supports_hz(self) -> tuple:
+    def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
         return tuple(
             (low, high) for low, high in zip(self._vertices[:-2], self._vertices[2:])
         )
 
     @property
-    def supports(self) -> tuple:
+    def supports(self) -> Tuple[Tuple[float, float], ...]:
         # A given filter is bound above for t > 0 by
         # ((w_r - w_c) ** .5 + (w_c - w_l) ** .5) /
         #   (2 ** 3 * t ** 3 * (w_c - w_l) * (w_r - w_c) * pi) ** .5
@@ -626,7 +606,9 @@ class Fbank(LinearFilterBank):
                 res[-idx] = val ** 0.5
         return res
 
-    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
+    def get_truncated_response(
+        self, filt_idx: int, width: int
+    ) -> Tuple[int, np.ndarray]:
         scaling_function = MelScaling()
         left_hz = self._vertices[filt_idx]
         mid_hz = self._vertices[filt_idx + 1]
@@ -695,19 +677,6 @@ class GaborFilterBank(LinearFilterBank):
     scale_l2_norm : bool
         Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
         response of each filter will max out at an absolute value of 1.
-    erb : bool
-
-    Attributes
-    ----------
-    centers_hz : tuple
-    is_real : bool
-    is_analytic : bool
-    num_filts : int
-    sampling_rate : float
-    supports_hz : tuple
-    supports : tuple
-    supports_ms : tuple
-    scaled_l2_norm : bool
     erb : bool
 
     See Also
@@ -830,7 +799,7 @@ class GaborFilterBank(LinearFilterBank):
         return self._rate
 
     @property
-    def centers_hz(self) -> Tuple[float]:
+    def centers_hz(self) -> Tuple[float, ...]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
@@ -839,11 +808,11 @@ class GaborFilterBank(LinearFilterBank):
         return self._centers_hz
 
     @property
-    def supports_hz(self) -> tuple:
+    def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
         return self._supports_hz
 
     @property
-    def supports(self) -> tuple:
+    def supports(self) -> Tuple[Tuple[float, float], ...]:
         return self._supports
 
     @property
@@ -901,7 +870,9 @@ class GaborFilterBank(LinearFilterBank):
                 res[idx] += val
         return res
 
-    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
+    def get_truncated_response(
+        self, filt_idx: int, width: int
+    ) -> Tuple[int, np.ndarray]:
         # wrap_supports_ang contains the angular supports of each filter
         # if the effective support threshold were halved. If this
         # support exceeds the 2pi period, overlap from aliasing in the
@@ -983,20 +954,6 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
     scale_l2_norm : bool
         Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
         response of each filter will max out at an absolute value of 1.
-    erb : bool
-
-    Attributes
-    ----------
-    centers_hz : tuple
-    is_real : bool
-    is_analytic : bool
-    num_filts : int
-    order : int
-    sampling_rate : float
-    supports_hz : tuple
-    supports : tuple
-    supports_ms : tuple
-    scaled_l2_norm : bool
     erb : bool
 
     See Also
@@ -1133,20 +1090,20 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         return self._rate
 
     @property
-    def centers_hz(self) -> Tuple[float]:
+    def centers_hz(self) -> Tuple[float, ...]:
         """The point of maximum gain in each filter's frequency response, in Hz
 
-        This property gives the so-called "center frequencies" - the
-        point of maximum gain - of each filter.
+        This property gives the so-called "center frequencies" - the point of maximum
+        gain - of each filter.
         """
         return self._centers_hz
 
     @property
-    def supports_hz(self) -> tuple:
+    def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
         return self._supports_hz
 
     @property
-    def supports(self) -> tuple:
+    def supports(self) -> Tuple[Tuple[float, float], ...]:
         return self._supports
 
     @property
@@ -1188,7 +1145,9 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
                 res[idx] += self._H(omega, filt_idx)
         return res
 
-    def get_truncated_response(self, filt_idx: int, width: int) -> np.ndarray:
+    def get_truncated_response(
+        self, filt_idx: int, width: int
+    ) -> Tuple[int, np.ndarray]:
         left_sup, right_sup = self._supports_ang[filt_idx]
         wrap_ang = self._wrap_supports_ang[filt_idx]
         # wrap_ang is the additional support needed to hit
@@ -1262,7 +1221,18 @@ class WindowFunction(AliasedFactory):
 
     @abc.abstractmethod
     def get_impulse_response(self, width: int) -> np.ndarray:
-        """Write the filter into a numpy array of fixed width"""
+        """Write the filter into a numpy array of fixed width
+        
+        Parameters
+        ----------
+        width : int
+            The length of the window in samples
+        
+        Returns
+        -------
+        ir : np.ndarray
+            A 1D vector of length `width`
+        """
         pass
 
 
@@ -1337,23 +1307,20 @@ class GammaWindow(WindowFunction):
 
     .. math:: p(t; \alpha, n) = t^{n - 1} e^{-\alpha t} u(t)
 
-    Where :math:`n` is the order of the function, :math:`\alpha`
-    controls the bandwidth of the filter, and :math:`u` is the step
-    function.
+    Where :math:`n` is the order of the function, :math:`\alpha` controls the bandwidth
+    of the filter, and :math:`u` is the step function.
 
-    This function returns a window based off a reflected Gamma function.
-    :math:`\alpha` is chosen such that the maximum value of the window
-    aligns with `peak`. The window is clipped to the width. For
-    reasonable values of `peak` (i.e. in the last quarter of samples),
-    the majority of the support should lie in this interval anyways.
+    This function returns a window based off a reflected Gamma function. :math:`\alpha`
+    is chosen such that the maximum value of the window aligns with `peak`. The window
+    is clipped to the width. For reasonable values of `peak` (i.e. in the last quarter
+    of samples), the majority of the support should lie in this interval anyways.
 
     Arguments
     ---------
     order : int
     peak : float
-        ``peak * width``, where ``width`` is the length of the window
-        in samples, is where the approximate maximal value of the window
-        lies
+        ``peak * width``, where ``width`` is the length of the window in samples, is
+        where the approximate maximal value of the window lies
 
     Attributes
     ----------

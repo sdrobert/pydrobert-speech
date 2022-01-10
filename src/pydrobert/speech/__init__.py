@@ -23,14 +23,6 @@ __copyright__ = "Copyright 2021 Sean Robertson"
 
 __all__ = [
     "AliasedFactory",
-    "compute",
-    "config",
-    "filters",
-    "post",
-    "pre",
-    "scales",
-    "util",
-    "vis",
 ]
 
 try:

@@ -17,6 +17,7 @@
 
 from itertools import cycle
 from typing import Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from typing_extensions import Literal
 
 import numpy as np
 
@@ -37,8 +38,8 @@ def plot_frequency_response(
     dft_size: Optional[int] = None,
     half: Optional[bool] = None,
     title: Optional[str] = None,
-    x_scale: str = "hz",
-    y_scale: str = "dB",
+    x_scale: Literal["hz", "ang", "bins"] = "hz",
+    y_scale: Literal["dB", "power", "real", "imag", "both"] = "dB",
     cmap: "Colormap" = None,
 ) -> "Figure":
     """Plot frequency response of filters in a filter bank
@@ -47,7 +48,7 @@ def plot_frequency_response(
     ----------
     bank : banks.LinearFilterBank or sequence
     axes : matplotlib.axes.Axes, optional
-        An Axes object to plot on. Default is to generate a new figure
+        An :class:`Axes` object to plot on. Default is to generate a new figure
     dft_size : int, optional
         The size of the Discrete Fourier Transform to plot. Defaults to
         ``max(max(bank.supports), 2 * bank.sampling_rate // min(bank.supports_hz)``
@@ -58,29 +59,29 @@ def plot_frequency_response(
         What to call the graph. The default is not to show a title
     x_scale : {'hz', 'ang', 'bins'}, optional
         The frequency coordinate scale along the x axis. Hertz
-        (``'hz'``) is cycles/sec, angular frequency (``'ang'``) is
-        radians/sec, and ``'bins'`` is the sample index within the DFT
+        (:obj:`'hz'`) is cycles/sec, angular frequency (:obj:`'ang'`) is
+        radians/sec, and :obj:`'bins'` is the sample index within the DFT
     y_scale : {'dB', 'power', 'real', 'imag', 'both'}, optional
         How to express the frequency response along the y axis. Decibels
-        (``'dB'``) is the log of a ratio of the maximum quantity in the
+        (:obj:`'dB'`) is the log of a ratio of the maximum quantity in the
         bank. The range between 0 and -20 decibels is displayed. Power
-        spectrum (``'power'``) is the squared magnitude of the frequency
-        response. ``'real'`` is the real part of the response,
-        ``'imag'`` is the imaginary part of the response, and ``'both'``
-        displays both ``'real'`` and ``'imag'`` as separate lines
-    cmap : colormap, optinal
-        A colormap to pull colours from. Defaults to matplotlib's default
+        spectrum (:obj:`'power'`) is the squared magnitude of the frequency
+        response. :obj:`'real'` is the real part of the response,
+        :obj:`'imag'` is the imaginary part of the response, and :obj:`'both'`
+        displays both :obj:`'real'` and :obj:`'imag'` as separate lines
+    cmap : Colormap, optinal
+        A :class:`Colormap` to pull colours from. Defaults to matplotlib's default
         colormap
 
     Returns
     -------
-    matplotlib.figure.Figure
-        The containing figure`
+    fig : matplotlib.figure.Figure
+        The containing figure
 
     Raises
     ------
     ImportError
-        If unable to import matplotlib
+        If unable to import `matplotlib`
     """
     from matplotlib import pyplot as plt  # type: ignore
     from matplotlib import ticker  # type: ignore
@@ -249,17 +250,17 @@ def compare_feature_frames(
     axes: Optional[int] = None,
     figure_height: float = None,
     figure_width: float = None,
-    plot_titles: Tuple[str] = None,
-    positions: tuple = None,
+    plot_titles: Tuple[str, ...] = None,
+    positions: Tuple[Union[int, Tuple[int, int]], ...] = None,
     post_ops: Optional[Union[PostProcessor, Sequence[PostProcessor]]] = None,
     title: Optional[str] = None,
     **kwargs
 ) -> "Figure":
     """Compare features from frame computers via spectrogram-like heat map
 
-    Direct comparison of `FrameComputer` objects is possible because all
-    subclasses of this abstract data type share a common interpretation
-    of frame boundaries (according to `FrameComputer.frame_style`).
+    Direct comparison of :class:`FrameComputer` objects is possible because all
+    subclasses of this abstract data type share a common interpretation of frame
+    boundaries (according to :func:`FrameComputer.frame_style`).
 
     Additional keyword args will be passed to the plotting routine.
 
@@ -268,28 +269,25 @@ def compare_feature_frames(
     computers : pydrobert.speech.compute.FrameComputer or sequence
         One or more frame computers to compare
     signal : array-like
-        A 1D array of the raw speech. Assumed to be valid with respect
-        to computer settings (e.g. sample rate).
+        A 1D array of the raw speech. Assumed to be valid with respect to computer
+        settings (e.g. sample rate).
     axes : matplotlib.axes.Axes or tuple, optional
-        By default, this function creates a new figure and subplots.
-        Setting one `axes` value for every `computers` value will plot
-        feature representations from `computers` into each ordered Axes.
-        If `axes` do not belong to the same figure, a :class:`ValueError` will
-        be raised
+        By default, this function creates a new figure and subplots. Setting one
+        `axes` value for every `computers` value will plot feature representations from
+        `computers` into each ordered :class:`Axes`. If `axes` do not belong to the same
+        figure, a :class:`ValueError` will be raised
     figure_height : float, optional
-        If a new figure is created, this sets the figure height (in
-        inches). This value is determined dynamically according to
-        `figure_width` by default. A :class:`ValueError` will be raised if both
-        `figure_height` and `axes` are set
+        If a new figure is created, this sets the figure height (in inches). This value
+        is determined dynamically according to `figure_width` by default. A
+        :class:`ValueError` will be raised if both `figure_height` and `axes` are set
     figure_width : float, optional
-        If a new figure is created, this set the figure width (in
-        inches). This value defaults to 3.33 inches if all subplots are
-        positioned vertically, and to 7 inches if there are at least two
-        columns of plots. A :class:`ValueError` will be raised if both
-        `figure_width` and `axes` are set
+        If a new figure is created, this set the figure width (in inches). This value
+        defaults to 3.33 inches if all subplots are positioned vertically, and to 7
+        inches if there are at least two columns of plots. A :class:`ValueError` will be
+        raised if both `figure_width` and `axes` are set
     plot_titles : tuple, optional
-        An ordered list of strings specifying the titles of each
-        subplot. The default is to not display subplot titles
+        An ordered list of strings specifying the titles of each subplot. The default is
+        to not display subplot titles
     positions : tuple, optional
         If a new figure is created, `positions` decides how the
         subplots should be positioned relative to one another. Can
@@ -305,19 +303,19 @@ def compare_feature_frames(
         feature coefficient axis). To explicitly set the axis, pairs of
         ``(op, axis)`` can be specified in the list. No op is allowed
         to change the shape of the feature representation
-        (e.g. :class:`post.Deltas`), or a :class:`ValueError` will be thrown
+        (e.g. :class:`Deltas`), or a :class:`ValueError` will be thrown
     title : str, optional
         The title of the whole figure. Default is to display no title
 
     Returns
     -------
-    matplotlib.figure.Figure
+    fig : matplotlib.figure.Figure
         The containing figure
 
     Raises
     ------
     ImportError
-        If unable to import matplotlib
+        If unable to import `matplotlib`
     """
     from matplotlib import pyplot as plt
 

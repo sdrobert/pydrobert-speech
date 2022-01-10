@@ -1,3 +1,7 @@
+# v0.3.0
+
+- Cleaned up documentation.
+
 # v0.2.0
 
 A considerable amount of refactoring occurred for this build, chiefly to get

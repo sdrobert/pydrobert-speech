@@ -15,7 +15,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
-
 autodoc_mock_imports = ["numpy", "matplotlib"]
 
 # -- Project information -----------------------------------------------------
@@ -41,6 +40,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.programoutput",
+    "myst_parser",
 ]
 
 naploeon_numpy_docstring = True
@@ -49,6 +50,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org", None),
+    "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
