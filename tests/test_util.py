@@ -53,7 +53,7 @@ def test_gauss_quant(mu, std, do_scipy):
 
 
 @pytest.mark.parametrize("key", [True, False])
-def test_read_kaldi(temp_dir, key):
+def test_read_table(temp_dir, key):
     kaldi = pytest.importorskip("pydrobert.kaldi.io")
     rxfilename = "ark:{}".format(os.path.join(temp_dir, "foo.ark"))
     key_1 = "lions"
@@ -71,10 +71,10 @@ def test_read_kaldi(temp_dir, key):
         assert np.allclose(buff_1, buff_3)
 
 
-@pytest.mark.parametrize("use_scipy", [True, False])
+@pytest.mark.parametrize("backend", ["wav", "scipy", "soundfile"])
 @pytest.mark.parametrize("channels", [1, 2], ids=["mono", "stereo"])
 @pytest.mark.parametrize("sampwidth", [2, 4])
-def test_read_wave(temp_dir, use_scipy, channels, sampwidth):
+def test_read_wave(temp_dir, backend, channels, sampwidth):
     import wave
 
     rfilename = os.path.join(temp_dir, "foo.wav")
@@ -90,9 +90,14 @@ def test_read_wave(temp_dir, use_scipy, channels, sampwidth):
     wave_file.setframerate(8000)
     wave_file.writeframes(wave_bytes)
     wave_file.close()
-    if use_scipy:
+    if backend == "scipy":
         pytest.importorskip("scipy")
         wave_buffer_2 = util._scipy_io_read_signal(rfilename, None, None)
+    elif backend == "soundfile":
+        sf = pytest.importorskip("soundfile")
+        if "WAV" not in sf.available_formats():
+            pytest.skip("libsndfile cannot handle wav files")
+        wave_buffer_2 = util._soundfile_read_signal(rfilename, None, None)
     else:
         wave_buffer_2 = util._wave_read_signal(rfilename, None, None)
     assert np.allclose(wave_buffer_1, wave_buffer_2)
@@ -119,17 +124,19 @@ def test_read_sphere(name):
     wav_file = os.path.join(audio_dir, name + ".wav")
     assert os.path.isfile(sph_file)
     assert os.path.isfile(wav_file)
-    wav = util.read_signal(wav_file, dtype=np.int32)
-    sph = util.read_signal(sph_file, dtype=np.int32)
+    wav = util.read_signal(wav_file)
+    sph = util.read_signal(sph_file)
     assert np.all(sph == wav)
 
 
-@pytest.mark.parametrize("env_var,suffix", [("WSJ_DIR", ".wv1"), ("TIMIT_DIR", ".sph")])
+@pytest.mark.parametrize(
+    "env_var,suffix", [("WSJ_DIR", ".wv1"), ("TIMIT_DIR", ".sph")], ids=["wsj", "timit"]
+)
 def test_read_sphere_corpus(temp_dir, env_var, suffix):
     num_utts = 50
     env_dir = os.environ.get(env_var, None)
     if env_dir is None:
-        pytest.skip("Corpus dir not set")
+        pytest.skip(f"Corpus dir not set (export {env_var})")
     sph2pipe_path = os.environ.get("SPH2PIPE", None)
     if sph2pipe_path is None:
         pytest.skip("SPH2PIPE dir not set")
@@ -151,8 +158,8 @@ def test_read_sphere_corpus(temp_dir, env_var, suffix):
         wav_files.append(wav_file)
         assert not subprocess.call([sph2pipe_path, "-f", "wav", src, wav_file])
     for wav_path, sph_path in zip(wav_files, sphere_files):
-        wav = util.read_signal(wav_path, dtype=np.int32)
-        sph = util.read_signal(sph_path, dtype=np.int32, force_as="sph")
+        wav = util.read_signal(wav_path)
+        sph = util.read_signal(sph_path, force_as="sph")
         assert (wav == sph).all()
 
 
@@ -228,5 +235,20 @@ def test_read_numpy_fromfile(temp_dir, text):
     buff_1 = np.random.random(1000)
     sep = "," if text else ""
     buff_1.tofile(rfilename, sep=sep)
-    buff_2 = util.read_signal(rfilename, sep=sep)
+    buff_2 = util.read_signal(rfilename, sep=sep, force_as="file")
     assert np.allclose(buff_1, buff_2)
+
+
+@pytest.mark.parametrize("filetype", ["wav", "aiff", "flac", "ogg"])
+def test_read_soundfile(filetype):
+    sf = pytest.importorskip("soundfile")
+    if filetype.upper() not in sf.available_formats():
+        pytest.skip(f"This version of libsndfile does not support {filetype}")
+    filename = os.path.join(os.path.dirname(__file__), "audio", "sin1k." + filetype)
+    buff = util.read_signal(filename, dtype=np.float64)
+    buff *= np.blackman(len(buff))
+    pow = np.abs(np.fft.rfft(buff))
+    # 8kHz/sec * 1 sec = 8000 samples
+    # sin at 1kHz = sample 1000
+    assert np.argmax(pow) == 1000
+

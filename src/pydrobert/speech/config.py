@@ -14,10 +14,13 @@
 
 """Package constants used throughout pydrobert.speech"""
 
+from typing import Set
+
+
 USE_FFTPACK = False
 """
 The scipy implementation of the FFT can be much faster than the numpy one. This is set
-automatically to :obj:`True` if `scipy.fftpack` can be imported. It can be set to
+automatically to :obj:`True` if :func:`scipy.fftpack` can be imported. It can be set to
 :obj:`False` to use the numpy implementation.
 """
 try:
@@ -37,3 +40,34 @@ take
 
 LOG_FLOOR_VALUE = 1e-5
 """Value used as floor when taking log in computations"""
+
+
+# N.B. libsndfile's sphere support currently can't decode as many sphere encodings
+# as _sphere.py can
+_BASE_SOUNDFILE_SUPPORTED_TYPES = {"wav", "ogg", "flac", "aiff"}
+_FULL_SOUNDFILE_SUPPORTED_TYPES: Set[str] = set()
+
+SOUNDFILE_SUPPORTED_FILE_TYPES: Set[str] = set()
+f"""
+A list of the types of files SoundFile will be responsible for reading. If
+:mod:`soundfile` can be imported, it's the intersection of
+:func:`soundfile.available_formats` with the set {_BASE_SOUNDFILE_SUPPORTED_TYPES}.
+
+See Also
+--------
+pydrobert.speech.util.read_signal
+    Where this flag is used
+"""
+
+try:
+    import soundfile as sf
+
+    _FULL_SOUNDFILE_SUPPORTED_TYPES = set(x.lower() for x in sf.available_formats())
+
+    SOUNDFILE_SUPPORTED_FILE_TYPES = (
+        _BASE_SOUNDFILE_SUPPORTED_TYPES & _FULL_SOUNDFILE_SUPPORTED_TYPES
+    )
+
+except ImportError:
+    pass
+

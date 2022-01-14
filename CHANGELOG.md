@@ -2,6 +2,12 @@
 
 ## HEAD
 
+- Added `soundfile` decoding to `read_signal`.
+- Removed catch-all condition for `read_signal` (when all else fails, try
+  Kaldi and then `numpy.fromfile`). Breaks v0.2.0 behaviour. Needed for
+  `soundfile`.
+- Default for sphere decoding of u-law/a-law is now to convert to pcm-16 rather
+  than to stay encoded.
 - Removed `setup.py` (builds with `pyproject.toml` and `setup.cfg`).
 - Removed conda recipe in prep for [conda-forge](https://conda-forge.org/).
 - `version.py` -> `_version.py`

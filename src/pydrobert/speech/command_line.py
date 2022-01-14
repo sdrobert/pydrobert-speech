@@ -25,6 +25,7 @@ from typing import Optional, Sequence
 import numpy as np
 
 import pydrobert.speech as speech
+import pydrobert.speech.config as config
 
 from pydrobert.speech.compute import FrameComputer
 from pydrobert.speech.pre import PreProcessor
@@ -382,12 +383,25 @@ def _signals_to_torch_feat_dir_parse_args(args):
     parser.add_argument(
         "--force-as",
         default=None,
-        choices={"tab", "wav", "hdf5", "npy", "npz", "pt", "sph", "kaldi", "file"},
+        choices={
+            "table",
+            "wav",
+            "hdf5",
+            "npy",
+            "npz",
+            "pt",
+            "sph",
+            "kaldi",
+            "file",
+            "soundfile",
+        }
+        | config.SOUNDFILE_SUPPORTED_FILE_TYPES,
         help="Force the paths in 'map' to be interpreted as a specific type "
-        "of data. tab: kaldi table (key is utterance id); wav: wave file; "
+        "of data. table: kaldi table (key is utterance id); wav: wave file; "
         "hdf5: HDF5 archive (key is utterance id); npy: Numpy binary; npz: "
         "numpy archive (key is utterance id); pt: PyTorch binary; sph: NIST "
-        "SPHERE file; kaldi: kaldi object; file: numpy.fromfile binary",
+        "SPHERE file; kaldi: kaldi object; file: numpy.fromfile binary. soundfile: "
+        "force soundfile processing.",
     )
     parser.add_argument(
         "--seed",

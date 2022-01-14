@@ -51,6 +51,7 @@ intersphinx_mapping = {
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org", None),
     "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
+    "soundfile": ("https://python-soundfile.readthedocs.io/en/latest/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.

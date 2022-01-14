@@ -1,6 +1,57 @@
 Command-Line Interface
 ======================
 
+compute-feats-from-kaldi-tables
+-------------------------------
+
+::
+
+  compute-feats-from-kaldi-tables -h
+  usage: compute-feats-from-kaldi-tables [-h] [-v VERBOSE] [--config CONFIG]
+                                         [--print-args PRINT_ARGS]
+                                         [--min-duration MIN_DURATION]
+                                         [--channel CHANNEL]
+                                         [--preprocess PREPROCESS]
+                                         [--postprocess POSTPROCESS]
+                                         [--seed SEED]
+                                         wav_rspecifier feats_wspecifier
+                                         computer_config
+  
+  Store features from a kaldi archive in a kaldi archive
+  
+      This command is intended to replace Kaldi's (https://kaldi-asr.org/) series of
+      "compute-<something>-feats" scripts in a Kaldi pipeline.
+      
+  
+  positional arguments:
+    wav_rspecifier        Input wave table rspecifier
+    feats_wspecifier      Output feature table wspecifier
+    computer_config       JSON file or string to configure a
+                          'pydrobert.speech.compute.FrameComputer' object to
+                          calculate features with
+  
+  optional arguments:
+    -h, --help            show this help message and exit
+    -v VERBOSE, --verbose VERBOSE
+                          Verbose level (higher->more logging)
+    --config CONFIG
+    --print-args PRINT_ARGS
+    --min-duration MIN_DURATION
+                          Min duration of segments to process (in seconds)
+    --channel CHANNEL     Channel to draw audio from. Default is to assume mono
+    --preprocess PREPROCESS
+                          JSON list of configurations for
+                          'pydrobert.speech.pre.PreProcessor' objects. Audio
+                          will be preprocessed in the same order as the list
+    --postprocess POSTPROCESS
+                          JSON List of configurations for
+                          'pydrobert.speech.post.PostProcessor' objects.
+                          Features will be postprocessed in the same order as
+                          the list
+    --seed SEED           A random seed used for determinism. This affects
+                          operations like dithering. If unset, a seed will be
+                          generated at the moment
+
 signals-to-torch-feat-dir
 -------------------------
 
@@ -9,7 +60,7 @@ signals-to-torch-feat-dir
   usage: signals-to-torch-feat-dir [-h] [--channel CHANNEL]
                                    [--preprocess PREPROCESS]
                                    [--postprocess POSTPROCESS]
-                                   [--force-as {hdf5,tab,kaldi,wav,npz,pt,npy,file,sph}]
+                                   [--force-as {npz,wav,table,hdf5,pt,soundfile,aiff,ogg,sph,flac,file,npy,kaldi}]
                                    [--seed SEED] [--file-prefix FILE_PREFIX]
                                    [--file-suffix FILE_SUFFIX]
                                    [--num-workers NUM_WORKERS]
@@ -70,14 +121,15 @@ signals-to-torch-feat-dir
                           'pydrobert.speech.post.PostProcessor' objects.
                           Features will be postprocessed in the same order as
                           the list
-    --force-as {hdf5,tab,kaldi,wav,npz,pt,npy,file,sph}
+    --force-as {npz,wav,table,hdf5,pt,soundfile,aiff,ogg,sph,flac,file,npy,kaldi}
                           Force the paths in 'map' to be interpreted as a
-                          specific type of data. tab: kaldi table (key is
+                          specific type of data. table: kaldi table (key is
                           utterance id); wav: wave file; hdf5: HDF5 archive (key
                           is utterance id); npy: Numpy binary; npz: numpy
                           archive (key is utterance id); pt: PyTorch binary;
                           sph: NIST SPHERE file; kaldi: kaldi object; file:
-                          numpy.fromfile binary
+                          numpy.fromfile binary. soundfile: force soundfile
+                          processing.
     --seed SEED           A random seed used for determinism. This affects
                           operations like dithering. If unset, a seed will be
                           generated at the moment
@@ -90,55 +142,4 @@ signals-to-torch-feat-dir
                           features. Should not affect determinism when used in
                           tandem with --seed. '0' means all work is done on the
                           main thread
-
-compute-feats-from-kaldi-tables
--------------------------------
-
-::
-
-  compute-feats-from-kaldi-tables -h
-  usage: compute-feats-from-kaldi-tables [-h] [-v VERBOSE] [--config CONFIG]
-                                         [--print-args PRINT_ARGS]
-                                         [--min-duration MIN_DURATION]
-                                         [--channel CHANNEL]
-                                         [--preprocess PREPROCESS]
-                                         [--postprocess POSTPROCESS]
-                                         [--seed SEED]
-                                         wav_rspecifier feats_wspecifier
-                                         computer_config
-  
-  Store features from a kaldi archive in a kaldi archive
-  
-      This command is intended to replace Kaldi's (https://kaldi-asr.org/) series of
-      "compute-<something>-feats" scripts in a Kaldi pipeline.
-      
-  
-  positional arguments:
-    wav_rspecifier        Input wave table rspecifier
-    feats_wspecifier      Output feature table wspecifier
-    computer_config       JSON file or string to configure a
-                          'pydrobert.speech.compute.FrameComputer' object to
-                          calculate features with
-  
-  optional arguments:
-    -h, --help            show this help message and exit
-    -v VERBOSE, --verbose VERBOSE
-                          Verbose level (higher->more logging)
-    --config CONFIG
-    --print-args PRINT_ARGS
-    --min-duration MIN_DURATION
-                          Min duration of segments to process (in seconds)
-    --channel CHANNEL     Channel to draw audio from. Default is to assume mono
-    --preprocess PREPROCESS
-                          JSON list of configurations for
-                          'pydrobert.speech.pre.PreProcessor' objects. Audio
-                          will be preprocessed in the same order as the list
-    --postprocess POSTPROCESS
-                          JSON List of configurations for
-                          'pydrobert.speech.post.PostProcessor' objects.
-                          Features will be postprocessed in the same order as
-                          the list
-    --seed SEED           A random seed used for determinism. This affects
-                          operations like dithering. If unset, a seed will be
-                          generated at the moment
 
