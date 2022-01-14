@@ -43,8 +43,8 @@ LOG_FLOOR_VALUE = 1e-5
 
 
 # N.B. libsndfile's sphere support currently can't decode as many sphere encodings
-# as _sphere can
-_BASE_SOUNDFILE_SUPPORTED_TYPES = {"wav", "ogg", "flac", "mp3", "aiff"}
+# as _sphere.py can
+_BASE_SOUNDFILE_SUPPORTED_TYPES = {"wav", "ogg", "flac", "aiff"}
 _FULL_SOUNDFILE_SUPPORTED_TYPES: Set[str] = set()
 
 SOUNDFILE_SUPPORTED_FILE_TYPES: Set[str] = set()

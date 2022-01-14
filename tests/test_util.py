@@ -239,7 +239,7 @@ def test_read_numpy_fromfile(temp_dir, text):
     assert np.allclose(buff_1, buff_2)
 
 
-@pytest.mark.parametrize("filetype", ["wav", "aiff", "flac", "mp3", "ogg"])
+@pytest.mark.parametrize("filetype", ["wav", "aiff", "flac", "ogg"])
 def test_read_soundfile(filetype):
     sf = pytest.importorskip("soundfile")
     if filetype.upper() not in sf.available_formats():
