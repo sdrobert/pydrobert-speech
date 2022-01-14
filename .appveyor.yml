@@ -1,0 +1,34 @@
+version: build.{build}.branch.{branch}
+image: Visual Studio 2019
+
+environment:
+  matrix:
+    - TOXENV: py36
+    - TOXENV: py37
+    - TOXENV: py38
+    - TOXENV: py39
+    - TOXENV: py310
+
+
+branches:
+  except:
+    - /docs/
+
+for:
+  -
+    matrix:
+      only:
+        - TOXENV: "py37"
+        - TOXENV: "py38"
+        - TOXENV: "py39"
+    skip_non_tags: true
+
+build: off
+
+install:
+  - py -3.7 -m pip install -U pip wheel setuptools
+  - py -3.7 -m pip install -U tox
+
+test_script:
+  - py -3.7 -m tox
+

@@ -19,7 +19,11 @@ import abc
 
 from itertools import count
 from typing import Mapping, Optional, Union
-from typing_extensions import Literal
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 import numpy as np
 

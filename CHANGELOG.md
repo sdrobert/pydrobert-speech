@@ -1,8 +1,13 @@
-# v0.3.0
+# Change Log
 
+## HEAD
+
+- Removed `setup.py` (builds with `pyproject.toml` and `setup.cfg`).
+- Removed conda recipe in prep for [conda-forge](https://conda-forge.org/).
+- `version.py` -> `_version.py`
 - Cleaned up documentation.
 
-# v0.2.0
+## v0.2.0
 
 A considerable amount of refactoring occurred for this build, chiefly to get
 rid of Python 2.7 support. While the functionality did not change much for this
