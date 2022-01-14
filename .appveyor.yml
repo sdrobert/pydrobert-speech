@@ -26,8 +26,9 @@ for:
 build: off
 
 install:
-  - py -3.6 -m pip install -U pip wheel setuptools setuptools_scm tox tox-appveyor
+  - py -3.7 -m pip install -U pip wheel setuptools
+  - py -3.7 -m pip install -U tox tox-appveyor
 
 test_script:
-  - py -3.6 -m tox
+  - py -3.7 -m tox
 
