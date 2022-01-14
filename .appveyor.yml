@@ -18,7 +18,7 @@ for:
   -
     matrix:
       only:
-        - TOXENV: "py37"
+        - TOXENV: "py36"
         - TOXENV: "py38"
         - TOXENV: "py39"
     skip_non_tags: true
