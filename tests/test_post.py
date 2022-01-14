@@ -103,7 +103,7 @@ def test_standardize_write_read(temp_file_1_name):
     x_1_p_2 = stand_1.apply(x_1, axis=1)
     assert not np.allclose(x_1_p_1, x_1_p_2)
     stand_1.save(temp_file_1_name)
-    stand_2 = post.Standardize(temp_file_1_name)
+    stand_2 = post.Standardize(temp_file_1_name, force_as="file")
     x_1_p_3 = stand_2.apply(x_1, axis=1)
     assert np.allclose(x_1_p_2, x_1_p_3)
 

@@ -30,7 +30,7 @@ DIR = os.path.dirname(__file__)
 CLI_RST = os.path.join(DIR, "source", "cli.rst")
 
 buff = "Command-Line Interface\n======================\n\n"
-for cmd_name in {"compute-feats-from-kaldi-tables", "signals-to-torch-feat-dir"}:
+for cmd_name in ("compute-feats-from-kaldi-tables", "signals-to-torch-feat-dir"):
     buff += cmd_name + "\n" + ("-" * len(cmd_name)) + "\n\n::\n\n  "
     sys.argv[0] = cmd_name
     func = next(

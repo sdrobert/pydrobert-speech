@@ -18,6 +18,7 @@
 from re import match
 from typing import Any, Mapping, Optional, Type, Union
 
+import pydrobert.speech.config as config
 import numpy as np
 
 from pydrobert.speech import AliasedFactory
@@ -276,12 +277,39 @@ def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
     return data
 
 
+def _soundfile_read_signal(rfilename, dtype, key, **kwargs):
+    import soundfile
+
+    fi = soundfile.info(rfilename)
+    if fi.subtype == "FLOAT":
+        dtype_ = np.float32
+    elif fi.subtype == "DOUBLE":
+        dtype_ = np.float64
+    elif fi.subtype == "PCM_S8":
+        dtype_ = np.int8
+    elif fi.subtype == {"PCM_U8"}:
+        dtype_ = np.uint8
+    elif fi.subtype in {"PCM_32", "PCM_24"}:
+        dtype_ = np.int32
+    else:
+        # FIXME(sdrobert): PCM_16 is a decent guess for the remainder of types, but
+        # it's definitely not complete
+        dtype_ = np.int16
+    data = soundfile.read(rfilename, dtype=dtype_, **kwargs)[0]
+    if dtype is not None:
+        # if you don't do this as a second stage and you want floats out the back,
+        # soundfile will scale those to the range +/- 1. Other decoders are two-stage
+        # as well.
+        data = data.astype(dtype)
+    return data
+
+
 def read_signal(
     rfilename: str,
     dtype: Optional[np.dtype] = None,
     key: Any = None,
     force_as: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> np.ndarray:
     r"""Read a signal from a variety of possible sources
 
@@ -289,37 +317,37 @@ def read_signal(
     sort, the way it goes about doing so depends on the setting of `rfilename`,
     processed in the following order:
 
-    1. If `rfilename` starts with the regular expression :obj:`r'^(ark|scp)(,\w+)*:'`,
-       the file is treated as a Kaldi table and opened with the kaldi data type `dtype`
-       (defaults to :class:`BaseMatrix`). The package :mod:`pydrobert.kaldi` will be
-       imported to handle reading. If `key` is set, the value associated with that key
-       is retrieved. Otherwise the first listed value is returned.
-    2. If `rfilename` ends with :obj:`'.wav'`, the file is assumed to be a wave file.
-       The function will rely on the :mod:`scipy` package to load the file if
-       :mod:`scipy` can be imported. Otherwise, it uses the standard :mod:`wave`
-       package. The type of data encodings each package can handle varies, though
-       neither can handle compressed data.
-    3. If `rfilename` ends with :obj:`'.hdf5'`, the file is assumed to be an HDF5 file.
-       HDF5 and :mod:`h5py` must be installed on the host system to read this way. If
-       `key` is set, the data will assumed to be indexed by `key` on the archive.
-       Otherwise, a depth-first search of the archive will be performed for the first
-       data set. If set, data will be cast to as the numpy data type `dtype`
-    4. If `rfilename` ends with :obj:`'.npy'`, the file is assumed to be a binary in
-       Numpy format. If set, the result will be cast as the numpy data type `dtype`.
-    5. If `rfilename` ends with :obj:`'.npz'`, the file is assumed to be an archive in
-       Numpy format. If `key` is swet, the data indexed by `key` will be loaded.
-       Otherwise the data indexed by the key :obj:`'arr_0'` will be loaded. If set, the
-       result will be cast as the numpy data type `dtype`.
-    6. If `rfilename` ends with :obj:`'.pt'`, the file is assumed to be a binary in
-       PyTorch format. If set, the results will be cast as the numpy data type `dtype`.
-    7. If `rfilename` ends with :obj:`'.sph'`, the file is assumed to be a NIST SPHERE
-       file. If set, the results will be cast as the numpy data type `dtype`
-    8. If :mod:`pydrobert.kaldi` can be imported, it will try to read an object of kaldi
-       data type `dtype` (defaults to :class:`BaseMatrix`) from a basic kaldi input
-       stream. If this fails, we continue to step 9.
-    9. Otherwise, the routine :func:`numpy.fromfile` will be used to load the data (of
-       type `dtype`, if provided). :func:`numpy.tofile` does not keep track of shape
-       data, so any read data will be 1D.
+    1.  If `rfilename` starts with the regular expression :obj:`r'^(ark|scp)(,\w+)*:'`,
+        the file is treated as a Kaldi table and opened with the kaldi data type `dtype`
+        (defaults to :class:`BaseMatrix`). The package :mod:`pydrobert.kaldi` will be
+        imported to handle reading. If `key` is set, the value associated with that key
+        is retrieved. Otherwise the first listed value is returned.
+    2.  If `rfilename` ends with a file type listed in
+        :obj:`pydrobert.speech.config.SOUNDFILE_SUPPORTED_FILE_TYPES` (requires
+        :mod:`soundfile`), the file will be opened with that audio file type.
+    3.  If `rfilename` ends with :obj:`'.wav'`, the file is assumed to be a wave file.
+        The function will rely on the :mod:`scipy` package to load the file if
+        :mod:`scipy` can be imported. Otherwise, it uses the standard :mod:`wave`
+        package. The type of data encodings each package can handle varies, though
+        neither can handle compressed data.
+    4.  If `rfilename` ends with :obj:`'.hdf5'`, the file is assumed to be an HDF5 file.
+        HDF5 and :mod:`h5py` must be installed on the host system to read this way. If
+        `key` is set, the data will assumed to be indexed by `key` on the archive.
+        Otherwise, a depth-first search of the archive will be performed for the first
+        data set. If set, data will be cast to as the numpy data type `dtype`
+    5.  If `rfilename` ends with :obj:`'.npy'`, the file is assumed to be a binary in
+        Numpy format. If set, the result will be cast as the numpy data type `dtype`.
+    6.  If `rfilename` ends with :obj:`'.npz'`, the file is assumed to be an archive in
+        Numpy format. If `key` is swet, the data indexed by `key` will be loaded.
+        Otherwise the data indexed by the key :obj:`'arr_0'` will be loaded. If set, the
+        result will be cast as the numpy data type `dtype`.
+    7.  If `rfilename` ends with :obj:`'.pt'`, the file is assumed to be a binary in
+        PyTorch format. If set, the results will be cast as the numpy data type `dtype`.
+    8.  If `rfilename` ends with :obj:`'.sph'`, the file is assumed to be a NIST SPHERE
+        file. If set, the results will be cast as the numpy data type `dtype`
+    9.  If `rfilename`` ends with ``'|'``, it will try to read an object of kaldi data
+        type `dtype` (defaults to :class:`BaseMatrix`) from a basic kaldi input stream.
+    10. Otherwise, we throw an :class:`IOError`
 
     Additional keyword arguments are passed along to the associated
     open or read operation.
@@ -335,22 +363,40 @@ def read_signal(
         table; ``'wav'``: wave file; ``'hdf5'``: HDF5 file; ``'npy'``: Numpy
         binary; ``'npz'``: Numpy archive; ``'pt'``: PyTorch binary; ``'sph'``:
         NIST sphere; ``'kaldi'`` Kaldi object; ``'file'`` read via
-        :func:`numpy.fromfile`
+        :func:`numpy.fromfile`. The types in :obj:`SOUNDFILE_SUPPORTED_FILE_TYPES`
+        are also valid values. `'soundfile'` will use :mod:`soundfile` to read the file
+        regardless of the suffix.
 
     Returns
     -------
     signal : np.ndarray
 
+    Warnings
+    --------
+    Post v 0.2.0, the behaviour after step 8 changed. Instead of trying to read first as
+    Kaldi input, and, failing that, via :func:`numpy.fromfile`, we try to read as Kaldi
+    input if the file name ends with ``'|'`` and error otherwise. The catch-all
+    behaviour was disabled due to the interaction with
+    :obj:`pydrobert.speech.SOUNDFILE_SUPPORTED_FILE_TYPES` whose value depends on the
+    existence of :mod:`soundfile` and the underlying version of
+    `libsndfile <https://libsndfile.github.io/libsndfile>`__.
+
     Notes
     -----
 
-    Code for reading SPHERE files was based off of `sph2pipe v 2.5
+    Python code for reading SPHERE files (not via :mod:soundfile`) was based off of
+    `sph2pipe v 2.5
     <https://www.ldc.upenn.edu/language-resources/tools/sphere-conversion-tools>`__.
     That code can only suppport the "shorten" audio format up to version 2.
     """
     if force_as is None:
         if match(r"^(ark|scp)(,\w+)*:", rfilename):
             force_as = "table"
+        elif (
+            rfilename.rsplit(".", maxsplit=1)[-1]
+            in config.SOUNDFILE_SUPPORTED_FILE_TYPES
+        ):
+            force_as = "soundfile"
         elif rfilename.endswith(".wav"):
             force_as = "wav"
         elif rfilename.endswith(".hdf5"):
@@ -363,6 +409,10 @@ def read_signal(
             force_as = "pt"
         elif rfilename.endswith(".sph"):
             force_as = "sph"
+        elif rfilename.endswith("|"):
+            force_as = "kaldi"
+        else:
+            raise IOError(f"Unable to infer file type from {rfilename}. Set force_as.")
     if force_as == "table":
         data = _kaldi_table_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "wav":
@@ -386,16 +436,33 @@ def read_signal(
         data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "file":
         data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
-    elif force_as is None:
-        try:
-            data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
-        except Exception:
-            data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
+    elif force_as == "soundfile":
+        data = _soundfile_read_signal(rfilename, dtype, key, **kwargs)
     else:
-        raise ValueError(
-            "force_as ({}) is not one of table, wav, hdf5, npy, npz, pt, sph,"
-            "kaldi, file".format(force_as)
-        )
+        avail_force_as = {
+            "table",
+            "wav",
+            "hdf5",
+            "npy",
+            "npz",
+            "pt",
+            "sph",
+            "kaldi",
+            "file",
+            "soundfile",
+        } | config.SOUNDFILE_SUPPORTED_FILE_TYPES
+        msg = f"force_as ('{force_as}') is not one of {avail_force_as}."
+        if force_as in config._BASE_SOUNDFILE_SUPPORTED_TYPES:
+            msg += (
+                "\n... but it could be, with the proper version of libsndfile and "
+                "pysoundfile installed"
+            )
+        elif force_as in config._FULL_SOUNDFILE_SUPPORTED_TYPES:
+            msg += (
+                "\n... but pysoundfile may be able to handle it. "
+                "Try setting force_as = 'soundfile'"
+            )
+        raise ValueError(msg)
     return data
 
 
