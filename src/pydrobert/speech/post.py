@@ -27,10 +27,11 @@ from pydrobert.speech import AliasedFactory
 from pydrobert.speech.util import read_signal
 
 __all__ = [
-    "PostProcessor",
-    "Standardize",
     "CMVN",
     "Deltas",
+    "PostProcessor",
+    "Stack",
+    "Standardize",
 ]
 
 
@@ -43,8 +44,7 @@ class PostProcessor(AliasedFactory):
     ) -> np.ndarray:
         """Applies the transformation to a feature tensor
 
-        Consult the class documentation for more details on what the
-        transformation is.
+        Consult the class documentation for more details on what the transformation is.
 
         Parameters
         ----------
@@ -204,7 +204,7 @@ class Standardize(PostProcessor):
         """
         if (features.shape and not np.prod(features.shape)) or not len(features):
             raise ValueError("Cannot accumulate from empty array")
-        if features.shape and len(features.shape) > 1:
+        if features.shape and features.ndim > 1:
             self._accumulate_tensor(features, axis)
         else:
             self._accumulate_vector(features)
@@ -297,7 +297,7 @@ class Standardize(PostProcessor):
     ) -> np.ndarray:
         if (features.shape and not np.prod(features.shape)) or not len(features):
             raise ValueError("Cannot apply to empty array")
-        if features.shape and len(features.shape) > 1:
+        if features.shape and features.ndim > 1:
             return self._apply_tensor(features, axis, in_place)
         else:
             return self._apply_vector(features, in_place)
@@ -445,7 +445,7 @@ class Deltas(PostProcessor):
         concatenate: bool = True,
         context_window: int = 2,
         pad_mode: Union[str, Callable] = "edge",
-        **kwargs
+        **kwargs,
     ):
         self._target_axis = target_axis
         self._pad_mode = pad_mode
@@ -464,12 +464,10 @@ class Deltas(PostProcessor):
     ) -> np.ndarray:
         delta_feats = [features]
         other_axes = tuple(
-            idx
-            for idx in range(len(features.shape))
-            if idx != axis % len(features.shape)
+            idx for idx in range(features.ndim) if idx != axis % features.ndim
         )
         other_shapes = tuple(features.shape[idx] for idx in other_axes)
-        feat_slice = [slice(None)] * len(features.shape)
+        feat_slice = [slice(None)] * features.ndim
         for filt in self._filts[1:]:
             delta_feat = np.empty(features.shape, dtype=features.dtype)
             max_offset = (len(filt) - 1) // 2
@@ -481,7 +479,7 @@ class Deltas(PostProcessor):
                         features[tuple(feat_slice)].astype(np.float64, copy=False),
                         (max_offset, max_offset),
                         self._pad_mode,
-                        **self._pad_kwargs
+                        **self._pad_kwargs,
                     ),
                     filt,
                     "full",
@@ -491,3 +489,82 @@ class Deltas(PostProcessor):
             return np.concatenate(delta_feats, self._target_axis)
         else:
             return np.stack(delta_feats, self._target_axis)
+
+
+class Stack(PostProcessor):
+    """Stack contiguous feature vectors together
+
+    Parameters
+    ----------
+    num_vectors : int
+        The number of subsequent feature vectors in time to be stacked.
+    time_axis : int, optional
+        The axis along which subsequent feature vectors are drawn.
+    pad_mode : str or function or None, optional
+        Specified how the axis in time will be padded on the right in order to be
+        divisible by `num_vectors`. Additional keyword arguments will be passed to
+        :func:`numpy.pad`. If unspecified, frames will instead be discarded in order to
+        be divisible by `num_vectors`.
+    
+    Attributes
+    ----------
+    num_vectors : int
+    time_axis : int
+    pad_mode : str or function or None
+    """
+
+    aliases = {"stack"}
+
+    num_vectors: int
+    time_axis: int
+
+    def __init__(
+        self,
+        num_vectors: int,
+        time_axis: int = 0,
+        pad_mode: Optional[Union[str, Callable]] = None,
+        **kwargs,
+    ) -> None:
+        if num_vectors < 1:
+            raise ValueError(f"Expected num_vectors to be positive, got {num_vectors}")
+        self.num_vectors = num_vectors
+        self.time_axis = time_axis
+        self._pad_mode = pad_mode
+        self._pad_kwargs = kwargs
+
+    def apply(
+        self, features: np.ndarray, axis: int = -1, in_place: bool = False
+    ) -> np.ndarray:
+        axis = axis % features.ndim
+        time_axis = self.time_axis % features.ndim
+        if axis == time_axis:
+            raise RuntimeError(f"feature and time axes are the same ({axis})")
+        shape = list(features.shape)
+        T, F = shape[time_axis], shape[axis]
+        if self._pad_mode is not None:
+            rem = T % self.num_vectors
+            if rem:
+                padding = [(0, 0)] * features.ndim
+                padding[time_axis] = (0, self.num_vectors - rem)
+                features = np.pad(features, padding, self._pad_mode, **self._pad_kwargs)
+                in_place = True
+                T += self.num_vectors - rem
+        nT, nF = T // self.num_vectors, F * self.num_vectors
+        T = nT * self.num_vectors
+        if features.ndim == 2:
+            if not in_place:
+                features = features.copy()
+            if time_axis:
+                features = features.T
+            features = features[:T]
+            features = features.reshape(nT, nF)
+            if time_axis:
+                features = features.T
+        else:
+            feat_slice = [slice(None)] * features.ndim
+            buffs = []
+            for i in range(self.num_vectors):
+                feat_slice[time_axis] = slice(i, T, self.num_vectors)
+                buffs.append(features[tuple(feat_slice)])
+            features = np.concatenate(buffs, axis)
+        return features
