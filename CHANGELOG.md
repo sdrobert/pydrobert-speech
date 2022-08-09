@@ -2,6 +2,7 @@
 
 ## HEAD
 
+- Added `Stack` to `post`
 - Added `soundfile` decoding to `read_signal`.
 - Removed catch-all condition for `read_signal` (when all else fails, try
   Kaldi and then `numpy.fromfile`). Breaks v0.2.0 behaviour. Needed for
