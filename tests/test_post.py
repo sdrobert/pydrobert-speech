@@ -191,3 +191,37 @@ def test_compare_to_kaldi(buff, num_deltas, window, dtype):
     delta_res = deltas.apply(buff, axis=0)
     kaldi_res = kaldi_deltas.apply(buff)
     assert np.allclose(delta_res, kaldi_res)
+
+
+@pytest.mark.parametrize("transpose", [True, False])
+def test_stack_2dim(transpose):
+    buff = np.arange(30).reshape(10, 3)
+    exp = buff[:9].reshape(3, 9)
+    axis, time_axis = 1, 0
+    if transpose:
+        axis, time_axis = time_axis, axis
+        buff, exp = buff.T, exp.T
+    stack = post.Stack(3, time_axis=time_axis)
+    act = stack.apply(buff, axis)
+    assert (exp == act).all()
+
+
+@pytest.mark.parametrize("pad_mode", [None, "edge"])
+def test_stack_3dim(pad_mode):
+    buff = np.arange(20).reshape(5, 2, 2)
+    stack = post.Stack(2, pad_mode=pad_mode)
+    exp = np.array(
+        [
+            [[0, 1, 4, 5], [2, 3, 6, 7]],
+            [[8, 9, 12, 13], [10, 11, 14, 15]],
+            [[16, 17, 16, 17], [18, 19, 18, 19]],
+        ]
+    )
+    act = stack.apply(buff)
+    if pad_mode is None:
+        assert act.shape == (2, 2, 4)
+        assert np.all(act == exp[:2])
+    else:
+        assert act.shape == exp.shape
+        assert np.all(act == exp)
+
