@@ -2,6 +2,7 @@
 
 ## HEAD
 
+- Removed Python 3.6 support
 - Bug fix for issue #14 - Gammatone alpha coefficient wrong for ERB
 - Added `Stack` to `post`
 - Added `soundfile` decoding to `read_signal`.
