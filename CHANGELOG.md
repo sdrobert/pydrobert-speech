@@ -2,6 +2,7 @@
 
 ## HEAD
 
+- Bug fix for issue #14 - Gammatone alpha coefficient wrong for ERB
 - Added `Stack` to `post`
 - Added `soundfile` decoding to `read_signal`.
 - Removed catch-all condition for `read_signal` (when all else fails, try

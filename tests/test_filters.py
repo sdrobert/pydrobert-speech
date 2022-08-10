@@ -76,13 +76,11 @@ def test_truncated_matches_full(bank):
         left_samp, right_samp = bank.supports[filt_idx]
         dft_size = int(
             max(
-                (right_samp - left_samp) * (1 + np.random.random()),
+                (right_samp - left_samp),
                 2 * bank.sampling_rate / (right_hz - left_hz),
                 1,
             )
         )
-        left_period = int(np.floor(left_hz / bank.sampling_rate))
-        right_period = int(np.ceil(right_hz / bank.sampling_rate))
         full_response = bank.get_frequency_response(filt_idx, dft_size)
         bin_idx, truncated = bank.get_truncated_response(filt_idx, dft_size)
         challenge = np.zeros(dft_size, dtype=truncated.dtype)
@@ -104,14 +102,12 @@ def test_truncated_matches_full(bank):
             )
         )
         assert np.allclose(
-            full_response,
-            challenge,
-            atol=(right_period - left_period) * EFFECTIVE_SUPPORT_THRESHOLD,
+            full_response, challenge, atol=EFFECTIVE_SUPPORT_THRESHOLD,
         ), "idx: {} threshold:{} full:{} challenge:{}".format(
             filt_idx,
             EFFECTIVE_SUPPORT_THRESHOLD,
-            full_response[bad_idx],
-            challenge[bad_idx],
+            abs(full_response[bad_idx]),
+            abs(challenge[bad_idx]),
         )
 
 
