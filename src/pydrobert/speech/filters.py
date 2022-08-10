@@ -1015,7 +1015,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         log_factorial = np.log(np.math.factorial(order - 1))
         log_2 = np.log(2)
         if erb:
-            alpha_const = (order - 1) * log_2
+            alpha_const = log_2 * (2 * order - 1)
             alpha_const += 2 * log_factorial
             alpha_const -= log_double_factorial
         else:
@@ -1139,10 +1139,9 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         else:
             dft_size = width
         res = np.zeros(dft_size, dtype=np.complex128)
+        omega = np.arange(dft_size, dtype=np.float64) * 2 * np.pi / width
         for period in range(left_period, right_period + 1):
-            for idx in range(dft_size):
-                omega = (idx / width + period) * 2 * np.pi
-                res[idx] += self._H(omega, filt_idx)
+            res += self._H(omega + 2 * np.pi * period, filt_idx)
         return res
 
     def get_truncated_response(
@@ -1156,8 +1155,8 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         # the threshold due to wrapping.
         if right_sup - left_sup + wrap_ang >= 2 * np.pi:
             return 0, self.get_frequency_response(filt_idx, width)
-        left_idx = int(np.ceil(width * left_sup / 2 / np.pi))
-        right_idx = int(width * right_sup / 2 / np.pi)
+        left_idx = int(np.ceil(width * left_sup / (2 * np.pi)))
+        right_idx = int(width * right_sup / (2 * np.pi))
         omega = np.arange(left_idx, right_idx + 1, dtype=np.float64)
         omega *= 2 * np.pi / width
         return left_idx % width, self._H(omega, filt_idx)
