@@ -3,7 +3,6 @@ image: Visual Studio 2019
 
 environment:
   matrix:
-    - TOXENV: py36
     - TOXENV: py37
     - TOXENV: py38
     - TOXENV: py39
@@ -18,7 +17,6 @@ for:
   -
     matrix:
       only:
-        - TOXENV: "py37"
         - TOXENV: "py38"
         - TOXENV: "py39"
     skip_non_tags: true
