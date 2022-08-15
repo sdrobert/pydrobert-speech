@@ -404,9 +404,9 @@ class Deltas(PostProcessor):
 
     where
 
-    .. math:: Z = \sqrt{\frac{2W^3}{3}}
+    .. math:: Z = \sum_t f(t) ** 2
 
-    For some :math:`W`. Its Fourier Transform is
+    for some :math:`W \geq 1`. Its Fourier Transform is
 
     .. math::
 
