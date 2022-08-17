@@ -1,48 +1,24 @@
 version: build.{build}.branch.{branch}
+image: Visual Studio 2019
 
 environment:
   matrix:
-    # - TOXENV: py37
-    # - TOXENV: py38
-    # - TOXENV: py39
-    # - TOXENV: py310
-    - job_name: dist
+    - TOXENV: py37
+    - TOXENV: py38
+    - TOXENV: py39
+    - TOXENV: py310
 
 branches:
   except:
     - /docs/
 
 for:
-  - 
-    matrix:
-      except:
-        - job_name: dist
-    APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2019
-
   -
     matrix:
       only:
         - TOXENV: "py38"
         - TOXENV: "py39"
     skip_non_tags: true
-  
-  -
-    matrix:
-      only:
-        - job_name: dist
-    APPVEYOR_BUILD_WORKER_IMAGE: Ubuntu
-    stack: python 3.7
-    install:
-      - python -m pip install build twine wheel
-    build: script
-    build_script:
-      - python -m build -o dist
-    test_script:
-      - python -m twine check dist/*
-      - python -m pip install dist/*.whl pytest
-      - python -m pytest
-    artifacts:
-      path: 'dist\*'
 
 build: off
 
