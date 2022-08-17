@@ -3,11 +3,11 @@ image: Visual Studio 2019
 
 environment:
   matrix:
-    - TOXENV: py37
-    - TOXENV: py38
-    - TOXENV: py39
-    - TOXENV: py310
-
+    # - TOXENV: py37
+    # - TOXENV: py38
+    # - TOXENV: py39
+    # - TOXENV: py310
+    - job_name: dist
 
 branches:
   except:
@@ -20,6 +20,20 @@ for:
         - TOXENV: "py38"
         - TOXENV: "py39"
     skip_non_tags: true
+  
+  - matrix:
+      only:
+        - job_name: dist
+      install:
+        - py -3.7 -m pip install build twine
+      build: script
+      build_script:
+        - py -3.7 -m build -o dist
+      test_script:
+        - py -3.7 -m pip install (Resolve-Path 'dist\*.whl').Path pytest
+        - py -3.7 -m pytest
+      artifacts:
+        path: 'dist\*'
 
 build: off
 

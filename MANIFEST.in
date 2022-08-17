@@ -1,1 +1,2 @@
 prune extras
+exclude .appveyor.yml
