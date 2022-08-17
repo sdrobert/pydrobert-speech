@@ -31,6 +31,7 @@ for:
     build_script:
       - py -3.7 -m build -o dist
     test_script:
+      - py -3.7 -m twine check (Resolve-Path 'dist\*').Path
       - py -3.7 -m pip install (Resolve-Path 'dist\*.whl').Path pytest
       - py -3.7 -m pytest
     artifacts:
@@ -44,4 +45,3 @@ install:
 
 test_script:
   - py -3.7 -m tox
-
