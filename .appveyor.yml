@@ -21,7 +21,8 @@ for:
         - TOXENV: "py39"
     skip_non_tags: true
   
-  - matrix:
+  -
+    matrix:
       only:
         - job_name: dist
       install:
