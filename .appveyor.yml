@@ -1,5 +1,4 @@
 version: build.{build}.branch.{branch}
-image: Visual Studio 2019
 
 environment:
   matrix:
@@ -14,6 +13,12 @@ branches:
     - /docs/
 
 for:
+  - 
+    matrix:
+      except:
+        - job_name: dist
+    image: Visual Studio 2019
+
   -
     matrix:
       only:
