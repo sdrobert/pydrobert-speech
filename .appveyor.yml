@@ -26,6 +26,7 @@ for:
     matrix:
       only:
         - job_name: dist
+    skip_non_tags: true
     stack: python 3.7
     install:
       - python -m pip install -U pip build twine wheel

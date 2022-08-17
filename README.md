@@ -46,7 +46,6 @@ to use it.
 ## Documentation
 
 - [Latest](https://pydrobert-speech.readthedocs.io/en/latest/)
-- [Stable](https://pydrobert-speech.readthedocs.io/en/stable/)
 
 ## Installation
 
