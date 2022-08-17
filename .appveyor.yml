@@ -3,10 +3,10 @@ image: Visual Studio 2019
 
 environment:
   matrix:
-    # - TOXENV: py37
-    # - TOXENV: py38
-    # - TOXENV: py39
-    # - TOXENV: py310
+    - TOXENV: py37
+    - TOXENV: py38
+    - TOXENV: py39
+    - TOXENV: py310
     - job_name: dist
 
 branches:
@@ -27,6 +27,7 @@ for:
     matrix:
       only:
         - job_name: dist
+    skip_non_tags: true
     install:
       - python -m pip install -U pip build twine wheel
     build: script

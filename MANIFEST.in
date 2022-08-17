@@ -1,2 +1,3 @@
 prune extras
 exclude .appveyor.yml
+exclude .gitignore
