@@ -13,7 +13,6 @@ branches:
   except:
     - /docs/
 
-stack: python 3.7
 
 for:
   -
@@ -27,7 +26,7 @@ for:
     matrix:
       only:
         - job_name: dist
-    skip_non_tags: true
+    stack: python 3.7
     install:
       - python -m pip install -U pip build twine wheel
     build: script
@@ -43,8 +42,8 @@ for:
 build: off
 
 install:
-  - python -m pip install -U pip wheel setuptools
-  - python -m pip install -U tox
+  - py -3.7 -m pip install -U pip wheel setuptools
+  - py -3.7 -m pip install -U tox
 
 test_script:
-  - python -m tox
+  - py -3.7 -m tox
