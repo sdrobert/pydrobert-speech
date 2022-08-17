@@ -25,16 +25,16 @@ for:
     matrix:
       only:
         - job_name: dist
-      install:
-        - py -3.7 -m pip install build twine
-      build: script
-      build_script:
-        - py -3.7 -m build -o dist
-      test_script:
-        - py -3.7 -m pip install (Resolve-Path 'dist\*.whl').Path pytest
-        - py -3.7 -m pytest
-      artifacts:
-        path: 'dist\*'
+    install:
+      - py -3.7 -m pip install build twine
+    build: script
+    build_script:
+      - py -3.7 -m build -o dist
+    test_script:
+      - py -3.7 -m pip install (Resolve-Path 'dist\*.whl').Path pytest
+      - py -3.7 -m pytest
+    artifacts:
+      path: 'dist\*'
 
 build: off
 
