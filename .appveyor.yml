@@ -25,15 +25,17 @@ for:
     matrix:
       only:
         - job_name: dist
+    image: Ubuntu
+    stack: python 3.7
     install:
-      - py -3.7 -m pip install build twine wheel
+      - python -m pip install build twine wheel
     build: script
     build_script:
-      - py -3.7 -m build -o dist
+      - python -m build -o dist
     test_script:
-      - ps: py -3.7 -m twine check (Resolve-Path 'dist\*').Path
-      - ps: py -3.7 -m pip install (Resolve-Path 'dist\*.whl').Path pytest
-      - py -3.7 -m pytest
+      - python -m twine check dist/*
+      - python -m pip install dist/*.whl pytest
+      - python -m pytest
     artifacts:
       path: 'dist\*'
 
