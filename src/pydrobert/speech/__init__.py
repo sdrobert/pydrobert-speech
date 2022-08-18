@@ -33,7 +33,6 @@ __all__ = [
     "pre",
     "scales",
     "util",
-    "vis",
 ]
 
 

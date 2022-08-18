@@ -129,7 +129,7 @@ class FrameComputer(AliasedFactory):
 
         Parameters
         ----------
-        chunk : array-like
+        chunk
             A 1D float array of the signal. Should be contiguous and non-overlapping
             with any previously processed segments in the audio stream
 

@@ -12,11 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Visualization functions"""
+"""Visualization functions
 
+Raises
+------
+ImportError
+    This submodule requires :mod:`matplotlib`
+"""
 
 from itertools import cycle
-from typing import Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from typing import Optional, Sequence, Tuple, Union
 
 try:
     from typing import Literal
@@ -25,27 +30,32 @@ except ImportError:
 
 import numpy as np
 
+from matplotlib import pyplot as plt
+from matplotlib import ticker
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
+from matplotlib.figure import Figure
 from pydrobert.speech.filters import LinearFilterBank
 from pydrobert.speech.compute import FrameComputer, LinearFilterBankFrameComputer
 from pydrobert.speech.post import PostProcessor
 
-if TYPE_CHECKING:
-    # don't want to trip up import errors unless we're sure we're calling something
-    from matplotlib.axes import Axes  # noqa: F401
-    from matplotlib.colors import Colormap  # noqa: F401
-    from matplotlib.figure import Figure  # noqa: F401
+
+__all__ = [
+    "compare_feature_frames",
+    "plot_frequency_response",
+]
 
 
 def plot_frequency_response(
     banks: Union[Sequence[LinearFilterBank], LinearFilterBank],
-    axes: Optional["Axes"] = None,
+    axes: Optional[Axes] = None,
     dft_size: Optional[int] = None,
     half: Optional[bool] = None,
     title: Optional[str] = None,
     x_scale: Literal["hz", "ang", "bins"] = "hz",
     y_scale: Literal["dB", "power", "real", "imag", "both"] = "dB",
-    cmap: "Colormap" = None,
-) -> "Figure":
+    cmap: Colormap = None,
+) -> Figure:
     """Plot frequency response of filters in a filter bank
 
     Parameters
@@ -81,15 +91,7 @@ def plot_frequency_response(
     -------
     fig : matplotlib.figure.Figure
         The containing figure
-
-    Raises
-    ------
-    ImportError
-        If unable to import `matplotlib`
     """
-    from matplotlib import pyplot as plt  # type: ignore
-    from matplotlib import ticker  # type: ignore
-
     try:
         len(banks)
     except AttributeError:  # 1 bank
@@ -259,7 +261,7 @@ def compare_feature_frames(
     post_ops: Optional[Union[PostProcessor, Sequence[PostProcessor]]] = None,
     title: Optional[str] = None,
     **kwargs
-) -> "Figure":
+) -> Figure:
     """Compare features from frame computers via spectrogram-like heat map
 
     Direct comparison of :class:`FrameComputer` objects is possible because all
@@ -315,13 +317,7 @@ def compare_feature_frames(
     -------
     fig : matplotlib.figure.Figure
         The containing figure
-
-    Raises
-    ------
-    ImportError
-        If unable to import `matplotlib`
     """
-    from matplotlib import pyplot as plt
 
     try:
         iter(computers)

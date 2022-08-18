@@ -19,12 +19,8 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Project information -----------------------------------------------------
 
 project = "pydrobert-speech"
-copyright = "2021, Sean Robertson"
+copyright = "2022, Sean Robertson"
 author = "Sean Robertson"
-
-# The full version, including alpha/beta/rc tags
-release = ""
-
 language = "en"
 
 
@@ -34,23 +30,25 @@ language = "en"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.programoutput",
-    "myst_parser",
+    "sphinx_autodoc_typehints",
 ]
 
 naploeon_numpy_docstring = True
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/", None),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
+    "python": ("https://docs.python.org/", None),
     "soundfile": ("https://python-soundfile.readthedocs.io/en/latest/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -61,7 +59,16 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-autodoc_mock_imports = ["numpy", "matplotlib"]
+napoleon_numpy_docstring = True
+napoleon_google_docstring = False
+napoleon_include_init_with_doc = True
+autodoc_mock_imports = [
+    "numpy",
+    "matplotlib.axes",
+    "matplotlib.colors",
+    "matplotlib.figure",
+    "matplotlib",
+]
 autodoc_typehints = "none"
 autodoc_inherit_docstrings = False
 # autodoc_preserve_defaults = True
