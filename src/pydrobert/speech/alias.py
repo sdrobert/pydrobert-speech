@@ -15,28 +15,40 @@
 """Functionality to do with alias factories"""
 
 import abc
-from typing import Mapping, Type, Union
+from typing import Any, Mapping, Set, Type, TypeVar, Union, Type
 
 __all__ = [
     "alias_factory_subclass_from_arg",
     "AliasedFactory",
 ]
 
+T = TypeVar("T", bound="AliasedFactory", covariant=True)
+
 
 class AliasedFactory(abc.ABC):
     """An abstract interface for initialing concrete subclasses with aliases"""
 
-    aliases = set()
+    aliases: Set[str] = set()
+    """class aliases for :func:`from_alias`"""
 
     @classmethod
-    def from_alias(cls, alias: str, *args, **kwargs):
+    def from_alias(cls: Type[T], alias: str, *args, **kwargs) -> T:
         """Factory method for initializing a subclass that goes by an alias
 
-        All subclasses of this class have the class attribute ``aliases``. This method
-        matches `alias` to an element in some subclass' ``aliases`` and initializes it.
+        All subclasses of this class have the class attribute `aliases`. This method
+        matches `alias` to an element in some subclass' `aliases` and initializes it.
         Aliases of this class are included in the search. Alias conflicts are resolved
         by always trying to initialize the last registered subclass that matches the
         alias.
+
+        Parameters
+        ----------
+        alias
+            Alias of the subclass
+        *args
+            Positional arguments to initialize the subclass
+        **kwargs
+            Keyword arguments to initialize the subclass
 
         Raises
         ------
@@ -58,8 +70,8 @@ class AliasedFactory(abc.ABC):
 
 
 def alias_factory_subclass_from_arg(
-    factory_class: Type[AliasedFactory], arg: Union[AliasedFactory, str, Mapping]
-) -> AliasedFactory:
+    factory_class: Type[T], arg: Union[T, str, Mapping[str, Any]]
+) -> T:
     """Boilerplate for getting an instance of an AliasedFactory
 
     Rather than an instance itself, a function could receive the arguments to initialize

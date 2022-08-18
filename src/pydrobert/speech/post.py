@@ -82,6 +82,7 @@ class Standardize(PostProcessor):
     ----------
     rfilename
     norm_var
+    **kwargs
 
     Notes
     -----
@@ -94,7 +95,7 @@ class Standardize(PostProcessor):
         Describes the strategy used for loading signals
     """
 
-    aliases = {"standardize", "normalize", "unit", "cmvn"}
+    aliases = {"standardize", "normalize", "unit", "cmvn"}  #:
 
     def __init__(
         self, rfilename: Optional[str] = None, norm_var: bool = True, **kwargs
@@ -153,7 +154,7 @@ class Standardize(PostProcessor):
 
     @property
     def have_stats(self) -> bool:
-        """Whether at least one feature vector has been accumulated"""
+        """bool : Whether at least one feature vector has been accumulated"""
         return self._stats is not None and self._stats[0, -1]
 
     def _accumulate_vector(self, vec):
@@ -426,15 +427,16 @@ class Deltas(PostProcessor):
     target_axis
     concatenate
     context_window
-        The length of the filter to either side of the window. Positive
+        The length of the filter to either side of the window. Positive.
     pad_mode
-        How to pad the input sequence when correlating. Additional keyword arguments
-        will be passed to :func:`numpy.pad`
+        How to pad the input sequence when correlating
+    **kwargs
+        Additional keyword arguments to be passed to :func:`numpy.pad`
     """
 
-    aliases = {"deltas"}
-    concatenate: bool
-    num_deltas: int
+    aliases = {"deltas"}  #:
+    concatenate: bool  #:
+    num_deltas: int  #:
 
     def __init__(
         self,
@@ -505,10 +507,9 @@ class Stack(PostProcessor):
         be divisible by `num_vectors`.
     """
 
-    aliases = {"stack"}
-
-    num_vectors: int
-    time_axis: int
+    aliases = {"stack"}  #:
+    num_vectors: int  #:
+    time_axis: int  #:
 
     def __init__(
         self,

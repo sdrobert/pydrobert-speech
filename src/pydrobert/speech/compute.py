@@ -73,7 +73,7 @@ class FrameComputer(AliasedFactory):
 
     @abc.abstractproperty
     def frame_style(self) -> Literal["causal", "centered"]:
-        """Dictates how the signal is split into frames
+        """str : Dictates how the signal is split into frames
 
         If :obj:`'causal'`, the k-th frame is computed over the indices ``signal[k *
         frame_shift:k * frame_shift + frame_length]`` (at most). If :obj:`'centered'`,
@@ -86,37 +86,37 @@ class FrameComputer(AliasedFactory):
 
     @abc.abstractproperty
     def sampling_rate(self) -> float:
-        """Number of samples in a second of a target recording"""
+        """float : Number of samples in a second of a target recording"""
         pass
 
     @abc.abstractproperty
     def frame_length(self) -> int:
-        """Number of samples which dictate a feature vector"""
+        """int : Number of samples which dictate a feature vector"""
         pass
 
     @property
     def frame_length_ms(self) -> float:
-        """Number of milliseconds of audio which dictate a feature vector"""
+        """float : Number of milliseconds of audio which dictate a feature vector"""
         return self.frame_length * 1000 / self.sampling_rate
 
     @abc.abstractproperty
     def frame_shift(self) -> int:
-        """Number of samples absorbed between successive frame computations"""
+        """int : Number of samples absorbed between successive frame computations"""
         pass
 
     @property
     def frame_shift_ms(self) -> float:
-        """Number of milliseconds between succecssive frame computations"""
+        """float : Number of milliseconds between succecssive frame computations"""
         return self.frame_shift * 1000 / self.sampling_rate
 
     @abc.abstractproperty
     def num_coeffs(self) -> int:
-        """Number of coefficients returned per frame"""
+        """int : Number of coefficients returned per frame"""
         pass
 
     @abc.abstractproperty
     def started(self) -> bool:
-        """Whether computations for a signal have started
+        """bool : Whether computations for a signal have started
 
         Becomes :obj:`True` after the first call to :func:`compute_chunk`. Becomes
         :obj:`False` after call to :func:`finalize`
@@ -191,7 +191,7 @@ class LinearFilterBankFrameComputer(FrameComputer):
     bank
         Each filter in the bank corresponds to a coefficient in a frame vector. Can be a
         :class:`LinearFilterBank` or something compatible with
-        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     include_energy
         Whether to include a coefficient based on the energy of the signal within the
         frame. If :obj:`True`, the energy coefficient will be inserted at index 0.
@@ -205,12 +205,12 @@ class LinearFilterBankFrameComputer(FrameComputer):
 
     @property
     def bank(self) -> LinearFilterBank:
-        """The LinearFilterBank from which features are derived"""
+        """LinearFilterBank : The LinearFilterBank from which features are derived"""
         return self._bank
 
     @property
     def includes_energy(self) -> bool:
-        """Whether the first coefficient is an energy coefficient"""
+        """bool : Whether the first coefficient is an energy coefficient"""
         return self._include_energy
 
     @property
@@ -252,6 +252,9 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     Parameters
     ----------
     bank
+        Each filter in the bank corresponds to a coefficient in a frame vector. Can be a
+        :class:`LinearFilterBank` or something compatible with
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     frame_length_ms
         The length of a frame, in milliseconds. Defaults to the length of the largest
         filter in the bank
@@ -279,7 +282,7 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
         + frame_shift // 2]``. These are the frame bounds for Kaldi [povey2011]_.
     """
 
-    aliases = {"stft"}
+    aliases = {"stft"}  #:
 
     def __init__(
         self,
@@ -623,6 +626,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
     Parameters
     ----------
     bank
+        Each filter in the bank corresponds to a coefficient in a frame vector. Can be a
+        :class:`LinearFilterBank` or something compatible with
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     frame_shift_ms
         The offset between successive frames, in milliseconds. Also the length of the
         integration
@@ -645,7 +651,7 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
         Whether to take the log of the integration
     """
 
-    aliases = {"si"}
+    aliases = {"si"}  #:
 
     def __init__(
         self,

@@ -54,12 +54,12 @@ class LinearFilterBank(AliasedFactory):
 
     @abc.abstractproperty
     def is_real(self) -> bool:
-        """Whether the filters are real or complex"""
+        """bool : Whether the filters are real or complex"""
         pass
 
     @abc.abstractproperty
     def is_analytic(self) -> bool:
-        """Whether the filters are (approximately) analytic
+        """bool : Whether the filters are (approximately) analytic
         
         An analytic signal has no negative frequency components. A real signal cannot
         be analytic.
@@ -68,7 +68,7 @@ class LinearFilterBank(AliasedFactory):
 
     @abc.abstractproperty
     def is_zero_phase(self) -> bool:
-        """Whether the filters are zero phase or not
+        """bool : Whether the filters are zero phase or not
 
         Zero phase filters are even functions with no imaginary part in the fourier
         domain. Their impulse responses center around 0.
@@ -77,17 +77,17 @@ class LinearFilterBank(AliasedFactory):
 
     @abc.abstractproperty
     def num_filts(self) -> int:
-        """Number of filters in the bank"""
+        """int : Number of filters in the bank"""
         pass
 
     @abc.abstractproperty
     def sampling_rate(self) -> float:
-        """Number of samples in a second of a target recording"""
+        """float : Number of samples in a second of a target recording"""
         pass
 
     @abc.abstractproperty
     def supports_hz(self) -> Tuple[Tuple[float, float], ...]:
-        """Boundaries of effective support of filter freq responses, in Hz.
+        """tuple : Boundaries of effective support of filter freq responses, in Hz.
 
         Returns a tuple of length `num_filts` containing pairs of floats of the low and
         high frequencies. Frequencies outside the span have a response of approximately
@@ -109,7 +109,7 @@ class LinearFilterBank(AliasedFactory):
 
     @abc.abstractproperty
     def supports(self) -> Tuple[Tuple[float, float], ...]:
-        """Boundaries of effective support of filter impulse resps, in samples
+        """tuple : Boundaries of effective support of filter impulse resps, in samples
 
         Returns a tuple of length `num_filts` containing pairs of integers of the first
         and last (effectively) nonzero samples.
@@ -128,7 +128,7 @@ class LinearFilterBank(AliasedFactory):
 
     @property
     def supports_ms(self) -> Tuple[Tuple[float, float], ...]:
-        """Boundaries of effective support of filter impulse resps, in ms"""
+        """tuple : Boundaries of effective support of filter impulse resps, in ms"""
         return tuple(
             (s[0] * 1000 / self.sampling_rate, s[1] * 1000 / self.sampling_rate,)
             for s in self.supports
@@ -247,7 +247,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
     scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
-        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     num_filts
         The number of filters in the bank
     high_hz
@@ -270,7 +270,7 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         ``high_hz <= low_hz``
     """
 
-    aliases = {"tri", "triangular"}
+    aliases = {"tri", "triangular"}  #:
 
     def __init__(
         self,
@@ -471,7 +471,7 @@ class Fbank(LinearFilterBank):
     square root of the frequency response.
     """
 
-    aliases = {"fbank"}
+    aliases = {"fbank"}  #:
 
     def __init__(
         self,
@@ -523,7 +523,7 @@ class Fbank(LinearFilterBank):
 
     @property
     def centers_hz(self) -> Tuple[float, ...]:
-        """The point of maximum gain in each filter's frequency response, in Hz
+        """tuple : The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the point of maximum
         gain - of each filter.
@@ -658,7 +658,7 @@ class GaborFilterBank(LinearFilterBank):
     scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
-        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     num_filts
         The number of filters in the bank
     high_hz
@@ -679,7 +679,7 @@ class GaborFilterBank(LinearFilterBank):
         The absolute value below which counts as zero
     """
 
-    aliases = {"gabor"}
+    aliases = {"gabor"}  #:
 
     def __init__(
         self,
@@ -794,7 +794,7 @@ class GaborFilterBank(LinearFilterBank):
 
     @property
     def centers_hz(self) -> Tuple[float, ...]:
-        """The point of maximum gain in each filter's frequency response, in Hz
+        """tuple :The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the
         point of maximum gain - of each filter.
@@ -931,7 +931,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
     scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
-        :func:`pydrobert.speech.alias_factory_subclass_from_arg`
+        :func:`pydrobert.speech.alias.alias_factory_subclass_from_arg`
     num_filts
         The number of filters in the bank
     high_hz
@@ -958,7 +958,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         The absolute value below which counts as zero
     """
 
-    aliases = {"gammatone", "tonebank"}
+    aliases = {"gammatone", "tonebank"}  #:
 
     def __init__(
         self,
@@ -1087,7 +1087,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     @property
     def centers_hz(self) -> Tuple[float, ...]:
-        """The point of maximum gain in each filter's frequency response, in Hz
+        """int : The point of maximum gain in each filter's frequency response, in Hz
 
         This property gives the so-called "center frequencies" - the point of maximum
         gain - of each filter.
@@ -1239,7 +1239,7 @@ class BartlettWindow(WindowFunction):
     numpy.bartlett
     """
 
-    aliases = {"bartlett", "triangular", "tri"}
+    aliases = {"bartlett", "triangular", "tri"}  #:
 
     def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.bartlett(width)
@@ -1255,7 +1255,7 @@ class BlackmanWindow(WindowFunction):
     numpy.blackman
     """
 
-    aliases = {"blackman", "black"}
+    aliases = {"blackman", "black"}  #:
 
     def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.blackman(width)
@@ -1271,7 +1271,7 @@ class HammingWindow(WindowFunction):
     numpy.hamming
     """
 
-    aliases = {"hamming"}
+    aliases = {"hamming"}  #:
 
     def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.hamming(width)
@@ -1287,7 +1287,7 @@ class HannWindow(WindowFunction):
     numpy.hanning
     """
 
-    aliases = {"hanning", "hann"}
+    aliases = {"hanning", "hann"}  #:
 
     def get_impulse_response(self, width: int) -> np.ndarray:
         window = np.hanning(width)
@@ -1318,9 +1318,9 @@ class GammaWindow(WindowFunction):
         where the approximate maximal value of the window lies
     """
 
-    order : int
-    peak : int
-    aliases = {"gamma"}
+    order: int  #:
+    peak: float  #:
+    aliases = {"gamma"}  #:
 
     def __init__(self, order: int = 4, peak: float = 0.75):
         self.order = order

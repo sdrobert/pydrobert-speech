@@ -379,6 +379,7 @@ def read_signal(
         :func:`numpy.fromfile`. The types in :obj:`SOUNDFILE_SUPPORTED_FILE_TYPES`
         are also valid values. `'soundfile'` will use :mod:`soundfile` to read the file
         regardless of the suffix.
+    **kwargs
 
     Returns
     -------
@@ -396,7 +397,6 @@ def read_signal(
 
     Notes
     -----
-
     Python code for reading SPHERE files (not via :mod:soundfile`) was based off of
     `sph2pipe v 2.5
     <https://www.ldc.upenn.edu/language-resources/tools/sphere-conversion-tools>`__.

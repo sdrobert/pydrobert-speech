@@ -16,6 +16,7 @@
 
 
 from itertools import cycle
+from typing import TypeVar, Type
 
 from pydrobert.speech.post import PostProcessor
 from pydrobert.speech.alias import alias_factory_subclass_from_arg
@@ -23,8 +24,10 @@ from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
 __all__ = ["post_process_wrapper"]
 
+T = TypeVar("T", covariant=True)
 
-def post_process_wrapper(cls: type) -> type:
+
+def post_process_wrapper(cls: Type[T]) -> Type[T]:
     """Wrap a pydrobert-kaldi Data object for post-processing
 
     This function returns a class that wraps the `cls` class, performing some

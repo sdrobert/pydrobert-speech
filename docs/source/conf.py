@@ -70,12 +70,10 @@ autodoc_mock_imports = [
     "matplotlib",
 ]
 autodoc_typehints = "none"
+autodoc_type_aliases = napoleon_type_aliases = {"np.ndarray": "numpy.ndarray"}
 autodoc_inherit_docstrings = False
-# autodoc_preserve_defaults = True
 napoleon_preprocess_types = True
-# napoleon_use_param = True
 typehints_document_rtype = False
-# typehints_defaults = "comma"  # when this works consistently, uncomment!
 napoleon_use_rtype = False
 
 

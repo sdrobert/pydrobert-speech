@@ -71,12 +71,12 @@ class Dither(PreProcessor):
         Added noise will be in the range ``[-coeff, coeff]``
     """
 
-    coeff: float
-    aliases = {"dither", "dithering"}
+    coeff: float  #:
+    aliases = {"dither", "dithering"}  #:
 
     def __init__(self, coeff: float = 1.0):
+        super().__init__()
         self.coeff = coeff
-        super(Dither, self).__init__()
 
     def apply(
         self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
@@ -114,12 +114,12 @@ class Preemphasize(PreProcessor):
     coeff
     """
 
-    coeff: float
-    aliases = {"preemphasize", "preemphasis", "preemph"}
+    coeff: float  #:
+    aliases = {"preemphasize", "preemphasis", "preemph"}  #:
 
     def __init__(self, coeff: float = 0.97):
+        super().__init__()
         self.coeff = coeff
-        super(Preemphasize, self).__init__()
 
     def apply(
         self, signal: np.ndarray, axis: int = -1, in_place: bool = False

@@ -16,6 +16,13 @@
 
 from typing import Set
 
+__all__ = [
+    "EFFECTIVE_SUPPORT_THRESHOLD",
+    "LOG_FLOOR_VALUE",
+    "SOUNDFILE_SUPPORTED_TYPES",
+    "USE_FFTPACK",
+]
+
 
 USE_FFTPACK = False
 """
@@ -47,7 +54,7 @@ LOG_FLOOR_VALUE = 1e-5
 _BASE_SOUNDFILE_SUPPORTED_TYPES = {"wav", "ogg", "flac", "aiff"}
 _FULL_SOUNDFILE_SUPPORTED_TYPES: Set[str] = set()
 
-SOUNDFILE_SUPPORTED_FILE_TYPES: Set[str] = set()
+SOUNDFILE_SUPPORTED_FILE_TYPES: Set[str] = set()  #: :meta hide-value:
 f"""
 A list of the types of files SoundFile will be responsible for reading. If
 :mod:`soundfile` can be imported, it's the intersection of
