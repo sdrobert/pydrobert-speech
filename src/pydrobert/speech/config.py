@@ -19,7 +19,7 @@ from typing import Set
 __all__ = [
     "EFFECTIVE_SUPPORT_THRESHOLD",
     "LOG_FLOOR_VALUE",
-    "SOUNDFILE_SUPPORTED_TYPES",
+    "SOUNDFILE_SUPPORTED_FILE_TYPES",
     "USE_FFTPACK",
 ]
 
