@@ -25,10 +25,10 @@ __all__ = [
 
 
 USE_FFTPACK = False
-"""bool : Whether to use :func:`scipy.fftpack`
+"""bool : Whether to use :mod:`scipy.fftpack`
 
 The scipy implementation of the FFT can be much faster than the numpy one. This is set
-automatically to :obj:`True` if :func:`scipy.fftpack` can be imported. It can be set to
+automatically to :obj:`True` if :mod:`scipy.fftpack` can be imported. It can be set to
 :obj:`False` to use the numpy implementation.
 
 :meta hide-value:

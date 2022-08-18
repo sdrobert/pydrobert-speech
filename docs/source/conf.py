@@ -43,6 +43,7 @@ extensions = [
 naploeon_numpy_docstring = True
 
 intersphinx_mapping = {
+    "scipy": ("http://docs.scipy.org/doc/scipy/reference/", None),
     "matplotlib": ("https://matplotlib.org", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
