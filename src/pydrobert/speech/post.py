@@ -406,7 +406,7 @@ class Deltas(PostProcessor):
 
     where
 
-    .. math:: Z = \sum_t f(t) ** 2
+    .. math:: Z = \sum_t f(t)^2
 
     for some :math:`W \geq 1`. Its Fourier Transform is
 

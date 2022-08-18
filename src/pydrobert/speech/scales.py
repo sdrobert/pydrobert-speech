@@ -130,7 +130,7 @@ class BarkScaling(ScalingFunction):
 
     Based on a collection experiments briefly mentioned in [zwicker1961]_ involving
     masking to determine critical bands. The functional approximation to the scale is
-    implemented with the formula from [tranmuller1990]_ (being honest, from `Wikipedia
+    implemented with the formula from [traunmuller1990]_ (being honest, from `Wikipedia
     <https://en.wikipedia.org/wiki/Bark_scale>`__):
 
     .. math::

@@ -391,9 +391,9 @@ def read_signal(
     Kaldi input, and, failing that, via :func:`numpy.fromfile`, we try to read as Kaldi
     input if the file name ends with ``'|'`` and error otherwise. The catch-all
     behaviour was disabled due to the interaction with
-    :obj:`pydrobert.speech.SOUNDFILE_SUPPORTED_FILE_TYPES` whose value depends on the
-    existence of :mod:`soundfile` and the underlying version of
-    `libsndfile <https://libsndfile.github.io/libsndfile>`__.
+    :obj:`pydrobert.speech.config.SOUNDFILE_SUPPORTED_FILE_TYPES` whose value depends on
+    the existence of :mod:`soundfile` and the underlying version of `libsndfile
+    <https://libsndfile.github.io/libsndfile>`__.
 
     Notes
     -----

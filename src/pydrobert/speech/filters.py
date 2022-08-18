@@ -174,7 +174,7 @@ class LinearFilterBank(AliasedFactory):
         half
             Whether to return only the DFT bins between ``[0,pi]``
 
-        Results
+        Returns
         -------
         fr : np.ndarray
             If `half` is :obj:`False`, returns a 1D float64 or complex128 numpy array of
@@ -913,7 +913,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     .. math::
 
-        H(\omega) = \frac{c(n - 1)!)}{\left(
+        H(\omega) = \frac{c(n - 1)!}{\left(
             \alpha + i(\omega - \xi) \right)^n}
 
     For large :math:`\xi`, the complex gammatone is approximately analytic.

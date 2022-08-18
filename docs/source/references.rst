@@ -14,7 +14,7 @@ References
    Biological Cybernetics, vol. 39, no. 3, pp. 195-209, Jan. 1981.
 .. [oshaughnessy1987] D. O'Shaughnessy, Speech communication: human and
    machine. Addison-Wesley Pub. Co., 1987.
-.. [tranmuller1990] H. Traunmüller, "Analytical expressions for the
+.. [traunmuller1990] H. Traunmüller, "Analytical expressions for the
    tonotopic sensory scale," The Journal of the Acoustical Society of America,
    vol. 88, no. 1, pp. 97-100, Jul. 1990.
 .. [povey2011] D. Povey et al., "The Kaldi Speech Recognition Toolkit," in
