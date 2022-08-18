@@ -15,7 +15,6 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
-autodoc_mock_imports = ["numpy", "matplotlib"]
 
 # -- Project information -----------------------------------------------------
 
@@ -62,15 +61,19 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+autodoc_mock_imports = ["numpy", "matplotlib"]
+autodoc_typehints = "none"
+autodoc_inherit_docstrings = False
+# autodoc_preserve_defaults = True
+napoleon_preprocess_types = True
+# napoleon_use_param = True
+typehints_document_rtype = False
+# typehints_defaults = "comma"  # when this works consistently, uncomment!
+napoleon_use_rtype = False
+
 
 # -- Options for HTML output -------------------------------------------------
-
-on_rtd = os.environ.get("READTHEDOCS") == "True"
-if on_rtd:
-    html_theme = "default"
-else:
-    html_theme = "sphinx_rtd_theme"
-
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
