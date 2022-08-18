@@ -52,20 +52,18 @@ LOG_FLOOR_VALUE = 1e-5
 # N.B. libsndfile's sphere support currently can't decode as many sphere encodings
 # as _sphere.py can
 _BASE_SOUNDFILE_SUPPORTED_TYPES = {"wav", "ogg", "flac", "aiff"}
-_FULL_SOUNDFILE_SUPPORTED_TYPES: Set[str] = set()
+_FULL_SOUNDFILE_SUPPORTED_TYPES = set()
 
 SOUNDFILE_SUPPORTED_FILE_TYPES: Set[str] = set()
-f"""
+""":meta hide-value:
 A list of the types of files SoundFile will be responsible for reading. If
 :mod:`soundfile` can be imported, it's the intersection of
-:func:`soundfile.available_formats` with the set {_BASE_SOUNDFILE_SUPPORTED_TYPES}.
+:func:`soundfile.available_formats` with the set "wav", "ogg", "flac", and "aiff".
 
 See Also
 --------
 pydrobert.speech.util.read_signal
     Where this flag is used
-
-:meta hide-value:
 """
 
 try:
