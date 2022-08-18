@@ -2,6 +2,8 @@
 
 ## v0.3.0
 
+- Moved `AliasedFactory` and `alias_factory_subclass_from_arg` to `alias`
+  submodule.
 - Removed Python 3.6 support.
 - Bug fix for issue #14 - Gammatone alpha coefficient wrong for ERB.
 - Added `Stack` to `post`.

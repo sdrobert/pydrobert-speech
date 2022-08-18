@@ -7,7 +7,7 @@ import pydrobert.speech.compute as compute
 import pydrobert.speech.config as config
 import pytest
 
-from pydrobert.speech.util import alias_factory_subclass_from_arg
+from pydrobert.speech.alias import alias_factory_subclass_from_arg
 from pickle import load as pickle_load
 
 

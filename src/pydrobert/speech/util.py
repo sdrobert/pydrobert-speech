@@ -14,22 +14,35 @@
 
 """Miscellaneous utility functions"""
 
+import warnings
 
 from re import match
-from typing import Any, Mapping, Optional, Type, Union
+from typing import Any, Optional
 
 import pydrobert.speech.config as config
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import alias_factory_subclass_from_arg as _afsfa
+
 
 __all__ = [
-    "gauss_quant",
-    "hertz_to_angular",
     "angular_to_hertz",
     "circshift_fourier",
+    "gauss_quant",
+    "hertz_to_angular",
     "read_signal",
 ]
+
+
+def alias_factory_subclass_from_arg(*args, **kwargs):
+    warnings.warn(
+        "using alias_factory_subclass_from_arg from util is deprecated. "
+        "Use from pydrobert.speech.alias instead",
+        category=DeprecationWarning,
+        stacklevel=2,
+    )
+
+    return _afsfa(*args, **kwargs)
 
 
 def _gauss_quant_odeh_evans(p: float, mu: float = 0, std: float = 1) -> float:
@@ -72,11 +85,11 @@ result. Otherwise, it uses the approximation from Odeh & Evans 1974 (thru Brophy
 
 Parameters
 ----------
-p : float
+p
     The probability
-mu : float
+mu
     The Gaussian mean
-std : float
+std
     The Gaussian standard deviation
 
 Returns
@@ -115,23 +128,23 @@ def circshift_fourier(
 
     Parameters
     ----------
-    filt : 1D array-like
+    filt
         The filter, in the fourier domain
-    shift : float
+    shift
         The number of samples to be translated by.
-    start_idx : int, optional
+    start_idx
         If `filt` is a truncated frequency response, this parameter indicates at what
         index in the dft the nonzero region starts
-    dft_size : int, optional
+    dft_size
         The dft_size of the filter. Defaults to
         ``len(filt) + start_idx``
-    copy : bool, optional
+    copy
         Whether it is okay to modify and return `filt`
 
     Returns
     -------
-    out : np.ndarray of complex128
-        The filter frequency response, shifted by `u`
+    out : np.ndarray
+        The 128-bit complex filter frequency response, shifted by `u`
     """
     shift %= dft_size
     if dft_size is None:
@@ -354,10 +367,10 @@ def read_signal(
 
     Parameters
     ----------
-    rfilename : str
-    dtype : object, optional
-    key : object, optional
-    force_as : str or :obj:`None`, optional
+    rfilename 
+    dtype
+    key
+    force_as
         If not :obj:`None`, forces `rfilename` to be interpreted as a specific
         file type, bypassing the above selection strategy. ``'tab'``: Kaldi
         table; ``'wav'``: wave file; ``'hdf5'``: HDF5 file; ``'npy'``: Numpy
@@ -465,33 +478,3 @@ def read_signal(
         raise ValueError(msg)
     return data
 
-
-def alias_factory_subclass_from_arg(
-    factory_class: Type[AliasedFactory], arg: Union[AliasedFactory, str, Mapping]
-) -> AliasedFactory:
-    """Boilerplate for getting an instance of an AliasedFactory
-
-    Rather than an instance itself, a function could receive the arguments to initialize
-    an :class:`AliasedFactory` with :func:`AliasedFactory.from_alias`. This function
-    uses the following strategy to try and do so
-
-    1. If `arg` is an instance of `factory_class`, return `arg`
-    2. If `arg` is a :class:`str`, use it as the alias
-    3. a. Copy `arg` to a dictionary
-       b. Pop the key :obj:`'alias'` and treat the rest as keyword arguments
-       c. If the key :obj:`'alias'` is not found, try :obj:`'name'`
-
-    This function is intentionally limited in order to work nicely with JSON config
-    files.
-    """
-    if isinstance(arg, factory_class):
-        return arg
-    elif isinstance(arg, str):
-        return factory_class.from_alias(arg)
-    else:
-        arg = dict(arg)
-        try:
-            alias = arg.pop("alias")
-        except KeyError:
-            alias = arg.pop("name")
-        return factory_class.from_alias(alias, **arg)

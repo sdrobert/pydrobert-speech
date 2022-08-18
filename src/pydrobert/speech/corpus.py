@@ -18,7 +18,7 @@
 from itertools import cycle
 
 from pydrobert.speech.post import PostProcessor
-from pydrobert.speech.util import alias_factory_subclass_from_arg
+from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
 
 __all__ = ["post_process_wrapper"]

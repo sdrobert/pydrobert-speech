@@ -20,7 +20,7 @@ from typing import Optional
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import AliasedFactory
 
 __all__ = [
     "PreProcessor",
@@ -40,16 +40,16 @@ class PreProcessor(AliasedFactory):
 
         Parameters
         ----------
-        signal : array-like
-        axis : int, optional
+        signal
+        axis
             The axis of `signal` to apply the transformation along
-        in_place : bool, optional
+        in_place
             Whether it is okay to modify `signal` (:obj:`True`) or whether a copy should
             be made (:obj:`False`)
 
         Returns
         -------
-        out : array-like
+        out : np.ndarray
             The transformed features
         """
         pass
@@ -67,14 +67,11 @@ class Dither(PreProcessor):
 
     Parameters
     ----------
-    coeff : float
+    coeff
         Added noise will be in the range ``[-coeff, coeff]``
-
-    Attributes
-    ----------
-    coeff : float
     """
 
+    coeff: float
     aliases = {"dither", "dithering"}
 
     def __init__(self, coeff: float = 1.0):
@@ -114,13 +111,10 @@ class Preemphasize(PreProcessor):
 
     Parameters
     ----------
-    coeff : float
-
-    Attributes
-    ----------
-    coeff : float
+    coeff
     """
 
+    coeff: float
     aliases = {"preemphasize", "preemphasis", "preemph"}
 
     def __init__(self, coeff: float = 0.97):

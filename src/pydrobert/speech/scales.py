@@ -25,14 +25,14 @@ import abc
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import AliasedFactory
 
 __all__ = [
-    "ScalingFunction",
-    "LinearScaling",
-    "OctaveScaling",
-    "MelScaling",
     "BarkScaling",
+    "LinearScaling",
+    "MelScaling",
+    "OctaveScaling",
+    "ScalingFunction",
 ]
 
 
@@ -55,17 +55,14 @@ class LinearScaling(ScalingFunction):
 
     Parameters
     ----------
-    low_hz : float
+    low_hz
         The frequency (in Hertz) corresponding to scale 0.
-    slope_hz : float, optional
+    slope_hz
         The increase in scale corresponding to a 1 Hertz increase in frequency.
-
-    Attributes
-    ----------
-    low_hz : float
-    slope_hz : float
     """
 
+    low_hz: float
+    slop_hz: float
     aliases = {"linear", "uniform"}
 
     def __init__(self, low_hz: float, slope_hz: float = 1.0):
@@ -84,13 +81,9 @@ class OctaveScaling(ScalingFunction):
 
     Parameters
     ----------
-    low_hz : float
+    low_hz
         The positive frequency (in Hertz) corresponding to scale 0. Frequencies below
         this value should never be queried.
-
-    Attributes
-    ----------
-    low_hz : float
 
     Raises
     ------
@@ -98,6 +91,7 @@ class OctaveScaling(ScalingFunction):
         If `low_hz` is non-positive
     """
 
+    low_hz: float
     aliases = {"octave"}
 
     def __init__(self, low_hz: float):

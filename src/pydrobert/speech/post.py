@@ -23,7 +23,7 @@ from itertools import count
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import AliasedFactory
 from pydrobert.speech.util import read_signal
 
 __all__ = [
@@ -48,12 +48,12 @@ class PostProcessor(AliasedFactory):
 
         Parameters
         ----------
-        features : array-like
-        axis : int, optional
+        features
+        axis
             The axis of `features` to apply the transformation along
-        in_place : bool, optional
-            Whether it is okay to modify features (:obj:`True`) or whether
-            a copy should be made (:obj:`False`)
+        in_place
+            Whether it is okay to modify features (:obj:`True`) or whether a copy should
+            be made (:obj:`False`)
 
         Returns
         -------
@@ -80,8 +80,8 @@ class Standardize(PostProcessor):
 
     Parameters
     ----------
-    rfilename : str, optional
-    norm_var : bool, optional
+    rfilename
+    norm_var
 
     Notes
     -----
@@ -96,7 +96,9 @@ class Standardize(PostProcessor):
 
     aliases = {"standardize", "normalize", "unit", "cmvn"}
 
-    def __init__(self, rfilename: str = None, norm_var: bool = True, **kwargs):
+    def __init__(
+        self, rfilename: Optional[str] = None, norm_var: bool = True, **kwargs
+    ):
         self._stats = None
         self._norm_var = bool(norm_var)
         if rfilename is not None:
@@ -192,12 +194,11 @@ class Standardize(PostProcessor):
 
         Parameters
         ----------
-        features : array-like
-        axis : int, optional
+        features
+        axis
 
         Raises
         ------
-        IndexError
         ValueError
             If the length of `axis` does not match that of past feature
             vector lengths
@@ -325,10 +326,10 @@ class Standardize(PostProcessor):
 
         Parameters
         ----------
-        wfilename : str
-        key : str, optional
-        compress : bool
-        overwrite : bool
+        wfilename
+        key
+        compress
+        overwrite
 
         Raises
         ------
@@ -421,22 +422,19 @@ class Deltas(PostProcessor):
 
     Parameters
     ----------
-    num_deltas : int
-    target_axis : int, optional
-    concatenate : bool
-    context_window : int, optional
+    num_deltas
+    target_axis
+    concatenate
+    context_window
         The length of the filter to either side of the window. Positive
-    pad_mode : str or function, optional
+    pad_mode
         How to pad the input sequence when correlating. Additional keyword arguments
         will be passed to :func:`numpy.pad`
-
-    Attributes
-    ----------
-    num_deltas : int
-    concatenate : bool
     """
 
     aliases = {"deltas"}
+    concatenate: bool
+    num_deltas: int
 
     def __init__(
         self,
@@ -496,21 +494,15 @@ class Stack(PostProcessor):
 
     Parameters
     ----------
-    num_vectors : int
+    num_vectors
         The number of subsequent feature vectors in time to be stacked.
-    time_axis : int, optional
+    time_axis
         The axis along which subsequent feature vectors are drawn.
-    pad_mode : str or function or None, optional
+    pad_mode
         Specified how the axis in time will be padded on the right in order to be
         divisible by `num_vectors`. Additional keyword arguments will be passed to
         :func:`numpy.pad`. If unspecified, frames will instead be discarded in order to
         be divisible by `num_vectors`.
-    
-    Attributes
-    ----------
-    num_vectors : int
-    time_axis : int
-    pad_mode : str or function or None
     """
 
     aliases = {"stack"}

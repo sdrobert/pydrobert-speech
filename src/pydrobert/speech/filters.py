@@ -20,25 +20,25 @@ from typing import Mapping, Optional, Tuple, Union
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
-from pydrobert.speech import config
+import pydrobert.speech.config as config
+
+from pydrobert.speech.alias import AliasedFactory, alias_factory_subclass_from_arg
 from pydrobert.speech.scales import MelScaling
 from pydrobert.speech.scales import ScalingFunction
-from pydrobert.speech.util import alias_factory_subclass_from_arg
 from pydrobert.speech.util import angular_to_hertz
 from pydrobert.speech.util import hertz_to_angular
 
 __all__ = [
-    "LinearFilterBank",
-    "TriangularOverlappingFilterBank",
-    "GaborFilterBank",
-    "ComplexGammatoneFilterBank",
-    "WindowFunction",
     "BartlettWindow",
     "BlackmanWindow",
+    "ComplexGammatoneFilterBank",
+    "GaborFilterBank",
+    "GammaWindow",
     "HammingWindow",
     "HannWindow",
-    "GammaWindow",
+    "LinearFilterBank",
+    "TriangularOverlappingFilterBank",
+    "WindowFunction",
 ]
 
 # banks
@@ -142,9 +142,9 @@ class LinearFilterBank(AliasedFactory):
 
         Parameters
         ----------
-        filt_idx : int
+        filt_idx
             The index of the filter to generate. Less than `num_filts`
-        width : int
+        width
             The length of the buffer, in samples. If less than the support of the
             filter, the filter will alias.
 
@@ -167,11 +167,11 @@ class LinearFilterBank(AliasedFactory):
 
         Parameters
         ----------
-        filt_idx : int
+        filt_idx
             The index of the filter to generate. Less than `num_filts`
-        width : int
+        width
             The length of the DFT to output
-        half : bool, optional
+        half
             Whether to return only the DFT bins between ``[0,pi]``
 
         Results
@@ -223,9 +223,9 @@ class LinearFilterBank(AliasedFactory):
 
         Parameters
         ----------
-        filt_idx : int
+        filt_idx
             The index of the filter to generate. Less than `num_filts`
-        width : int
+        width
             The length of the DFT to output
 
         Returns
@@ -244,22 +244,23 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.speech.scales.ScalingFunction, str, or dict
+    scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
         :func:`pydrobert.speech.alias_factory_subclass_from_arg`
-    num_filts : int, optional
+    num_filts
         The number of filters in the bank
-    high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively. The default for
-        `high_hz` is the Nyquist
-    sampling_rate : float, optional
+    high_hz
+        The topmost edge of the filter frequencies. The default is the Nyquist for
+        `sampling_rate`.
+    low_hz
+        The bottommost edge of the filter frequences.
+    sampling_rate
         The sampling rate (cycles/sec) of the target recordings
-    analytic : bool, optional
+    analytic
         Whether to use an analytic form of the bank. The analytic form is easily derived
         from the real form in [povey2011]_ and [young]_. Since the filter is compactly
         supported in frequency, the analytic form is simply the suppression of the
-
         ``[-pi, 0)`` frequencies
 
     Raises
@@ -447,29 +448,20 @@ class Fbank(LinearFilterBank):
 
     Parameters
     ----------
-    num_filts : int, optional
+    num_filts
         The number of filters in the bank
-    high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively. The default for
-        high_hz is the Nyquist
-    sampling_rate : float, optional
+    high_hz
+        The topmost edge of the filter frequencies. The default is the Nyquist for
+        `sampling_rate`.
+    low_hz
+        The bottommost edge of the filter frequences.
+    sampling_rate 
         The sampling rate (cycles/sec) of the target recordings
-    analytic : bool, optional
+    analytic
         Whether to use an analytic form of the bank. The analytic form is easily derived
         from the real form in [povey2011]_ and [young]_. Since the filter is compactly
         supported in frequency, the analytic form is simply the suppression of the
         ``[-pi, 0)`` frequencies
-
-    Attributes
-    ----------
-    centers_hz : tuple
-    is_real : bool
-    is_analytic : bool
-    num_filts : int
-    sampling_rate : float
-    supports_hz : tuple
-    supports : tuple
-    supports_ms : tuple
 
     Notes
     -----
@@ -663,18 +655,20 @@ class GaborFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
+    scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
         :func:`pydrobert.speech.alias_factory_subclass_from_arg`
-    num_filts : int
+    num_filts
         The number of filters in the bank
-    high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively. The default for
-        `high_hz` is the Nyquist
-    sampling_rate : float, optional
+    high_hz
+        The topmost edge of the filter frequencies. The default is the Nyquist for
+        `sampling_rate`.
+    low_hz
+        The bottommost edge of the filter frequences.
+    sampling_rate
         The sampling rate (cycles/sec) of the target recordings
-    scale_l2_norm : bool
+    scale_l2_norm
         Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
         response of each filter will max out at an absolute value of 1.
     erb : bool
@@ -934,27 +928,29 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
 
     Parameters
     ----------
-    scaling_function : pydrobert.speech.ScalingFunction, str, or dict
+    scaling_function
         Dictates the layout of filters in the Fourier domain. Can be a
         :class:`ScalingFunction` or something compatible with
         :func:`pydrobert.speech.alias_factory_subclass_from_arg`
-    num_filts : int, optional
+    num_filts
         The number of filters in the bank
-    high_hz, low_hz : float, optional
-        The topmost and bottommost edge of the filters, respectively. The default for
-        high_hz is the Nyquist
+    high_hz
+        The topmost edge of the filter frequencies. The default is the Nyquist for
+        `sampling_rate`.
+    low_hz
+        The bottommost edge of the filter frequences.
     sampling_rate : float, optional
         The sampling rate (cycles/sec) of the target recordings
-    order : int, optional
+    order
         The :math:`n` parameter in the Gammatone. Should be positive. Larger orders
         will make the gammatone more symmetrical.
-    max_centered : bool, optional
+    max_centered
         While normally causal, setting `max_centered` to true will shift all filters in
         the bank such that the maximum absolute value in time is centered at sample 0.
-    scale_l2_norm : bool
+    scale_l2_norm
         Whether to scale the l2 norm of each filter to 1. Otherwise the frequency
         response of each filter will max out at an absolute value of 1.
-    erb : bool
+    erb
 
     See Also
     --------
@@ -1224,7 +1220,7 @@ class WindowFunction(AliasedFactory):
         
         Parameters
         ----------
-        width : int
+        width
             The length of the window in samples
         
         Returns
@@ -1316,17 +1312,14 @@ class GammaWindow(WindowFunction):
 
     Arguments
     ---------
-    order : int
-    peak : float
+    order
+    peak
         ``peak * width``, where ``width`` is the length of the window in samples, is
         where the approximate maximal value of the window lies
-
-    Attributes
-    ----------
-    order : int
-    peak : float
     """
 
+    order : int
+    peak : int
     aliases = {"gamma"}
 
     def __init__(self, order: int = 4, peak: float = 0.75):
