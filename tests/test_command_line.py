@@ -136,7 +136,7 @@ def test_signals_to_torch_feat_dir(temp_dir):
         assert not torch.allclose(signal, noisy.flatten())
         utt2signal[utt_id] = noisy
     torch.manual_seed(70)
-    args.append("--num-workers=4")
+    args.append("--num-workers=2")
     assert not command_line.signals_to_torch_feat_dir(args)
     for utt_id, exp in list(utt2signal.items()):
         act = torch.load(os.path.join(feat_dir, "{}.pt".format(utt_id)))

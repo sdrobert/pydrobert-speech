@@ -17,26 +17,27 @@ latter two operators exist in the submodules :mod:`pydrobert.speech.pre` and
 A computer, which can be found in :mod:`pydrobert.speech.compute`, will require
 more complicated initialization. The standard feature representation, which is
 a 2D time-log-frequency matrix of energy, derives from
-:class:`LinearFilterBankFrameComputer`. It calculates coefficients over
-uniform time slices (frames) using a bank of filters. Children of
-:class:`LinearFilterBankFrameComputer` all have similar representations and all
-use linear banks of filters, but can be computed in different ways. The classic
-method of computation is the
-:class:`compute.ShortTimeFourierTransformFrameComputer`.
+:class:`pydrobert.speech.compute.LinearFilterBankFrameComputer`. It calculates
+coefficients over uniform time slices (frames) using a bank of filters.
+Children of :class:`pydrobert.speech.compute.LinearFilterBankFrameComputer` all
+have similar representations and all use linear banks of filters, but can be
+computed in different ways. The classic method of computation is the
+:class:`pydrobert.speech.compute.ShortTimeFourierTransformFrameComputer`.
 
 Banks of filters are derived from
 :class:`pydrobert.speech.filters.LinearFilterBank`. Children of the parent
-class, such as :class:`ComplexGammatoneFilterBank`, will decide on the shape of
-the filters.
+class, such as :class:`pydrobert.speech.filters.ComplexGammatoneFilterBank`,
+will decide on the shape of the filters.
 
-:class:`LinearFilterBankFrameComputer` instances compute coefficients at
-uniform intervals in time. However, the distribution over frequencies is
-decided by the distribution of filter frequency responses from the filter bank,
-which, in turn, depends on a scaling function. Scaling functions can be found
-in :mod:`pydrobert.speech.scales` such as :class:`MelScaling`. Scaling
-functions transform the frequency domain into some other real domain. In *that*
-domain, filter frequency bandwidths are distributed uniformly which, when
-translated back to the frequency domain, could be quite non-uniform.
+:class:`pydrobert.speech.compute.LinearFilterBankFrameComputer` instances
+compute coefficients at uniform intervals in time. However, the distribution
+over frequencies is decided by the distribution of filter frequency responses
+from the filter bank, which, in turn, depends on a scaling function. Scaling
+functions can be found in :mod:`pydrobert.speech.scales` such as
+:class:`pydrobert.speech.scales.MelScaling`. Scaling functions transform the
+frequency domain into some other real domain. In *that* domain, filter
+frequency bandwidths are distributed uniformly which, when translated back to
+the frequency domain, could be quite non-uniform.
 
 In sum, you build a computer by first choosing a scale from
 :mod:`pydrobert.speech.scales`. You then pass that as an argument to a filter

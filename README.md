@@ -1,8 +1,8 @@
+# pydrobert-speech
+
 [![Documentation Status](https://readthedocs.org/projects/pydrobert-speech/badge/?version=latest)](https://pydrobert-speech.readthedocs.io/en/latest/?badge=latest)
 [![Build status](https://ci.appveyor.com/api/projects/status/abn39mww84fydxqe/branch/master?svg=true)](https://ci.appveyor.com/project/sdrobert/pydrobert-speech/branch/master)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
-# pydrobert-speech
 
 This pure-python library allows for flexible computation of speech features.
 
@@ -46,11 +46,10 @@ to use it.
 ## Documentation
 
 - [Latest](https://pydrobert-speech.readthedocs.io/en/latest/)
-- [Stable](https://pydrobert-speech.readthedocs.io/en/stable/)
 
 ## Installation
 
-_pydrobert-speech_ is available via both PyPI and Conda.
+*pydrobert-speech* is available via both PyPI and Conda.
 
 ``` sh
 conda install -c sdrobert pydrobert-speech

@@ -15,17 +15,12 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
-autodoc_mock_imports = ["numpy", "matplotlib"]
 
 # -- Project information -----------------------------------------------------
 
 project = "pydrobert-speech"
-copyright = "2021, Sean Robertson"
+copyright = "2022, Sean Robertson"
 author = "Sean Robertson"
-
-# The full version, including alpha/beta/rc tags
-release = ""
-
 language = "en"
 
 
@@ -35,23 +30,25 @@ language = "en"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosectionlabel",
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.programoutput",
-    "myst_parser",
+    "sphinx_autodoc_typehints",
 ]
 
 naploeon_numpy_docstring = True
 
 intersphinx_mapping = {
-    "python": ("https://docs.python.org/", None),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "matplotlib": ("https://matplotlib.org", None),
+    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
+    "python": ("https://docs.python.org/", None),
     "soundfile": ("https://python-soundfile.readthedocs.io/en/latest/", None),
+    "torch": ("https://pytorch.org/docs/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -62,15 +59,26 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+napoleon_numpy_docstring = True
+napoleon_google_docstring = False
+napoleon_include_init_with_doc = True
+autodoc_mock_imports = [
+    "numpy",
+    "matplotlib.axes",
+    "matplotlib.colors",
+    "matplotlib.figure",
+    "matplotlib",
+]
+autodoc_typehints = "none"
+autodoc_type_aliases = napoleon_type_aliases = {"np.ndarray": "numpy.ndarray"}
+autodoc_inherit_docstrings = False
+napoleon_preprocess_types = True
+typehints_document_rtype = False
+napoleon_use_rtype = False
+
 
 # -- Options for HTML output -------------------------------------------------
-
-on_rtd = os.environ.get("READTHEDOCS") == "True"
-if on_rtd:
-    html_theme = "default"
-else:
-    html_theme = "sphinx_rtd_theme"
-
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

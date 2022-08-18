@@ -7,11 +7,12 @@ environment:
     - TOXENV: py38
     - TOXENV: py39
     - TOXENV: py310
-
+    - job_name: dist
 
 branches:
   except:
     - /docs/
+
 
 for:
   -
@@ -20,6 +21,24 @@ for:
         - TOXENV: "py38"
         - TOXENV: "py39"
     skip_non_tags: true
+  
+  -
+    matrix:
+      only:
+        - job_name: dist
+    skip_non_tags: true
+    stack: python 3.7
+    install:
+      - python -m pip install -U pip build twine wheel
+    build: script
+    build_script:
+      - python -m build -o dist
+    test_script:
+      - ps: python -m twine check (Resolve-Path 'dist\*').Path
+      - ps: python -m pip install (Resolve-Path 'dist\*.whl').Path pytest
+      - python -m pytest
+    artifacts:
+      path: 'dist\*'
 
 build: off
 
@@ -29,4 +48,3 @@ install:
 
 test_script:
   - py -3.7 -m tox
-

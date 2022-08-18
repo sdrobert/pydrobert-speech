@@ -25,14 +25,14 @@ import abc
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import AliasedFactory
 
 __all__ = [
-    "ScalingFunction",
-    "LinearScaling",
-    "OctaveScaling",
-    "MelScaling",
     "BarkScaling",
+    "LinearScaling",
+    "MelScaling",
+    "OctaveScaling",
+    "ScalingFunction",
 ]
 
 
@@ -55,18 +55,15 @@ class LinearScaling(ScalingFunction):
 
     Parameters
     ----------
-    low_hz : float
+    low_hz
         The frequency (in Hertz) corresponding to scale 0.
-    slope_hz : float, optional
+    slope_hz
         The increase in scale corresponding to a 1 Hertz increase in frequency.
-
-    Attributes
-    ----------
-    low_hz : float
-    slope_hz : float
     """
 
-    aliases = {"linear", "uniform"}
+    low_hz: float  #:
+    slop_hz: float  #:
+    aliases = {"linear", "uniform"}  #:
 
     def __init__(self, low_hz: float, slope_hz: float = 1.0):
         self.low_hz = low_hz
@@ -84,21 +81,13 @@ class OctaveScaling(ScalingFunction):
 
     Parameters
     ----------
-    low_hz : float
+    low_hz
         The positive frequency (in Hertz) corresponding to scale 0. Frequencies below
         this value should never be queried.
-
-    Attributes
-    ----------
-    low_hz : float
-
-    Raises
-    ------
-    ValueError
-        If `low_hz` is non-positive
     """
 
-    aliases = {"octave"}
+    low_hz: float  #:
+    aliases = {"octave"}  #:
 
     def __init__(self, low_hz: float):
         if low_hz <= 0:
@@ -127,7 +116,7 @@ class MelScaling(ScalingFunction):
     Where :math:`s` is the scale and :math:`f` is the frequency in Hertz.
     """
 
-    aliases = {"mel"}
+    aliases = {"mel"}  #:
 
     def scale_to_hertz(self, scale: float) -> float:
         return 700.0 * (np.exp(scale / 1127.0) - 1.0)
@@ -141,7 +130,7 @@ class BarkScaling(ScalingFunction):
 
     Based on a collection experiments briefly mentioned in [zwicker1961]_ involving
     masking to determine critical bands. The functional approximation to the scale is
-    implemented with the formula from [tranmuller1990]_ (being honest, from `Wikipedia
+    implemented with the formula from [traunmuller1990]_ (being honest, from `Wikipedia
     <https://en.wikipedia.org/wiki/Bark_scale>`__):
 
     .. math::
@@ -160,7 +149,7 @@ class BarkScaling(ScalingFunction):
     Where :math:`s` is the scale and :math:`f` is the frequency in Hertz.
     """
 
-    aliases = {"bark"}
+    aliases = {"bark"}  #:
 
     def scale_to_hertz(self, scale: float) -> float:
         bark = None

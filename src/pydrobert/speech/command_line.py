@@ -30,7 +30,7 @@ import pydrobert.speech.config as config
 from pydrobert.speech.compute import FrameComputer
 from pydrobert.speech.pre import PreProcessor
 from pydrobert.speech.post import PostProcessor
-from pydrobert.speech.util import alias_factory_subclass_from_arg
+from pydrobert.speech.alias import alias_factory_subclass_from_arg
 from pydrobert.speech.util import read_signal
 
 try:

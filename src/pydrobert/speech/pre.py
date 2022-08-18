@@ -20,7 +20,7 @@ from typing import Optional
 
 import numpy as np
 
-from pydrobert.speech import AliasedFactory
+from pydrobert.speech.alias import AliasedFactory
 
 __all__ = [
     "PreProcessor",
@@ -40,16 +40,16 @@ class PreProcessor(AliasedFactory):
 
         Parameters
         ----------
-        signal : array-like
-        axis : int, optional
+        signal
+        axis
             The axis of `signal` to apply the transformation along
-        in_place : bool, optional
+        in_place
             Whether it is okay to modify `signal` (:obj:`True`) or whether a copy should
             be made (:obj:`False`)
 
         Returns
         -------
-        out : array-like
+        out : np.ndarray
             The transformed features
         """
         pass
@@ -67,19 +67,16 @@ class Dither(PreProcessor):
 
     Parameters
     ----------
-    coeff : float
+    coeff
         Added noise will be in the range ``[-coeff, coeff]``
-
-    Attributes
-    ----------
-    coeff : float
     """
 
-    aliases = {"dither", "dithering"}
+    coeff: float  #:
+    aliases = {"dither", "dithering"}  #:
 
     def __init__(self, coeff: float = 1.0):
+        super().__init__()
         self.coeff = coeff
-        super(Dither, self).__init__()
 
     def apply(
         self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
@@ -114,18 +111,15 @@ class Preemphasize(PreProcessor):
 
     Parameters
     ----------
-    coeff : float
-
-    Attributes
-    ----------
-    coeff : float
+    coeff
     """
 
-    aliases = {"preemphasize", "preemphasis", "preemph"}
+    coeff: float  #:
+    aliases = {"preemphasize", "preemphasis", "preemph"}  #:
 
     def __init__(self, coeff: float = 0.97):
+        super().__init__()
         self.coeff = coeff
-        super(Preemphasize, self).__init__()
 
     def apply(
         self, signal: np.ndarray, axis: int = -1, in_place: bool = False

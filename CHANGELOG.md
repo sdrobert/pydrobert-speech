@@ -1,10 +1,12 @@
 # Change Log
 
-## HEAD
+## v0.3.0
 
-- Removed Python 3.6 support
-- Bug fix for issue #14 - Gammatone alpha coefficient wrong for ERB
-- Added `Stack` to `post`
+- Moved `AliasedFactory` and `alias_factory_subclass_from_arg` to `alias`
+  submodule.
+- Removed Python 3.6 support.
+- Bug fix for issue #14 - Gammatone alpha coefficient wrong for ERB.
+- Added `Stack` to `post`.
 - Added `soundfile` decoding to `read_signal`.
 - Removed catch-all condition for `read_signal` (when all else fails, try
   Kaldi and then `numpy.fromfile`). Breaks v0.2.0 behaviour. Needed for

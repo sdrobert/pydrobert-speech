@@ -8,7 +8,7 @@ import pydrobert.speech.filters as filters
 import pytest
 
 from pydrobert.speech.config import EFFECTIVE_SUPPORT_THRESHOLD
-from pydrobert.speech.util import alias_factory_subclass_from_arg
+from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
 
 @pytest.fixture(

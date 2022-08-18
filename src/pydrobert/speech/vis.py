@@ -12,56 +12,70 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Visualization functions"""
+"""Visualization functions
 
+Raises
+------
+ImportError
+    This submodule requires :mod:`matplotlib`
+"""
 
 from itertools import cycle
-from typing import Optional, Sequence, Tuple, Union, TYPE_CHECKING
-from typing_extensions import Literal
+from typing import Optional, Sequence, Tuple, Union
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 
 import numpy as np
 
+from matplotlib import pyplot as plt
+from matplotlib import ticker
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
+from matplotlib.figure import Figure
 from pydrobert.speech.filters import LinearFilterBank
 from pydrobert.speech.compute import FrameComputer, LinearFilterBankFrameComputer
 from pydrobert.speech.post import PostProcessor
 
-if TYPE_CHECKING:
-    # don't want to trip up import errors unless we're sure we're calling something
-    from matplotlib.axes import Axes  # noqa: F401
-    from matplotlib.colors import Colormap  # noqa: F401
-    from matplotlib.figure import Figure  # noqa: F401
+
+__all__ = [
+    "compare_feature_frames",
+    "plot_frequency_response",
+]
 
 
 def plot_frequency_response(
     banks: Union[Sequence[LinearFilterBank], LinearFilterBank],
-    axes: Optional["Axes"] = None,
+    axes: Optional[Axes] = None,
     dft_size: Optional[int] = None,
     half: Optional[bool] = None,
     title: Optional[str] = None,
     x_scale: Literal["hz", "ang", "bins"] = "hz",
     y_scale: Literal["dB", "power", "real", "imag", "both"] = "dB",
-    cmap: "Colormap" = None,
-) -> "Figure":
+    cmap: Colormap = None,
+) -> Figure:
     """Plot frequency response of filters in a filter bank
 
     Parameters
     ----------
-    bank : banks.LinearFilterBank or sequence
-    axes : matplotlib.axes.Axes, optional
+    bank
+    axes
         An :class:`Axes` object to plot on. Default is to generate a new figure
-    dft_size : int, optional
+    dft_size
         The size of the Discrete Fourier Transform to plot. Defaults to
         ``max(max(bank.supports), 2 * bank.sampling_rate // min(bank.supports_hz)``
-    half : bool, optional
+    half
         Whether to plot the half or full spectrum. Defaults to
         ``bank.is_real``
-    title : str, optional
+    title
         What to call the graph. The default is not to show a title
-    x_scale : {'hz', 'ang', 'bins'}, optional
+    x_scale
         The frequency coordinate scale along the x axis. Hertz
         (:obj:`'hz'`) is cycles/sec, angular frequency (:obj:`'ang'`) is
         radians/sec, and :obj:`'bins'` is the sample index within the DFT
-    y_scale : {'dB', 'power', 'real', 'imag', 'both'}, optional
+    y_scale
         How to express the frequency response along the y axis. Decibels
         (:obj:`'dB'`) is the log of a ratio of the maximum quantity in the
         bank. The range between 0 and -20 decibels is displayed. Power
@@ -69,7 +83,7 @@ def plot_frequency_response(
         response. :obj:`'real'` is the real part of the response,
         :obj:`'imag'` is the imaginary part of the response, and :obj:`'both'`
         displays both :obj:`'real'` and :obj:`'imag'` as separate lines
-    cmap : Colormap, optinal
+    cmap
         A :class:`Colormap` to pull colours from. Defaults to matplotlib's default
         colormap
 
@@ -77,15 +91,7 @@ def plot_frequency_response(
     -------
     fig : matplotlib.figure.Figure
         The containing figure
-
-    Raises
-    ------
-    ImportError
-        If unable to import `matplotlib`
     """
-    from matplotlib import pyplot as plt  # type: ignore
-    from matplotlib import ticker  # type: ignore
-
     try:
         len(banks)
     except AttributeError:  # 1 bank
@@ -255,7 +261,7 @@ def compare_feature_frames(
     post_ops: Optional[Union[PostProcessor, Sequence[PostProcessor]]] = None,
     title: Optional[str] = None,
     **kwargs
-) -> "Figure":
+) -> Figure:
     """Compare features from frame computers via spectrogram-like heat map
 
     Direct comparison of :class:`FrameComputer` objects is possible because all
@@ -266,29 +272,29 @@ def compare_feature_frames(
 
     Parameters
     ----------
-    computers : pydrobert.speech.compute.FrameComputer or sequence
+    computers
         One or more frame computers to compare
-    signal : array-like
+    signal
         A 1D array of the raw speech. Assumed to be valid with respect to computer
         settings (e.g. sample rate).
-    axes : matplotlib.axes.Axes or tuple, optional
+    axes
         By default, this function creates a new figure and subplots. Setting one
         `axes` value for every `computers` value will plot feature representations from
         `computers` into each ordered :class:`Axes`. If `axes` do not belong to the same
         figure, a :class:`ValueError` will be raised
-    figure_height : float, optional
+    figure_height
         If a new figure is created, this sets the figure height (in inches). This value
         is determined dynamically according to `figure_width` by default. A
         :class:`ValueError` will be raised if both `figure_height` and `axes` are set
-    figure_width : float, optional
+    figure_width
         If a new figure is created, this set the figure width (in inches). This value
         defaults to 3.33 inches if all subplots are positioned vertically, and to 7
         inches if there are at least two columns of plots. A :class:`ValueError` will be
         raised if both `figure_width` and `axes` are set
-    plot_titles : tuple, optional
+    plot_titles
         An ordered list of strings specifying the titles of each subplot. The default is
         to not display subplot titles
-    positions : tuple, optional
+    positions
         If a new figure is created, `positions` decides how the
         subplots should be positioned relative to one another. Can
         contain only ints (describing the position on only the row-axis)
@@ -296,7 +302,7 @@ def compare_feature_frames(
         must be contiguous and start from index 0 or 0,0 (top or
         top-left). `positions` cannot be specified if `axes` is
         specified
-    post_ops : pydrobert.speech.post.PostProcessor or sequence, optional
+    post_ops
         One or more post-processors to apply (in order) to each computed
         feature representation. If a simple list of post-processors is
         provided, each operation is applied to the default axis (the
@@ -304,20 +310,14 @@ def compare_feature_frames(
         ``(op, axis)`` can be specified in the list. No op is allowed
         to change the shape of the feature representation
         (e.g. :class:`Deltas`), or a :class:`ValueError` will be thrown
-    title : str, optional
+    title
         The title of the whole figure. Default is to display no title
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         The containing figure
-
-    Raises
-    ------
-    ImportError
-        If unable to import `matplotlib`
     """
-    from matplotlib import pyplot as plt
 
     try:
         iter(computers)
