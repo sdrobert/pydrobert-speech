@@ -16,8 +16,8 @@
 
 import math
 
-from typing_extensions import Self
-from typing import Collection, List, Literal, Optional, Sequence, Tuple, Union
+from typing_extensions import Self, Literal
+from typing import Collection, List, Optional, Sequence, Tuple
 
 import torch
 
