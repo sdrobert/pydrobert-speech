@@ -1,5 +1,10 @@
 # Change Log
 
+## Latest
+
+- Added [pytorch](https://pytorch.org/) wrappers around computers under
+  `pydrobert.speech.torch`.
+
 ## v0.3.0
 
 - Moved `AliasedFactory` and `alias_factory_subclass_from_arg` to `alias`

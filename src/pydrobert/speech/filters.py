@@ -284,15 +284,16 @@ class TriangularOverlappingFilterBank(LinearFilterBank):
         scaling_function = alias_factory_subclass_from_arg(
             ScalingFunction, scaling_function
         )
-        if low_hz < 0 or (
-            high_hz and (high_hz <= low_hz or high_hz > sampling_rate // 2)
-        ):
+        nyquist = sampling_rate / 2
+        if high_hz is None:
+            high_hz = nyquist
+        # allow 1Hz-leeway for floating point / serialization errors
+        if not (0 <= low_hz < high_hz <= nyquist + 1):
             raise ValueError(
                 "Invalid frequency range: ({:.2f},{:.2f}".format(low_hz, high_hz)
             )
+        high_hz = min(high_hz, nyquist)
         self._rate = sampling_rate
-        if high_hz is None:
-            high_hz = sampling_rate // 2
         # compute vertices
         scale_low = scaling_function.hertz_to_scale(low_hz)
         scale_high = scaling_function.hertz_to_scale(high_hz)
