@@ -61,9 +61,11 @@ def stft_frame_computer(
 ) -> torch.Tensor:
     """Functional implementation of PyTorchSTFTFrameComputer"""
     if dft_size is None:
-        dft_size = 2 ** math.ceil(math.log2(frame_length))
+        dft_size_ = int(2 ** math.ceil(math.log(frame_length, 2)))
     elif dft_size < frame_length:
         raise RuntimeError(f"expected dft_size gte {frame_length}; got {dft_size}")
+    else:
+        dft_size_ = dft_size
     num_filts = len(filters)
     if num_filts != len(offsets):
         raise RuntimeError(
@@ -91,19 +93,19 @@ def stft_frame_computer(
     pad_right = max(0, total_len - sig_len)
     if pad_left or pad_right:
         # symmetric padding
-        sig_ = sig.flip(0)
-        sig = torch.cat([sig_[sig_len - pad_left :], sig, sig_[:pad_right]])
-        del sig_
+        sig = torch.cat(
+            [sig[:pad_left].flip(0), sig, sig[sig_len - pad_right :].flip(0)]
+        )
     sig = sig.as_strided((num_frames, frame_length), (frame_shift, 1))
     y: List[torch.Tensor] = []
     if include_energy:
-        energy = torch.linalg.norm(sig, 1, 1) / frame_length
-        if not use_power:
-            energy = energy.sqrt()
+        energy = torch.linalg.norm(sig, 2, 1) / math.sqrt(frame_length)
+        if use_power:
+            energy = energy.square()
         y.append(energy)
     if window is not None:
         sig = sig * window
-    spect = torch.fft.rfft(sig, dft_size, 1, "backward")
+    spect = torch.fft.rfft(sig, dft_size_, 1, "backward")
     del sig
     half_len = spect.size(1)
     mod = half_len % 2
@@ -123,15 +125,14 @@ def stft_frame_computer(
                 val_f = torch.linalg.norm(seg, 2, 1).square()
             else:
                 val_f = seg.abs().sum(1)
+            if is_real:
+                val_f = val_f * 2
             val = val + val_f
             conj = not conj
             consumed += seg_len
             si = max(0, si)
-            del seg, val_f
         y.append(val)
     y_ = torch.stack(y, 1)
-    if is_real:
-        y_ = y_ * 2
     if use_log:
         y_ = y_.clamp_min(eps).log()
     return y_
@@ -195,13 +196,13 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
         will be doubled (pre-log) to account for Hermitian symmetry.
     """
 
-    __slots__ = (
+    __constants__ = (
         "centered",
         "dft_size",
         "frame_length",
         "frame_shift",
         "offsets",
-        "use_energy",
+        "include_energy",
         "use_log",
         "use_power",
     )
@@ -211,7 +212,7 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
     frame_length: int
     frame_shift: int
     offsets: Tuple[int, ...]
-    use_energy: bool
+    include_energy: bool
     use_log: bool
     use_power: bool
     kaldi_shift: bool
@@ -249,7 +250,7 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
                     f"Expected window.shape to be ({frame_length},); got {window.shape}"
                 )
         if dft_size is None:
-            dft_size = 2 ** math.ceil(math.log2(frame_length))
+            dft_size = 2 ** math.ceil(math.log(frame_length, 2))
         elif dft_size < frame_length:
             raise ValueError(
                 f"Expected dft_size to be gte {frame_length}; got {dft_size}"
@@ -316,7 +317,7 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
     def forward(self, signal: torch.Tensor) -> torch.Tensor:
         return stft_frame_computer(
             signal,
-            self.filters,
+            list(self.filters),
             self.offsets,
             self.frame_length,
             self.frame_shift,
