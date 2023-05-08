@@ -1,5 +1,9 @@
 # Change Log
 
+## Latest
+
+- `Dither` adds normally-distributed noise rather than uniform noise.
+
 ## v0.3.0
 
 - Moved `AliasedFactory` and `alias_factory_subclass_from_arg` to `alias`

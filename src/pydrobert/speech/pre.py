@@ -68,7 +68,7 @@ class Dither(PreProcessor):
     Parameters
     ----------
     coeff
-        Added noise will be in the range ``[-coeff, coeff]``
+        Standard deviation of dither
     """
 
     coeff: float  #:
@@ -85,11 +85,11 @@ class Dither(PreProcessor):
         if not in_place or signal.dtype != np.float64:
             signal = signal.astype(np.float64)
         if axis is None or not signal.shape or len(signal.shape) == 1:
-            signal += self.coeff * np.random.random(signal.shape)
+            signal += self.coeff * np.random.normal(signal.shape)
         else:
             random_shape = [1] * len(signal.shape)
             random_shape[axis] = signal.shape[axis]
-            signal += self.coeff * np.random.random(random_shape)
+            signal += self.coeff * np.random.normal(random_shape)
         return signal.astype(signal_dtype, copy=False)
 
 
