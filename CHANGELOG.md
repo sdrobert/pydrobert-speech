@@ -2,6 +2,7 @@
 
 ## Latest
 
+- The `axis` argument of `PreProcessor` is deprecated.
 - `Dither` adds normally-distributed noise rather than uniform noise.
 
 ## v0.3.0

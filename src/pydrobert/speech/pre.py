@@ -17,6 +17,7 @@
 
 import abc
 from typing import Optional
+import warnings
 
 import numpy as np
 
@@ -29,11 +30,19 @@ __all__ = [
 ]
 
 
+_AXIS_DEP_MSG = (
+    "Specifying axis in preprocessor.apply is deprecated. "
+    "Preprocessors should be applied to 1D signals only."
+)
+
+
 class PreProcessor(AliasedFactory):
     """A container for pre-processing signals with a transform"""
 
     @abc.abstractmethod
-    def apply(self, signal: np.ndarray, axis: int = -1, in_place=False) -> np.ndarray:
+    def apply(
+        self, signal: np.ndarray, axis: Optional[int] = None, in_place=False
+    ) -> np.ndarray:
         """Applies the transformation to a signal tensor
 
         Consult the class documentation for more details on what the transformation is.
@@ -42,7 +51,7 @@ class PreProcessor(AliasedFactory):
         ----------
         signal
         axis
-            The axis of `signal` to apply the transformation along
+            Deprecated. The axis to apply the transform to.
         in_place
             Whether it is okay to modify `signal` (:obj:`True`) or whether a copy should
             be made (:obj:`False`)
@@ -52,7 +61,7 @@ class PreProcessor(AliasedFactory):
         out : np.ndarray
             The transformed features
         """
-        pass
+        ...
 
 
 class Dither(PreProcessor):
@@ -81,15 +90,17 @@ class Dither(PreProcessor):
     def apply(
         self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
     ) -> np.ndarray:
+        if axis is not None:
+            warnings.warn(_AXIS_DEP_MSG, DeprecationWarning)
         signal_dtype = signal.dtype
         if not in_place or signal.dtype != np.float64:
             signal = signal.astype(np.float64)
         if axis is None or not signal.shape or len(signal.shape) == 1:
-            signal += self.coeff * np.random.normal(signal.shape)
+            signal += np.random.normal(0, self.coeff, signal.shape)
         else:
             random_shape = [1] * len(signal.shape)
             random_shape[axis] = signal.shape[axis]
-            signal += self.coeff * np.random.normal(random_shape)
+            signal += np.random.normal(0, self.coeff, random_shape)
         return signal.astype(signal_dtype, copy=False)
 
 
@@ -122,8 +133,12 @@ class Preemphasize(PreProcessor):
         self.coeff = coeff
 
     def apply(
-        self, signal: np.ndarray, axis: int = -1, in_place: bool = False
+        self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
     ) -> np.ndarray:
+        if axis is None:
+            axis = -1
+        else:
+            warnings.warn(_AXIS_DEP_MSG, DeprecationWarning)
         signal_dtype = signal.dtype
         if not in_place or signal_dtype != np.float64:
             signal = signal.astype(np.float64)
@@ -134,5 +149,7 @@ class Preemphasize(PreProcessor):
             tensor_slice_subhd = [slice(None)] * len(signal.shape)
             tensor_slice_mind[axis] = slice(1, None)
             tensor_slice_subhd[axis] = slice(-1, None)
-            signal[tensor_slice_mind] -= self.coeff * signal[tensor_slice_subhd]
+            signal[tuple(tensor_slice_mind)] -= (
+                self.coeff * signal[tuple(tensor_slice_subhd)]
+            )
         return signal.astype(signal_dtype, copy=False)
