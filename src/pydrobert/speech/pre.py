@@ -123,6 +123,7 @@ class Preemphasize(PreProcessor):
     Parameters
     ----------
     coeff
+        Preemphasis coefficient
     """
 
     coeff: float  #:
@@ -135,21 +136,14 @@ class Preemphasize(PreProcessor):
     def apply(
         self, signal: np.ndarray, axis: Optional[int] = None, in_place: bool = False
     ) -> np.ndarray:
-        if axis is None:
-            axis = -1
-        else:
+        if axis is not None:
             warnings.warn(_AXIS_DEP_MSG, DeprecationWarning)
         signal_dtype = signal.dtype
         if not in_place or signal_dtype != np.float64:
             signal = signal.astype(np.float64)
-        if signal.shape and len(signal.shape) > 1:
-            signal[1:] -= self.coeff * signal[:-1]
-        else:
-            tensor_slice_mind = [slice(None)] * len(signal.shape)
-            tensor_slice_subhd = [slice(None)] * len(signal.shape)
-            tensor_slice_mind[axis] = slice(1, None)
-            tensor_slice_subhd[axis] = slice(-1, None)
-            signal[tuple(tensor_slice_mind)] -= (
-                self.coeff * signal[tuple(tensor_slice_subhd)]
-            )
+        if axis not in {-1, None}:
+            signal = np.moveaxis(signal, axis, -1)
+        signal[..., 1:] -= self.coeff * signal[..., :-1]
+        if axis not in {-1, None}:
+            signal = np.moveaxis(signal, -1, axis)
         return signal.astype(signal_dtype, copy=False)

@@ -13,7 +13,7 @@ except ImportError:
 
 import pydrobert.speech.compute as compute
 
-from pydrobert.speech.pre import Dither
+from pydrobert.speech.pre import *
 from pydrobert.speech.torch import *
 from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
@@ -53,3 +53,19 @@ def test_pytorch_dither(jit_type):
     signal = dither(torch.zeros(1_000_000))
     assert torch.isclose(signal.mean(), torch.tensor(0.0), atol=1e-2)
     assert torch.isclose(signal.std(), torch.tensor(std), atol=1e-2)
+
+
+@pytest.mark.parametrize("jit_type", ["script", "trace", "none"])
+def test_pytorch_preemphasize(jit_type):
+    torch.manual_seed(3)
+    coeff = 3.0
+    signal = torch.randn(16_000)
+    preemphasize_numpy = Preemphasize(coeff)
+    preemphasize_pytorch = PyTorchPreemphasize.from_preemphasize(preemphasize_numpy)
+    if jit_type == "script":
+        preemphasize_pytorch = torch.jit.script(preemphasize_pytorch)
+    elif jit_type == "trace":
+        preemphasize_pytorch = torch.jit.trace(preemphasize_pytorch, (torch.empty(1),))
+    exp = preemphasize_numpy.apply(signal.numpy())
+    act = preemphasize_pytorch(signal).numpy()
+    assert np.allclose(exp, act, atol=1e-5)

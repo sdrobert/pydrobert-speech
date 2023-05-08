@@ -34,13 +34,15 @@ from typing import Collection, List, Optional, Sequence, Tuple
 import torch
 
 from . import config
-from .pre import Dither
+from .pre import Dither, Preemphasize
 from .compute import STFTFrameComputer
 
 __all__ = [
     "pytorch_dither",
+    "pytorch_preemphasize",
     "pytorch_stft_frame_computer",
     "PyTorchDither",
+    "PyTorchPreemphasize",
     "PyTorchSTFTFrameComputer",
 ]
 
@@ -57,7 +59,38 @@ def check_positive(name: str, val, nonnegative=False):
         raise ValueError(f"Expected {name} to be {pos}; got {val}")
 
 
+def pytorch_preemphasize(sig: torch.Tensor, coeff: float = 0.97) -> torch.Tensor:
+    """Functional implementation of PyTorchPreemphasize"""
+    sig = torch.concatenate([sig.new_zeros(1), sig])
+    return sig[1:] - coeff * sig[:-1]
+
+
+class PyTorchPreemphasize(torch.nn.Module):
+    """PyTorch implementation of Preemphasize
+    
+    Parameters
+    ----------
+    coeff
+        Preemphasis coefficient
+    """
+
+    __constants__ = ("coeff",)
+    coeff: float
+
+    def __init__(self, coeff: float = 0.97) -> None:
+        super().__init__()
+        self.coeff = coeff
+
+    @classmethod
+    def from_preemphasize(cls, preemphasize: Preemphasize) -> Self:
+        return cls(preemphasize.coeff)
+
+    def forward(self, sig: torch.Tensor) -> torch.Tensor:
+        return pytorch_preemphasize(sig, self.coeff)
+
+
 def pytorch_dither(sig: torch.Tensor, coeff: float = 1.0) -> torch.Tensor:
+    """Functional implementation of PyTorchDither"""
     return sig + coeff * torch.randn_like(sig)
 
 
@@ -89,7 +122,7 @@ class PyTorchDither(torch.nn.Module):
 
     @classmethod
     def from_dither(cls, dither: Dither) -> Self:
-        return PyTorchDither(dither.coeff)
+        return cls(dither.coeff)
 
     def forward(self, sig: torch.Tensor) -> torch.Tensor:
         return pytorch_dither(sig, self.coeff)
