@@ -12,7 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""PyTorch compatibility"""
+"""PyTorch compatibility module
+
+This submodule is intended to provide PyTorch implementations of the components critical
+to feature computation. It is not meant to comprehensively reproduce all functionality
+in PyTorch. Each PyTorch module here contains a class method which initializes the
+PyTorch module with some analogous Numpy instance discussed elsewhere. For example,
+assuming `stft_frame_computer` is an instance of a
+:class:`pydrobert.speech.STFTFrameComputer`, one may instantiate a
+:class:`PyTorchSTFTFrameComputer` via
+
+>>> pytorch_stft_frame_computer = PyTorchSTFTFrameComputer.from_stft_frame_computer(
+...     stft_frame_computer)
+"""
 
 import math
 
@@ -22,11 +34,12 @@ from typing import Collection, List, Optional, Sequence, Tuple
 import torch
 
 from . import config
+from .pre import Dither
 from .compute import STFTFrameComputer
 
 __all__ = [
     "PyTorchSTFTFrameComputer",
-    "stft_frame_computer",
+    "pytorch_stft_frame_computer",
 ]
 
 
@@ -42,8 +55,42 @@ def check_positive(name: str, val, nonnegative=False):
         raise ValueError(f"Expected {name} to be {pos}; got {val}")
 
 
+def pytorch_dither(sig: torch.Tensor, coeff: torch.float = 1.0) -> torch.Tensor:
+    return sig + coeff * torch.randn_like(sig)
+
+
+class PyTorchDither(torch.nn.Module):
+    """PyTorch implementation of Dither
+    
+    Add random, normally-distributed noise to a signal
+
+    Parameters
+    ----------
+    coeff
+        The standard deviation of the noise
+    dim
+        The dimension to apply noise to. If unspecified, applied to all coefficients
+    
+    Notes
+    -----
+    While it is usually the case in PyTorch that random noise is only added during
+    training, dithering serves a
+    """
+
+    __constants__ = "coeff"
+    coeff: float
+
+    def __init__(self, coeff: float = 1.0):
+        check_positive("coeff", coeff, True)
+        super().__init__()
+        self.coeff = coeff
+
+    def forward(self, sig: torch.Tensor) -> torch.Tensor:
+        return pytorch_dither(sig, self.coeff)
+
+
 @torch.jit.script_if_tracing
-def stft_frame_computer(
+def pytorch_stft_frame_computer(
     sig: torch.Tensor,
     filters: List[torch.Tensor],
     offsets: List[int],
@@ -269,7 +316,7 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
             self.window = torch.nn.Parameter(window)
 
     @classmethod
-    def from_numpy_frame_computer(
+    def from_stft_frame_computer(
         cls,
         computer: STFTFrameComputer,
         filter_type: torch.dtype = torch.cfloat,
@@ -315,7 +362,7 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
         )
 
     def forward(self, signal: torch.Tensor) -> torch.Tensor:
-        return stft_frame_computer(
+        return pytorch_stft_frame_computer(
             signal,
             list(self.filters),
             self.offsets,

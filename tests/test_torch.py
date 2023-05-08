@@ -29,9 +29,7 @@ def test_pytorch_stft_frame_computer(include_energy, jit_type):
         json_ = json.load(json_file)
     json_["include_energy"] = include_energy
     computer_numpy = alias_factory_subclass_from_arg(compute.FrameComputer, json_)
-    computer_pytorch = PyTorchSTFTFrameComputer.from_numpy_frame_computer(
-        computer_numpy
-    )
+    computer_pytorch = PyTorchSTFTFrameComputer.from_stft_frame_computer(computer_numpy)
     if jit_type == "script":
         computer_pytorch = torch.jit.script(computer_pytorch)
     elif jit_type == "trace":

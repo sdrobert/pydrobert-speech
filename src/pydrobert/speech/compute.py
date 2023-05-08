@@ -698,10 +698,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._max_support = max(right - left for left, right in bank.supports)
             self._translation = self._max_support // 2
         else:
-            # we will shift all filters by whatever the minimum value
-            # makes them all supported above/equal 0. We treat all that
-            # translated space as nonzero for the sake of the
-            # overlap-add algorithm
+            # we will shift all filters by whatever minimum value makes them all
+            # supported above/equal 0. We treat all that translated space as nonzero for
+            # the sake of the overlap-add algorithm
             self._translation = 0
             self._max_support = 0
             for left, right in bank.supports:
