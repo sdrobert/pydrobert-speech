@@ -38,8 +38,10 @@ from .pre import Dither
 from .compute import STFTFrameComputer
 
 __all__ = [
-    "PyTorchSTFTFrameComputer",
+    "pytorch_dither",
     "pytorch_stft_frame_computer",
+    "PyTorchDither",
+    "PyTorchSTFTFrameComputer",
 ]
 
 
@@ -55,7 +57,7 @@ def check_positive(name: str, val, nonnegative=False):
         raise ValueError(f"Expected {name} to be {pos}; got {val}")
 
 
-def pytorch_dither(sig: torch.Tensor, coeff: torch.float = 1.0) -> torch.Tensor:
+def pytorch_dither(sig: torch.Tensor, coeff: float = 1.0) -> torch.Tensor:
     return sig + coeff * torch.randn_like(sig)
 
 
@@ -77,13 +79,17 @@ class PyTorchDither(torch.nn.Module):
     training, dithering serves a
     """
 
-    __constants__ = "coeff"
+    __constants__ = ("coeff",)
     coeff: float
 
     def __init__(self, coeff: float = 1.0):
         check_positive("coeff", coeff, True)
         super().__init__()
         self.coeff = coeff
+
+    @classmethod
+    def from_dither(cls, dither: Dither) -> Self:
+        return PyTorchDither(dither.coeff)
 
     def forward(self, sig: torch.Tensor) -> torch.Tensor:
         return pytorch_dither(sig, self.coeff)

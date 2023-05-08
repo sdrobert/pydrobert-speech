@@ -13,7 +13,8 @@ except ImportError:
 
 import pydrobert.speech.compute as compute
 
-from pydrobert.speech.torch import PyTorchSTFTFrameComputer
+from pydrobert.speech.pre import Dither
+from pydrobert.speech.torch import *
 from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
 pytestmark = pytest.mark.skipif(skip, reason="Could not import pytorch")
@@ -38,3 +39,17 @@ def test_pytorch_stft_frame_computer(include_energy, jit_type):
     with torch.no_grad():
         act = computer_pytorch(signal).numpy()
     assert np.allclose(exp, act, atol=1e-5)
+
+
+@pytest.mark.parametrize("jit_type", ["script", "trace", "none"])
+def test_pytorch_dither(jit_type):
+    torch.manual_seed(2)
+    std = 2.0
+    dither = PyTorchDither.from_dither(Dither(std))
+    if jit_type == "script":
+        dither = torch.jit.script(dither)
+    elif jit_type == "trace":
+        dither = torch.jit.trace(dither, (torch.empty(1),), check_trace=False)
+    signal = dither(torch.zeros(1_000_000))
+    assert torch.isclose(signal.mean(), torch.tensor(0.0), atol=1e-2)
+    assert torch.isclose(signal.std(), torch.tensor(std), atol=1e-2)
