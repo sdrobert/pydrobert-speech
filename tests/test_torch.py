@@ -14,6 +14,7 @@ except ImportError:
 import pydrobert.speech.compute as compute
 
 from pydrobert.speech.pre import *
+from pydrobert.speech.post import *
 from pydrobert.speech.torch import *
 from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
@@ -69,3 +70,33 @@ def test_pytorch_preemphasize(jit_type):
     exp = preemphasize_numpy.apply(signal.numpy())
     act = preemphasize_pytorch(signal).numpy()
     assert np.allclose(exp, act, atol=1e-5)
+
+
+@pytest.mark.parametrize(
+    "postprocessor",
+    [Standardize(), Deltas(1), Stack(3)],
+    ids=["standardize", "deltas", "stack"],
+)
+@pytest.mark.parametrize(
+    "jit_type",
+    [
+        pytest.param("script", marks=pytest.mark.xfail(reason="No pytorch impl")),
+        pytest.param("trace", marks=pytest.mark.xfail(reason="No pytorch impl")),
+        "none",
+    ],
+)
+def test_pytorch_post_processor_wrapper(postprocessor, jit_type):
+    torch.manual_seed(4)
+    spect = torch.randn(300, 10)
+    wrapper = PyTorchPostProcessorWrapper.from_postprocessor(postprocessor)
+    exp = torch.tensor(postprocessor.apply(spect.numpy()))
+    if jit_type == "script":
+        wrapper = torch.jit.script(wrapper)
+    elif jit_type == "trace":
+        with pytest.warns(torch.jit.TracerWarning):
+            wrapper = torch.jit.trace(
+                wrapper, (torch.empty(1, 1),), strict=False, check_trace=False
+            )
+    act = wrapper(spect)
+    assert exp.shape == act.shape
+    assert torch.allclose(exp.float(), act)

@@ -24,17 +24,20 @@ assuming `stft_frame_computer` is an instance of a
 
 >>> pytorch_stft_frame_computer = PyTorchSTFTFrameComputer.from_stft_frame_computer(
 ...     stft_frame_computer)
+
 """
 
 import math
 
 from typing_extensions import Self, Literal
 from typing import Collection, List, Optional, Sequence, Tuple
+import warnings
 
 import torch
 
 from . import config
 from .pre import Dither, Preemphasize
+from .post import PostProcessor
 from .compute import STFTFrameComputer
 
 __all__ = [
@@ -42,6 +45,7 @@ __all__ = [
     "pytorch_preemphasize",
     "pytorch_stft_frame_computer",
     "PyTorchDither",
+    "PyTorchPostProcessorWrapper",
     "PyTorchPreemphasize",
     "PyTorchSTFTFrameComputer",
 ]
@@ -416,3 +420,44 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
             self.kaldi_shift,
             self.is_real,
         )
+
+
+class PyTorchPostProcessorWrapper(torch.nn.Module):
+    """A PyTorch wrapper around a PostProcessor
+
+    This module merely casts incoming tensors to a :class:`numpy.ndarray`, runs
+    :func:`pydrobert.speech.post.PostProcessor.apply` on the result, then casts it
+    back into a tensor.
+
+    Most :class:`PostProcessor` classes have been reimplemented in
+    :mod:`pydrobert.torch` with a bona fide PyTorch implementation, which should
+    be preferred.
+    """
+
+    __constants__ = ("postprocessor",)
+    postprocessor: PostProcessor
+
+    def __init__(self, postprocessor: PostProcessor):
+        super().__init__()
+        self.postprocessor = postprocessor
+
+    @classmethod
+    def from_postprocessor(cls, postprocessor: PostProcessor) -> Self:
+        return cls(postprocessor)
+
+    @torch.jit.unused
+    def _postprocessor_appy(self, sig: torch.Tensor) -> torch.Tensor:
+        if sig.device.type != "cpu":
+            warnings.warn(
+                "PyTorchPostProcessorWrapper being used on non-cpu tensor. Will "
+                "send to cpu for computations, then back"
+            )
+        return torch.tensor(
+            self.postprocessor.apply(sig.cpu().numpy()),
+            device=sig.device,
+            dtype=sig.dtype,
+        )
+
+    def forward(self, sig: torch.Tensor) -> torch.Tensor:
+        return self._postprocessor_appy(sig)
+
