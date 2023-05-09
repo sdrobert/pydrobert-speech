@@ -116,9 +116,7 @@ def test_pytorch_short_integration_frame_computer(include_energy, jit_type):
     signal = torch.randn(16_000)
     json_ = dict(name="si", bank="fbank", include_energy=include_energy,)
     computer_numpy = alias_factory_subclass_from_arg(compute.FrameComputer, json_)
-    computer_pytorch = PyTorchShortIntegrationFrameComputer.from_short_integration_frame_computer(
-        computer_numpy
-    )
+    computer_pytorch = PyTorchSIFrameComputer.from_si_frame_computer(computer_numpy)
     if jit_type == "script":
         computer_pytorch = torch.jit.script(computer_pytorch)
     elif jit_type == "trace":

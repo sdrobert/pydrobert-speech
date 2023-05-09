@@ -20,9 +20,9 @@ in PyTorch. Each PyTorch module here contains a class method which initializes t
 PyTorch module with some analogous Numpy instance discussed elsewhere. For example,
 assuming `stft_frame_computer` is an instance of a
 :class:`pydrobert.speech.STFTFrameComputer`, one may instantiate a
-:class:`PyTorchSTFTFrameComputer` via
+:class:`PyTorchShortTimeFourierTransformFrameComputer` via
 
->>> pytorch_stft_frame_computer = PyTorchSTFTFrameComputer.from_stft_frame_computer(
+>>> pytorch_stft_frame_computer = PyTorchShortTimeFourierTransformFrameComputer.from_stft_frame_computer(
 ...     stft_frame_computer)
 
 """
@@ -30,7 +30,7 @@ assuming `stft_frame_computer` is an instance of a
 import math
 
 from typing_extensions import Self, Literal
-from typing import Any, Collection, List, Mapping, Optional, Sequence, Tuple
+from typing import Collection, List, Optional, Sequence, Tuple
 import warnings
 
 import torch
@@ -38,7 +38,7 @@ import torch
 from . import config
 from .pre import Dither, Preemphasize
 from .post import PostProcessor
-from .compute import STFTFrameComputer, ShortIntegrationFrameComputer
+from .compute import STFTFrameComputer, SIFrameComputer
 
 __all__ = [
     "pytorch_dither",
@@ -48,6 +48,8 @@ __all__ = [
     "PyTorchPostProcessorWrapper",
     "PyTorchPreemphasize",
     "PyTorchShortIntegrationFrameComputer",
+    "PyTorchShortTimeFourierTransformFrameComputer",
+    "PyTorchSIFrameComputer",
     "PyTorchSTFTFrameComputer",
 ]
 
@@ -150,7 +152,7 @@ def pytorch_stft_frame_computer(
     is_real: bool = True,
     eps: float = config.LOG_FLOOR_VALUE,
 ) -> torch.Tensor:
-    """Functional implementation of PyTorchSTFTFrameComputer"""
+    """Functional implementation of PyTorchShortTimeFourierTransformFrameComputer"""
     if dft_size is None:
         dft_size_ = int(2 ** math.ceil(math.log(frame_length, 2)))
     elif dft_size < frame_length:
@@ -229,7 +231,7 @@ def pytorch_stft_frame_computer(
     return y_
 
 
-class PyTorchSTFTFrameComputer(torch.nn.Module):
+class PyTorchShortTimeFourierTransformFrameComputer(torch.nn.Module):
     """PyTorch implementation of STFTFrameComputer
 
     This module is a port of :class:`pydrobert.speech.compute.STFTFrameComputer` to
@@ -238,9 +240,9 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
     outputs are expected.
 
     The easiest means of initializing this module is through the factory function
-    :func:`PytorchSTFTFrameComputer.from_numpy_frame_computer`, which determines the
-    below parameters from an :class:`STFTFrameComputer` which has already been
-    initialized.
+    :func:`PyTorchShortTimeFourierTransformFrameComputer.from_numpy_frame_computer`,
+    which determines the below parameters from an :class:`STFTFrameComputer` which has
+    already been initialized.
 
     The filters and window are learnable/adjustable. Be sure to disable gradients with
     :func:`torch.no_grad` if a fixed feature representation is desirable.
@@ -423,6 +425,9 @@ class PyTorchSTFTFrameComputer(torch.nn.Module):
         )
 
 
+PyTorchSTFTFrameComputer = PyTorchShortTimeFourierTransformFrameComputer
+
+
 class PyTorchPostProcessorWrapper(torch.nn.Module):
     """A PyTorch wrapper around a PostProcessor
 
@@ -464,35 +469,33 @@ class PyTorchPostProcessorWrapper(torch.nn.Module):
 
 
 class PyTorchShortIntegrationFrameComputer(torch.nn.Module):
-    """PyTorch implementation of ShortIntegrationFrameComputer
+    """PyTorch implementation of SIFrameComputer
 
     This module is a port of
-    :class:`pydrobert.speech.compute.ShortIntegrationFrameComputer` to PyTorch. When
+    :class:`pydrobert.speech.compute.SIFrameComputer` to PyTorch. When
     called, the output should be nearly identical to a call to
-    :func:`ShortIntegrationFrameComputer.compute_full`, except :class:`torch.Tensor`
+    :func:`SIFrameComputer.compute_full`, except :class:`torch.Tensor`
     inputs and outputs are expected.
 
     Warnings
     --------
     This module is currently a mere wrapper around a
-    :class:`ShortIntegrationFrameComputer` instance. While we plan on reimplementing the
+    :class:`SIFrameComputer` instance. While we plan on reimplementing the
     computer with bona fide PyTorch operations at a later date, for now, relying on the
     factory function :func:`from_short_integration_frame_computer` is the best way to
     ensure forward compatibility. In addition, the module state dict cannot be saved
     nor loaded to ensure forward compatibility.
     """
 
-    short_integration_frame_computer: ShortIntegrationFrameComputer
+    si_frame_computer: SIFrameComputer
 
-    def __init__(self, short_integration_frame_computer: ShortIntegrationFrameComputer):
+    def __init__(self, si_frame_computer: SIFrameComputer):
         super().__init__()
-        self.short_integration_frame_computer = short_integration_frame_computer
+        self.si_frame_computer = si_frame_computer
 
     @classmethod
-    def from_short_integration_frame_computer(
-        cls, short_integration_frame_computer: ShortIntegrationFrameComputer
-    ) -> Self:
-        return cls(short_integration_frame_computer)
+    def from_si_frame_computer(cls, si_frame_computer: SIFrameComputer) -> Self:
+        return cls(si_frame_computer)
 
     def state_dict(self):
         raise NotImplementedError
@@ -503,10 +506,13 @@ class PyTorchShortIntegrationFrameComputer(torch.nn.Module):
     @torch.jit.unused
     def _compute_full(self, sig: torch.Tensor) -> torch.Tensor:
         return torch.tensor(
-            self.short_integration_frame_computer.compute_full(sig.cpu().numpy()),
+            self.si_frame_computer.compute_full(sig.cpu().numpy()),
             device=sig.device,
             dtype=sig.dtype,
         )
-    
+
     def forward(self, sig: torch.Tensor) -> torch.Tensor:
         return self._compute_full(sig)
+
+
+PyTorchSIFrameComputer = PyTorchShortIntegrationFrameComputer

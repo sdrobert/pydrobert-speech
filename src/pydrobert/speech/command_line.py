@@ -1,4 +1,4 @@
-# Copyright 2021 Sean Robertson
+# Copyright 2023 Sean Robertson
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,14 +24,14 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-import pydrobert.speech as speech
-import pydrobert.speech.config as config
+from .. import speech
+from . import config
 
-from pydrobert.speech.compute import FrameComputer
-from pydrobert.speech.pre import PreProcessor
-from pydrobert.speech.post import PostProcessor
-from pydrobert.speech.alias import alias_factory_subclass_from_arg
-from pydrobert.speech.util import read_signal
+from .compute import FrameComputer, STFTFrameComputer, SIFrameComputer
+from .pre import Dither, PreProcessor, Preemphasize
+from .post import PostProcessor
+from .alias import alias_factory_subclass_from_arg
+from .util import read_signal
 
 try:
     from pydrobert.kaldi.logging import kaldi_vlog_level_cmd_decorator  # type: ignore
@@ -47,6 +47,14 @@ except ImportError:
 
 try:
     import torch.utils.data
+
+    from .torch import (
+        PyTorchSTFTFrameComputer,
+        PyTorchSIFrameComputer,
+        PyTorchDither,
+        PyTorchPreemphasize,
+        PyTorchPostProcessorWrapper,
+    )
 
     class _FeatureProcessorDataset(torch.utils.data.Dataset):
         # yields utt, feats
@@ -74,41 +82,39 @@ try:
             return len(self.utt_path)
 
         def __getitem__(self, idx):
-            # torch.multiprocessing should copy numpy rng over workers, so
-            # we need not worry about the rng changing underneath us
-            np.random.seed(self.seed + idx)
+            torch.manual_seed(self.seed + idx)
             utt_id, path = self.utt_path[idx]
             try:
                 signal = read_signal(
                     path, dtype=np.float64, force_as=self.force_as, key=utt_id
                 )
             except Exception as e:
-                raise IOError("Utterance {}:".format(utt_id), e) from e
-            if self.channel == -1 and len(signal.shape) > 1 and signal.shape[0] > 1:
+                raise IOError(f"Utterance {utt_id}: {e}") from e
+            if self.channel == -1 and signal.ndim > 1 and signal.shape[0] > 1:
                 raise ValueError(
                     "Utterance {}: Channel is not specified but signal has "
                     "shape {}".format(utt_id, signal.shape)
                 )
-            elif (self.channel != -1 and len(signal.shape) == 1) or (
+            elif (self.channel != -1 and signal.ndim == 1) or (
                 self.channel >= signal.shape[0]
             ):
                 raise ValueError(
                     "Utterance {}: Channel specified as {} but signal has "
                     "shape {}".format(utt_id, self.channel, signal.shape)
                 )
-            if len(signal.shape) != 1:
+            if signal.ndim != 1:
                 signal = signal[self.channel]
+            signal = torch.from_numpy(signal)
             for preprocessor in self.preprocessors:
-                signal = preprocessor.apply(signal, in_place=True)
+                signal = preprocessor(signal)
             if self.computer is None:
-                feats = signal[:, None]  # add "filter" dim to raw signal
+                feats = signal.unsqueeze(1)
             else:
-                feats = self.computer.compute_full(signal)
+                feats = self.computer(signal)
             del signal
             for postprocessor in self.postprocessors:
-                feats = postprocessor.apply(feats, in_place=True)
-            feats = torch.FloatTensor(feats)
-            return utt_id, feats
+                feats = postprocessor(feats)
+            return utt_id, feats.float()
 
 
 except ImportError:
@@ -507,6 +513,12 @@ def signals_to_torch_feat_dir(args=None):
         computer = alias_factory_subclass_from_arg(
             FrameComputer, options.computer_config
         )
+        if isinstance(computer, STFTFrameComputer):
+            computer = PyTorchSTFTFrameComputer.from_stft_frame_computer(computer)
+        elif isinstance(computer, SIFrameComputer):
+            computer = PyTorchSIFrameComputer.from_si_frame_computer(computer)
+        else:
+            raise NotImplementedError
     preprocessors = []
     if isinstance(options.preprocess, dict):
         preprocessors.append(
@@ -515,6 +527,13 @@ def signals_to_torch_feat_dir(args=None):
     else:
         for element in options.preprocess:
             preprocessors.append(alias_factory_subclass_from_arg(PreProcessor, element))
+    for i, preprocessor in enumerate(preprocessors):
+        if isinstance(preprocessor, Dither):
+            preprocessors[i] = PyTorchDither.from_dither(preprocessor)
+        elif isinstance(preprocessor, Preemphasize):
+            preprocessors[i] = PyTorchPreemphasize.from_preemphasize(preprocessor)
+        else:
+            raise NotImplementedError
     postprocessors = []
     if isinstance(options.postprocess, dict):
         postprocessors.append(
@@ -525,6 +544,9 @@ def signals_to_torch_feat_dir(args=None):
             postprocessors.append(
                 alias_factory_subclass_from_arg(PostProcessor, element)
             )
+    postprocessors = [
+        PyTorchPostProcessorWrapper.from_postprocessor(p) for p in postprocessors
+    ]
     # we use a dataset to take advantage of torch's multiprocessing
     dataset = _FeatureProcessorDataset(
         utt2path,
