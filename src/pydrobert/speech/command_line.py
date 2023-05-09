@@ -432,6 +432,15 @@ def _signals_to_torch_feat_dir_parse_args(args):
         "affect determinism when used in tandem with --seed. '0' means all work is "
         "done on the main thread",
     )
+    parser.add_argument(
+        "--manifest",
+        type=argparse.FileType("a+"),
+        default=None,
+        help="If specified, a list of utterances which have already been computed "
+        "will be stored in this file. Utterances already listed in the file will be "
+        "not be computed. Useful for resuming computations after an unexpected "
+        "termination",
+    )
     return parser.parse_args(args)
 
 
@@ -507,6 +516,10 @@ def signals_to_torch_feat_dir(args=None):
             )
             return 1
         utt2path[utt_id] = " ".join(ls[1:])
+    if options.manifest is not None:
+        options.manifest.seek(0)
+        for line in options.manifest:
+            utt2path.pop(line.strip(), None)
     if options.computer_config is None:
         computer = None
     else:
@@ -568,4 +581,6 @@ def signals_to_torch_feat_dir(args=None):
                 options.dir, options.file_prefix + utt_id + options.file_suffix
             ),
         )
+        if options.manifest is not None:
+            print(utt_id, file=options.manifest)
     return 0

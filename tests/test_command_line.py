@@ -75,6 +75,7 @@ def test_signals_to_torch_feat_dir(temp_dir):
     feat_dir = os.path.join(temp_dir, "feat")
     raw_dir = os.path.join(temp_dir, "raw")
     map_path = os.path.join(temp_dir, "map")
+    manifest_path = os.path.join(temp_dir, "manifest.txt")
     computer_json_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "data", "fbank.json"
     )
@@ -137,7 +138,25 @@ def test_signals_to_torch_feat_dir(temp_dir):
         utt2signal[utt_id] = noisy
     torch.manual_seed(70)
     args.append("--num-workers=2")
+    args.append("--manifest={}".format(manifest_path))
     assert not command_line.signals_to_torch_feat_dir(args)
-    for utt_id, exp in list(utt2signal.items()):
+    for utt_id, exp in utt2signal.items():
         act = torch.load(os.path.join(feat_dir, "{}.pt".format(utt_id)))
         assert torch.allclose(exp, act)
+    with open(manifest_path) as f:
+        utts = [x.strip() for x in f]
+    assert len(utts) == len(utt2signal)
+    assert set(utts) == set(utt2signal)
+    # if a file is already in the manifest, don't rewrite it. If a file isn't, do
+    utt_id1, utt_id2 = utts[:2]
+    exp1, exp2 = utt2signal[utt_id1], torch.randn_like(utt2signal[utt_id1])
+    torch.save(exp2, os.path.join(feat_dir, "{}.pt".format(utt_id1)))
+    torch.save(exp2, os.path.join(feat_dir, "{}.pt".format(utt_id2)))
+    with open(manifest_path, "w") as f:
+        f.write("\n".join(utts[1:]))
+        f.write("\n")
+    assert not command_line.signals_to_torch_feat_dir(args)
+    act1 = torch.load(os.path.join(feat_dir, "{}.pt".format(utt_id1)))
+    assert torch.allclose(exp1, act1)
+    act2 = torch.load(os.path.join(feat_dir, "{}.pt".format(utt_id2)))
+    assert torch.allclose(exp2, act2)
