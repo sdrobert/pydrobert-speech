@@ -2,6 +2,7 @@
 
 ## Latest
 
+- Added `--manifest` option to `signals-to-torch-feature-dir`.
 - The `axis` argument of `PreProcessor` is deprecated.
 - `Dither` adds normally-distributed noise rather than uniform noise.
 - Added [pytorch](https://pytorch.org/) wrappers around computers under
