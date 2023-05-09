@@ -1,4 +1,4 @@
-Sphinx>=4.4<7
+Sphinx >=4.4, <7.0
 sphinxcontrib-programoutput
 sphinx-autodoc-typehints
 myst-parser
