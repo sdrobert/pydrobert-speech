@@ -100,3 +100,31 @@ def test_pytorch_post_processor_wrapper(postprocessor, jit_type):
     act = wrapper(spect)
     assert exp.shape == act.shape
     assert torch.allclose(exp.float(), act)
+
+
+@pytest.mark.parametrize("include_energy", [True, False], ids=["energy", "noenergy"])
+@pytest.mark.parametrize(
+    "jit_type",
+    [
+        pytest.param("script", marks=pytest.mark.xfail(reason="No pytorch impl")),
+        pytest.param("trace", marks=pytest.mark.xfail(reason="No pytorch impl")),
+        "none",
+    ],
+)
+def test_pytorch_short_integration_frame_computer(include_energy, jit_type):
+    torch.manual_seed(5)
+    signal = torch.randn(16_000)
+    json_ = dict(name="si", bank="fbank", include_energy=include_energy,)
+    computer_numpy = alias_factory_subclass_from_arg(compute.FrameComputer, json_)
+    computer_pytorch = PyTorchShortIntegrationFrameComputer.from_short_integration_frame_computer(
+        computer_numpy
+    )
+    if jit_type == "script":
+        computer_pytorch = torch.jit.script(computer_pytorch)
+    elif jit_type == "trace":
+        with pytest.warns(torch.jit.TracerWarning):
+            computer_pytorch = torch.jit.trace(computer_pytorch, (torch.empty(1),))
+    exp = computer_numpy.compute_full(signal.numpy())
+    with torch.no_grad():
+        act = computer_pytorch(signal).numpy()
+    assert np.allclose(exp, act, atol=1e-5)

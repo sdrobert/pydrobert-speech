@@ -30,7 +30,7 @@ assuming `stft_frame_computer` is an instance of a
 import math
 
 from typing_extensions import Self, Literal
-from typing import Collection, List, Optional, Sequence, Tuple
+from typing import Any, Collection, List, Mapping, Optional, Sequence, Tuple
 import warnings
 
 import torch
@@ -38,7 +38,7 @@ import torch
 from . import config
 from .pre import Dither, Preemphasize
 from .post import PostProcessor
-from .compute import STFTFrameComputer
+from .compute import STFTFrameComputer, ShortIntegrationFrameComputer
 
 __all__ = [
     "pytorch_dither",
@@ -47,6 +47,7 @@ __all__ = [
     "PyTorchDither",
     "PyTorchPostProcessorWrapper",
     "PyTorchPreemphasize",
+    "PyTorchShortIntegrationFrameComputer",
     "PyTorchSTFTFrameComputer",
 ]
 
@@ -461,3 +462,51 @@ class PyTorchPostProcessorWrapper(torch.nn.Module):
     def forward(self, sig: torch.Tensor) -> torch.Tensor:
         return self._postprocessor_appy(sig)
 
+
+class PyTorchShortIntegrationFrameComputer(torch.nn.Module):
+    """PyTorch implementation of ShortIntegrationFrameComputer
+
+    This module is a port of
+    :class:`pydrobert.speech.compute.ShortIntegrationFrameComputer` to PyTorch. When
+    called, the output should be nearly identical to a call to
+    :func:`ShortIntegrationFrameComputer.compute_full`, except :class:`torch.Tensor`
+    inputs and outputs are expected.
+
+    Warnings
+    --------
+    This module is currently a mere wrapper around a
+    :class:`ShortIntegrationFrameComputer` instance. While we plan on reimplementing the
+    computer with bona fide PyTorch operations at a later date, for now, relying on the
+    factory function :func:`from_short_integration_frame_computer` is the best way to
+    ensure forward compatibility. In addition, the module state dict cannot be saved
+    nor loaded to ensure forward compatibility.
+    """
+
+    short_integration_frame_computer: ShortIntegrationFrameComputer
+
+    def __init__(self, short_integration_frame_computer: ShortIntegrationFrameComputer):
+        super().__init__()
+        self.short_integration_frame_computer = short_integration_frame_computer
+
+    @classmethod
+    def from_short_integration_frame_computer(
+        cls, short_integration_frame_computer: ShortIntegrationFrameComputer
+    ) -> Self:
+        return cls(short_integration_frame_computer)
+
+    def state_dict(self):
+        raise NotImplementedError
+
+    def load_state_dict(self, *args, **kwargs):
+        raise NotImplementedError
+
+    @torch.jit.unused
+    def _compute_full(self, sig: torch.Tensor) -> torch.Tensor:
+        return torch.tensor(
+            self.short_integration_frame_computer.compute_full(sig.cpu().numpy()),
+            device=sig.device,
+            dtype=sig.dtype,
+        )
+    
+    def forward(self, sig: torch.Tensor) -> torch.Tensor:
+        return self._compute_full(sig)
