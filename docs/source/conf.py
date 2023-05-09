@@ -36,18 +36,18 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
-    "sphinxcontrib.programoutput",
     "sphinx_autodoc_typehints",
 ]
 
 naploeon_numpy_docstring = True
 
 intersphinx_mapping = {
-    "scipy": ("http://docs.scipy.org/doc/scipy/reference/", None),
     "matplotlib": ("https://matplotlib.org", None),
     "numpy": ("https://docs.scipy.org/doc/numpy/", None),
     "pydrobert.kaldi": ("https://pydrobert-kaldi.readthedocs.io/en/latest", None),
+    "pydrobert.torch": ("https://pydrobert-pytorch.readthedocs.io/en/latest", None),
     "python": ("https://docs.python.org/", None),
+    "scipy": ("http://docs.scipy.org/doc/scipy/reference/", None),
     "soundfile": ("https://python-soundfile.readthedocs.io/en/latest/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
 }
@@ -69,6 +69,7 @@ autodoc_mock_imports = [
     "matplotlib.colors",
     "matplotlib.figure",
     "matplotlib",
+    "torch",
 ]
 autodoc_typehints = "none"
 autodoc_type_aliases = napoleon_type_aliases = {"np.ndarray": "numpy.ndarray"}

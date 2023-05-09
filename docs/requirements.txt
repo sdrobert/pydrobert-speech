@@ -1,5 +1,6 @@
-Sphinx>=4.4
-sphinxcontrib-programoutput
+Sphinx >=4.4.0
 sphinx-autodoc-typehints
 myst-parser
 sphinx_rtd_theme>=0.5
+docutils>=0.17
+typing_extensions

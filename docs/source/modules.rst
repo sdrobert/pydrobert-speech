@@ -17,6 +17,7 @@ pydrobert.speech API
    pydrobert.speech.post
    pydrobert.speech.pre
    pydrobert.speech.scales
+   pydrobert.speech.torch
    pydrobert.speech.util
    pydrobert.speech.vis
 

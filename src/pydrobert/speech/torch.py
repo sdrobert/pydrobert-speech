@@ -20,9 +20,9 @@ in PyTorch. Each PyTorch module here contains a class method which initializes t
 PyTorch module with some analogous Numpy instance discussed elsewhere. For example,
 assuming `stft_frame_computer` is an instance of a
 :class:`pydrobert.speech.STFTFrameComputer`, one may instantiate a
-:class:`PyTorchShortTimeFourierTransformFrameComputer` via
+:class:`PyTorchSTFTFrameComputer` via
 
->>> pytorch_stft_frame_computer = PyTorchShortTimeFourierTransformFrameComputer.from_stft_frame_computer(
+>>> pytorch_stft_frame_computer = PyTorchSTFTFrameComputer.from_stft_frame_computer(
 ...     stft_frame_computer)
 
 """
@@ -234,15 +234,15 @@ def pytorch_stft_frame_computer(
 class PyTorchShortTimeFourierTransformFrameComputer(torch.nn.Module):
     """PyTorch implementation of STFTFrameComputer
 
-    This module is a port of :class:`pydrobert.speech.compute.STFTFrameComputer` to
-    PyTorch. When called, the output should be nearly identical to a call to
-    :func:`STFTFrameComputer.compute_full`, except :class:`torch.Tensor` inputs and
-    outputs are expected.
+    This module is a port of
+    :class:`pydrobert.speech.compute.ShortTimeFourierTransformFrameComputer` to PyTorch.
+    When called, the output should be nearly identical to a call to
+    :func:`ShortTimeFourierTransformFrameComputer.compute_full`, except
+    :class:`torch.Tensor` inputs and outputs are expected.
 
     The easiest means of initializing this module is through the factory function
-    :func:`PyTorchShortTimeFourierTransformFrameComputer.from_numpy_frame_computer`,
-    which determines the below parameters from an :class:`STFTFrameComputer` which has
-    already been initialized.
+    :func:`from_numpy_frame_computer`, which determines the below parameters from an
+    :class:`STFTFrameComputer` which has already been initialized.
 
     The filters and window are learnable/adjustable. Be sure to disable gradients with
     :func:`torch.no_grad` if a fixed feature representation is desirable.
@@ -472,19 +472,19 @@ class PyTorchShortIntegrationFrameComputer(torch.nn.Module):
     """PyTorch implementation of SIFrameComputer
 
     This module is a port of
-    :class:`pydrobert.speech.compute.SIFrameComputer` to PyTorch. When
+    :class:`pydrobert.speech.compute.ShortIntegrationFrameComputer` to PyTorch. When
     called, the output should be nearly identical to a call to
-    :func:`SIFrameComputer.compute_full`, except :class:`torch.Tensor`
+    :func:`ShortIntegrationFrameComputer.compute_full`, except :class:`torch.Tensor`
     inputs and outputs are expected.
 
     Warnings
     --------
     This module is currently a mere wrapper around a
-    :class:`SIFrameComputer` instance. While we plan on reimplementing the
+    :class:`ShortIntegrationFrameComputer` instance. While we plan on reimplementing the
     computer with bona fide PyTorch operations at a later date, for now, relying on the
-    factory function :func:`from_short_integration_frame_computer` is the best way to
-    ensure forward compatibility. In addition, the module state dict cannot be saved
-    nor loaded to ensure forward compatibility.
+    factory function :func:`from_si_frame_computer` is the best way to ensure forward
+    compatibility. In addition, the module state dict cannot be saved nor loaded to
+    ensure forward compatibility.
     """
 
     si_frame_computer: SIFrameComputer
