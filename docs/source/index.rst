@@ -1,4 +1,6 @@
-.. include:: ../../README.md
+================
+pydrobert-speech
+================
 
 .. toctree::
    :maxdepth: 2
