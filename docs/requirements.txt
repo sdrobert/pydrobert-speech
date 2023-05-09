@@ -1,5 +1,5 @@
 Sphinx >=4.4, <7.0
 sphinxcontrib-programoutput
 sphinx-autodoc-typehints
-myst-parser
+myst-parser ==0.18.0
 sphinx_rtd_theme>=0.5
