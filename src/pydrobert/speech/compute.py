@@ -277,9 +277,12 @@ class ShortTimeFourierTransformFrameComputer(LinearFilterBankFrameComputer):
     use_power
         Whether to sum the power spectrum or the magnitude spectrum
     kaldi_shift
-        If :obj:`True`, the k-th frame will be computed using the signal between
-        ``signal[ k - frame_length // 2 + frame_shift // 2:k + (frame_length + 1) // 2
-        + frame_shift // 2]``. These are the frame bounds for Kaldi [povey2011]_.
+        Dictates how to center frames when `frame_style` is :obj:`'centered'`. If
+        :obj:`True`, the k-th frame will be computed using the signal between ``signal[
+        k * frame_shift - frame_length // 2 + frame_shift // 2:k * frame_shift +
+        (frame_length + 1) // 2 + frame_shift // 2]``. These are the frame bounds for
+        Kaldi [povey2011]_. Otherwise, the k-th frame is ``signal[ k * frame_shift -
+        (frame_length + 1) // 2 + 1: k * frame_shift + frame_length // 2 + 1]``.
     """
 
     aliases = {"stft"}  #:
@@ -695,10 +698,9 @@ class ShortIntegrationFrameComputer(LinearFilterBankFrameComputer):
             self._max_support = max(right - left for left, right in bank.supports)
             self._translation = self._max_support // 2
         else:
-            # we will shift all filters by whatever the minimum value
-            # makes them all supported above/equal 0. We treat all that
-            # translated space as nonzero for the sake of the
-            # overlap-add algorithm
+            # we will shift all filters by whatever minimum value makes them all
+            # supported above/equal 0. We treat all that translated space as nonzero for
+            # the sake of the overlap-add algorithm
             self._translation = 0
             self._max_support = 0
             for left, right in bank.supports:

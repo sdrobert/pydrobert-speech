@@ -1,0 +1,15 @@
+# dev environment
+name: pydrobert-speech
+channels:
+  - pytorch
+  - conda-forge
+  - nodefaults
+dependencies:
+  - matplotlib
+  - numpy
+  - pydrobert-kaldi
+  - pysoundfile
+  - pytest
+  - pytorch
+  - cpuonly
+  - scipy

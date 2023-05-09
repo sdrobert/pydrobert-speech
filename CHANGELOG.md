@@ -4,6 +4,10 @@
 
 - The `axis` argument of `PreProcessor` is deprecated.
 - `Dither` adds normally-distributed noise rather than uniform noise.
+- Added [pytorch](https://pytorch.org/) wrappers around computers under
+  `pydrobert.speech.torch`. Preprocessors and STFTFrameComputer have bona
+  fide PyTorch implementations; the rest just wrap the Numpy code.
+- `signals-to-torch-feat-dir` uses the PyTorch implementations.
 
 ## v0.3.0
 
