@@ -81,6 +81,7 @@ try:
         def __len__(self):
             return len(self.utt_path)
 
+        @torch.no_grad()
         def __getitem__(self, idx):
             torch.manual_seed(self.seed + idx)
             utt_id, path = self.utt_path[idx]
