@@ -1,6 +1,3 @@
-# pylint: skip-file
-
-
 import os
 
 from math import erf

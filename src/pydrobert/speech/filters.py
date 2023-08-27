@@ -16,6 +16,8 @@
 
 
 import abc
+import math
+
 from typing import Mapping, Optional, Tuple, Union
 
 import numpy as np
@@ -1008,8 +1010,8 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         self._wrap_supports_ang = []
         self._wrap_below = False
         log_eps = np.log(config.EFFECTIVE_SUPPORT_THRESHOLD)
-        log_double_factorial = np.log(np.math.factorial(2 * order - 2))
-        log_factorial = np.log(np.math.factorial(order - 1))
+        log_double_factorial = np.log(math.factorial(2 * order - 2))
+        log_factorial = np.log(math.factorial(order - 1))
         log_2 = np.log(2)
         if erb:
             alpha_const = log_2 * (2 * order - 1)
@@ -1178,7 +1180,7 @@ class ComplexGammatoneFilterBank(LinearFilterBank):
         xi = self._xis[idx]
         offset = self._offsets[idx]
         n = self._order
-        numer = np.exp(-1j * omega * offset) * c * np.math.factorial(n - 1)
+        numer = np.exp(-1j * omega * offset) * c * math.factorial(n - 1)
         denom = (alpha + 1j * (omega - xi)) ** n
         return numer / denom
 
@@ -1342,6 +1344,6 @@ class GammaWindow(WindowFunction):
             alpha = 5 / width
             offs = width
         ln_c = self.order * np.log(alpha)
-        ln_c -= np.log(np.math.factorial(self.order - 1))
+        ln_c -= np.log(math.factorial(self.order - 1))
         ret[:offs] = ret[:offs] ** (self.order - 1) * np.exp(-alpha * ret[:offs] + ln_c)
         return ret
