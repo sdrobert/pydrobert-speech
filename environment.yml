@@ -14,3 +14,4 @@ dependencies:
   - cpuonly
   - scipy
   - webdataset
+  - h5py
