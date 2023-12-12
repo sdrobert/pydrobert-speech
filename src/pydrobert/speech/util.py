@@ -37,6 +37,7 @@ __all__ = [
     "gauss_quant",
     "hertz_to_angular",
     "read_signal",
+    "wds_read_signal",
 ]
 
 
@@ -513,3 +514,37 @@ def read_signal(
             )
         raise ValueError(msg)
     return data
+
+
+def wds_read_signal(key: str, data: bytes) -> Optional[np.ndarray]:
+    """Wrapper around read_signal for webdataset
+
+    This method is intended for `Data Decoding
+    <https://github.com/webdataset/webdataset/tree/main#data-decoding>`_ in a
+    WebDataset. It uses :func:`read_signal` to read a file and returns it as a Numpy
+    array.
+
+    Examples
+    --------
+    >>> import webdataset as wds
+    >>> url = 'pipe:curl -L -s https://dl.fbaipublicfiles.com/librilight/data/small.tar'
+    >>> ds = (
+    ...     wds.WebDataset(url)
+    ...     .decode(wds_read_signal)
+    ...     .to_tuple('flac', handler=wds.ignore_and_continue)
+    ... )
+    >>> for signal in ds:
+    ...     # do something
+
+    Warnings
+    --------
+    Kaldi types are currently unsupported.
+
+    This decoder clobbers the default WebDataset decoder for "npy" and "pt" files.
+    """
+
+    try:
+        force_as = _infer_force_as_from_rfilename(key)
+        return read_signal(io.BytesIO(data), force_as=force_as)
+    except:
+        return None
