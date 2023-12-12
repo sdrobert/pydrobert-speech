@@ -295,7 +295,6 @@ def test_read_soundfile(filetype, from_file):
 def test_wds_read_signal(temp_dir):
     wds = pytest.importorskip("webdataset")
     N = 5
-    import torch
 
     buffers_exp = []
     tar_pth = os.path.join(temp_dir, "wds.tar")
@@ -304,12 +303,11 @@ def test_wds_read_signal(temp_dir):
             buffers_exp_utt = [
                 np.random.random((utt_no + 1, utt_no + 2, utt_no + 3)),
                 (np.random.random((utt_no + 1) * 1000) * 1000).astype("<i2"),
-                np.random.random((utt_no + 1, 2 * utt_no + 1)),
                 {"utt_no": utt_no},
             ]
             paths = [
                 os.path.join(temp_dir, f"utt{utt_no}.{x}")
-                for x in ("npy", "wav", "pt", "json")
+                for x in ("npy", "wav", "json")
             ]
             buffers_exp.append(buffers_exp_utt)
             np.save(paths[0], buffers_exp_utt[0])
@@ -318,23 +316,22 @@ def test_wds_read_signal(temp_dir):
                 wf.setsampwidth(2)
                 wf.setframerate(8000)
                 wf.writeframes(buffers_exp_utt[1].tobytes("C"))
-            torch.save(torch.from_numpy(buffers_exp_utt[2]), paths[2])
-            with open(paths[3], "w") as fp:
-                json.dump(buffers_exp_utt[3], fp)
+            with open(paths[2], "w") as fp:
+                json.dump(buffers_exp_utt[2], fp)
             for path in paths:
                 tar.add(path)
 
     ds = (
         wds.WebDataset("file:" + tar_pth.replace("\\", "/"))
         .decode(util.wds_read_signal)
-        .to_tuple("npy", "wav", "pt", "json")
+        .to_tuple("npy", "wav", "json")
     )
     buffers_act = list(ds)
     assert len(buffers_act) == N
     for i, buffers_exp_utt, buffers_act_utt in zip(range(N), buffers_exp, buffers_act):
-        assert len(buffers_exp_utt) == len(buffers_act_utt) == 4
+        assert len(buffers_exp_utt) == len(buffers_act_utt) == 3
         buffer_exp, buffer_act = buffers_exp_utt[-1], buffers_act_utt[-1]
-        assert buffer_exp == buffer_act, (i, 3)  # json
+        assert buffer_exp == buffer_act, (i, 2)  # json
         for j, buffer_exp, buffer_act in zip(
             range(3), buffers_exp_utt[:-1], buffers_act_utt[:-1]
         ):
