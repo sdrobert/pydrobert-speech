@@ -29,7 +29,6 @@ assuming `stft_frame_computer` is an instance of a
 
 import math
 
-from typing_extensions import Self, Literal
 from typing import Collection, List, Optional, Sequence, Tuple
 import warnings
 
@@ -39,6 +38,11 @@ from . import config
 from .pre import Dither, Preemphasize
 from .post import PostProcessor
 from .compute import STFTFrameComputer, SIFrameComputer
+
+try:
+    from typing import Self, Literal
+except ImportError:
+    from typing_extensions import Self, Literal
 
 __all__ = [
     "pytorch_dither",
@@ -74,7 +78,7 @@ def pytorch_preemphasize(sig: torch.Tensor, coeff: float = 0.97) -> torch.Tensor
 
 class PyTorchPreemphasize(torch.nn.Module):
     """PyTorch implementation of Preemphasize
-    
+
     Parameters
     ----------
     coeff
@@ -103,7 +107,7 @@ def pytorch_dither(sig: torch.Tensor, coeff: float = 1.0) -> torch.Tensor:
 
 class PyTorchDither(torch.nn.Module):
     """PyTorch implementation of Dither
-    
+
     Add random, normally-distributed noise to a signal
 
     Parameters
@@ -112,7 +116,7 @@ class PyTorchDither(torch.nn.Module):
         The standard deviation of the noise
     dim
         The dimension to apply noise to. If unspecified, applied to all coefficients
-    
+
     Notes
     -----
     While it is usually the case in PyTorch that random noise is only added during

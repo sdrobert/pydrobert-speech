@@ -7,6 +7,8 @@ import numpy as np
 try:
     import torch
 
+    from pydrobert.speech.torch import *
+
     skip = False
 except ImportError:
     skip = True
@@ -15,7 +17,6 @@ import pydrobert.speech.compute as compute
 
 from pydrobert.speech.pre import *
 from pydrobert.speech.post import *
-from pydrobert.speech.torch import *
 from pydrobert.speech.alias import alias_factory_subclass_from_arg
 
 pytestmark = pytest.mark.skipif(skip, reason="Could not import pytorch")
@@ -114,7 +115,11 @@ def test_pytorch_post_processor_wrapper(postprocessor, jit_type):
 def test_pytorch_short_integration_frame_computer(include_energy, jit_type):
     torch.manual_seed(5)
     signal = torch.randn(16_000)
-    json_ = dict(name="si", bank="fbank", include_energy=include_energy,)
+    json_ = dict(
+        name="si",
+        bank="fbank",
+        include_energy=include_energy,
+    )
     computer_numpy = alias_factory_subclass_from_arg(compute.FrameComputer, json_)
     computer_pytorch = PyTorchSIFrameComputer.from_si_frame_computer(computer_numpy)
     if jit_type == "script":
