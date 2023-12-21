@@ -5,13 +5,14 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
+  - cpuonly
+  - h5py
+  - ipython
   - matplotlib
   - numpy
   - pydrobert-kaldi
   - pysoundfile
   - pytest
   - pytorch
-  - cpuonly
   - scipy
   - webdataset
-  - h5py

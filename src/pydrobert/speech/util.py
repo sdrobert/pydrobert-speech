@@ -481,12 +481,6 @@ def read_signal(
     elif force_as == "file":
         data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "soundfile" or force_as in config.SOUNDFILE_SUPPORTED_FILE_TYPES:
-        if (
-            not isinstance(rfilename, str)
-            and "name" not in kwargs
-            and force_as != "soundfile"
-        ):
-            kwargs["name"] = "." + force_as
         data = _soundfile_read_signal(rfilename, dtype, key, **kwargs)
     else:
         avail_force_as = {
@@ -531,9 +525,9 @@ def wds_read_signal(key: str, data: bytes) -> Optional[np.ndarray]:
     >>> ds = (
     ...     wds.WebDataset(url)
     ...     .decode(wds_read_signal)
-    ...     .to_tuple('flac', handler=wds.ignore_and_continue)
+    ...     .to_tuple('json', 'flac', handler=wds.ignore_and_continue)
     ... )
-    >>> for signal in ds:
+    >>> for info, signal in ds:
     ...     # do something
 
     Warnings
