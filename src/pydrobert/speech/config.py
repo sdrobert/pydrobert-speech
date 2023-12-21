@@ -14,13 +14,14 @@
 
 """Package constants used throughout pydrobert.speech"""
 
-from typing import Set
+from typing import Set, Tuple
 
 __all__ = [
     "EFFECTIVE_SUPPORT_THRESHOLD",
     "LOG_FLOOR_VALUE",
     "SOUNDFILE_SUPPORTED_FILE_TYPES",
     "USE_FFTPACK",
+    "YAML_MODULE_PRIORITIES",
 ]
 
 
@@ -84,3 +85,14 @@ try:
 except ImportError:
     pass
 
+__all__ = [
+    "YAML_MODULE_PRIORITIES",
+]
+
+
+YAML_MODULE_PRIORITIES: Tuple[str] = ("ruamel.yaml", "yaml")
+"""Specifies the order with which to try YAML parser modules
+
+A number of different `YAML syntax <https://en.wikipedia.org/wiki/YAML>`__ parsers
+exist. This tuple specifies the order by which we attempt to import parsers.
+"""

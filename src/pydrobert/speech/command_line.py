@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 from typing import Optional, Sequence
+import warnings
 
 import numpy as np
 
@@ -117,7 +118,6 @@ try:
                 feats = postprocessor(feats)
             return utt_id, feats.float()
 
-
 except ImportError:
     pass
 
@@ -127,23 +127,32 @@ __all__ = [
 ]
 
 
-def _json_type(string):
-    """Convert JSON string (or path to JSON file) to container hierarchy"""
+def _config_type(string: str):
+    """Convert JSON/YAML string (or path to file) to container hierarchy"""
     try:
         with open(string) as file_obj:
-            return json.load(file_obj)
-    except ValueError:
-        raise argparse.ArgumentTypeError(
-            'Unable to parse file as json: "{}"'.format(string)
-        )
+            string = file_obj.read()
     except IOError:
         pass
     try:
         return json.loads(string)
     except ValueError:
-        raise argparse.ArgumentTypeError(
-            'Unable to parse string as json: "{}"'.format(string)
-        )
+        pass
+    for yaml_module in config.YAML_MODULE_PRIORITIES:
+        try:
+            if yaml_module == "ruamel.yaml":
+                from ruamel.yaml import YAML
+
+                return YAML(typ="safe").load(string)
+            elif yaml_module == "pyyaml":
+                from yaml import safe_load
+
+                return safe_load(string)
+            else:
+                warnings.warn(f"Unknown YAML parser: yaml_module")
+        except:
+            pass
+    raise argparse.ArgumentTypeError(f"Unable to parse sting/file as JSON/YAML")
 
 
 def _nonneg_int_type(string):
@@ -178,8 +187,8 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     )
     parser.add_argument(
         "computer_config",
-        type=_json_type,
-        help="JSON file or string to configure a "
+        type=_config_type,
+        help="JSON/YAML file or string to configure a "
         "'pydrobert.speech.compute.FrameComputer' object to calculate "
         "features with",
     )
@@ -197,17 +206,17 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     )
     parser.add_argument(
         "--preprocess",
-        type=_json_type,
+        type=_config_type,
         default=tuple(),
-        help="JSON list of configurations for "
+        help="JSON/YAML list of configurations for "
         "'pydrobert.speech.pre.PreProcessor' objects. Audio will be "
         "preprocessed in the same order as the list",
     )
     parser.add_argument(
         "--postprocess",
-        type=_json_type,
+        type=_config_type,
         default=tuple(),
-        help="JSON List of configurations for "
+        help="JSON/YAML List of configurations for "
         "'pydrobert.speech.post.PostProcessor' objects. Features will be "
         "postprocessed in the same order as the list",
     )
@@ -352,10 +361,10 @@ def _signals_to_torch_feat_dir_parse_args(args):
     )
     parser.add_argument(
         "computer_config",
-        type=_json_type,
+        type=_config_type,
         nargs="?",
         default=None,
-        help="JSON file or string to configure a "
+        help="JSON/YAML file or string to configure a "
         "pydrobert.speech.compute.FrameComputer object to calculate features with. If "
         "unspecified, the audio (with channels removed)  will be stored directly with "
         "shape (S, 1), where S is the number of samples",
@@ -373,17 +382,17 @@ def _signals_to_torch_feat_dir_parse_args(args):
     )
     parser.add_argument(
         "--preprocess",
-        type=_json_type,
+        type=_config_type,
         default=tuple(),
-        help="JSON list of configurations for "
+        help="JSON/YAML list of configurations for "
         "'pydrobert.speech.pre.PreProcessor' objects. Audio will be preprocessed in "
         "the same order as the list",
     )
     parser.add_argument(
         "--postprocess",
-        type=_json_type,
+        type=_config_type,
         default=tuple(),
-        help="JSON List of configurations for "
+        help="JSON/YAML List of configurations for "
         "'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed "
         "in the same order as the list",
     )
