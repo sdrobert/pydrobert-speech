@@ -1,5 +1,6 @@
 import os
 import wave
+import importlib
 
 import numpy as np
 import pytest
@@ -10,6 +11,10 @@ from pydrobert.speech import command_line, config
 @pytest.fixture(params=["ruamel.yaml", "pyyaml", "json"])
 def config_type(request):
     if request.param.endswith("yaml"):
+        try:
+            importlib.util.find_spec(request.param)
+        except:
+            pytest.skip(f"{request.param} unavailable")
         old_props = config.YAML_MODULE_PRIORITIES
         config.YAML_MODULE_PRIORITIES = (request.param,)
         yield "yaml"
