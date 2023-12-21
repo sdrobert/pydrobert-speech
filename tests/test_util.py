@@ -1,7 +1,7 @@
-# pylint: skip-file
-
-
 import os
+import tarfile
+import wave
+import json
 
 from math import erf
 
@@ -74,9 +74,8 @@ def test_read_table(temp_dir, key):
 @pytest.mark.parametrize("backend", ["wav", "scipy", "soundfile"])
 @pytest.mark.parametrize("channels", [1, 2], ids=["mono", "stereo"])
 @pytest.mark.parametrize("sampwidth", [2, 4])
-def test_read_wave(temp_dir, backend, channels, sampwidth):
-    import wave
-
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_wave(temp_dir, backend, channels, sampwidth, from_file):
     rfilename = os.path.join(temp_dir, "foo.wav")
     if channels > 1:
         wave_buffer_1 = np.random.random((1000, channels)) * 1000
@@ -90,6 +89,8 @@ def test_read_wave(temp_dir, backend, channels, sampwidth):
     wave_file.setframerate(8000)
     wave_file.writeframes(wave_bytes)
     wave_file.close()
+    if not from_file:
+        rfilename = open(rfilename, "rb")
     if backend == "scipy":
         pytest.importorskip("scipy")
         wave_buffer_2 = util._scipy_io_read_signal(rfilename, None, None)
@@ -115,7 +116,8 @@ def test_read_wave(temp_dir, backend, channels, sampwidth):
         "123_2ulaw",
     ],
 )
-def test_read_sphere(name):
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_sphere(name, from_file):
     audio_dir = os.path.join(os.path.dirname(__file__), "audio")
     if name.endswith("alaw"):
         sph_file = os.path.join(audio_dir, name + ".sph")
@@ -125,7 +127,12 @@ def test_read_sphere(name):
     assert os.path.isfile(sph_file)
     assert os.path.isfile(wav_file)
     wav = util.read_signal(wav_file)
-    sph = util.read_signal(sph_file)
+    if from_file:
+        force_as = None
+    else:
+        force_as = "sph"
+        sph_file = open(sph_file, "rb")
+    sph = util.read_signal(sph_file, force_as=force_as)
     assert np.all(sph == wav)
 
 
@@ -163,8 +170,9 @@ def test_read_sphere_corpus(temp_dir, env_var, suffix):
         assert (wav == sph).all()
 
 
-@pytest.mark.parametrize("key", [True, False])
-def test_read_hdf5(temp_dir, key):
+@pytest.mark.parametrize("key", [True, False], ids=["w/ key", "w/o key"])
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_hdf5(temp_dir, key, from_file):
     h5py = pytest.importorskip("h5py")
     rfilename = os.path.join(temp_dir, "foo.hdf5")
     h5py_file = h5py.File(rfilename, "w")
@@ -175,22 +183,33 @@ def test_read_hdf5(temp_dir, key):
     h5py_file.create_dataset("a/b/d/f", (1000, 2000), data=dset_1)
     h5py_file.create_dataset("g", (10,), data=dset_2)
     h5py_file.close()
+    if from_file:
+        force_as = None
+    else:
+        rfilename = open(rfilename, "rb")
+        force_as = "hdf5"
     if key:
-        dset_3 = util.read_signal(rfilename, key="g")
+        dset_3 = util.read_signal(rfilename, key="g", force_as=force_as)
         assert np.allclose(dset_2, dset_3)
     else:
-        dset_3 = util.read_signal(rfilename)
+        dset_3 = util.read_signal(rfilename, force_as=force_as)
         assert np.allclose(dset_1, dset_3)
 
 
-def test_read_torch(temp_dir):
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_torch(temp_dir, from_file):
     torch = pytest.importorskip("torch")
     torch.manual_seed(10)
     rfilename = os.path.join(temp_dir, "foo.pt")
     exp = torch.randn(10, 4)
     torch.save(exp, rfilename)
     exp = exp.numpy()
-    act = util.read_signal(rfilename)
+    if from_file:
+        force_as = None
+    else:
+        rfilename = open(rfilename, "rb")
+        force_as = "pt"
+    act = util.read_signal(rfilename, force_as=force_as)
     assert np.allclose(exp, act)
 
 
@@ -198,11 +217,17 @@ def test_read_torch(temp_dir):
     "allow_pickle", [True, False], ids=["picklable", "notpicklable"]
 )
 @pytest.mark.parametrize("fix_imports", [True, False], ids=["fix", "nofix"])
-def test_read_numpy_binary(temp_dir, allow_pickle, fix_imports):
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_numpy_binary(temp_dir, allow_pickle, fix_imports, from_file):
     rfilename = os.path.join(temp_dir, "foo.npy")
     buff_1 = np.random.random((1000, 10, 5))
     np.save(rfilename, buff_1, allow_pickle=allow_pickle, fix_imports=fix_imports)
-    buff_2 = util.read_signal(rfilename)
+    if from_file:
+        force_as = None
+    else:
+        rfilename = open(rfilename, "rb")
+        force_as = "npy"
+    buff_2 = util.read_signal(rfilename, force_as=force_as)
     assert np.allclose(buff_1, buff_2)
 
 
@@ -210,7 +235,8 @@ def test_read_numpy_binary(temp_dir, allow_pickle, fix_imports):
     "compressed", [True, False], ids=["compressed", "uncompressed"]
 )
 @pytest.mark.parametrize("key", [True, False], ids=["withkey", "withoutkey"])
-def test_read_numpy_archive(temp_dir, compressed, key):
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_numpy_archive(temp_dir, compressed, key, from_file):
     rfilename = os.path.join(temp_dir, "foo.npz")
     buff_1 = np.random.random((5, 1, 2))
     buff_2 = np.random.random((1,))
@@ -222,33 +248,92 @@ def test_read_numpy_archive(temp_dir, compressed, key):
         np.savez(rfilename, a=buff_1, b=buff_2)
     else:
         np.savez(rfilename, buff_1, buff_2)
-    if key:
-        buff_3 = util.read_signal(rfilename, key="a")
+    if from_file:
+        force_as = None
     else:
-        buff_3 = util.read_signal(rfilename)
+        rfilename = open(rfilename, "rb")
+        force_as = "npz"
+    if key:
+        buff_3 = util.read_signal(rfilename, key="a", force_as=force_as)
+    else:
+        buff_3 = util.read_signal(rfilename, force_as=force_as)
     assert np.allclose(buff_1, buff_3)
 
 
 @pytest.mark.parametrize("text", [True, False])
-def test_read_numpy_fromfile(temp_dir, text):
-    rfilename = os.path.join(temp_dir, "foo")
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_numpy_fromfile(temp_dir, text, from_file):
     buff_1 = np.random.random(1000)
+    rfilename = os.path.join(temp_dir, "foo")
     sep = "," if text else ""
     buff_1.tofile(rfilename, sep=sep)
+    if not from_file:
+        rfilename = open(rfilename, mode="r" if text else "rb")
     buff_2 = util.read_signal(rfilename, sep=sep, force_as="file")
     assert np.allclose(buff_1, buff_2)
 
 
 @pytest.mark.parametrize("filetype", ["wav", "aiff", "flac", "ogg"])
-def test_read_soundfile(filetype):
+@pytest.mark.parametrize("from_file", [True, False], ids=["file", "buffer"])
+def test_read_soundfile(filetype, from_file):
     sf = pytest.importorskip("soundfile")
     if filetype.upper() not in sf.available_formats():
         pytest.skip(f"This version of libsndfile does not support {filetype}")
     filename = os.path.join(os.path.dirname(__file__), "audio", "sin1k." + filetype)
-    buff = util.read_signal(filename, dtype=np.float64)
+    if from_file:
+        buff = util.read_signal(filename, dtype=np.float64)
+    else:
+        with open(filename, mode="rb") as file_:
+            buff = util.read_signal(file_, dtype=np.float64, force_as="soundfile")
     buff *= np.blackman(len(buff))
     pow = np.abs(np.fft.rfft(buff))
     # 8kHz/sec * 1 sec = 8000 samples
     # sin at 1kHz = sample 1000
     assert np.argmax(pow) == 1000
 
+
+def test_wds_read_signal(temp_dir):
+    wds = pytest.importorskip("webdataset")
+    N = 5
+
+    buffers_exp = []
+    tar_pth = os.path.join(temp_dir, "wds.tar")
+    with tarfile.open(tar_pth, "w") as tar:
+        for utt_no in range(N):
+            buffers_exp_utt = [
+                np.random.random((utt_no + 1, utt_no + 2, utt_no + 3)),
+                (np.random.random((utt_no + 1) * 1000) * 1000).astype("<i2"),
+                {"utt_no": utt_no},
+            ]
+            paths = [
+                os.path.join(temp_dir, f"utt{utt_no}.{x}")
+                for x in ("npy", "wav", "json")
+            ]
+            buffers_exp.append(buffers_exp_utt)
+            np.save(paths[0], buffers_exp_utt[0])
+            with wave.open(paths[1], "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(8000)
+                wf.writeframes(buffers_exp_utt[1].tobytes("C"))
+            with open(paths[2], "w") as fp:
+                json.dump(buffers_exp_utt[2], fp)
+            for path in paths:
+                tar.add(path)
+
+    ds = (
+        wds.WebDataset("file:" + tar_pth.replace("\\", "/"))
+        .decode(util.wds_read_signal)
+        .to_tuple("npy", "wav", "json")
+    )
+    buffers_act = list(ds)
+    assert len(buffers_act) == N
+    for i, buffers_exp_utt, buffers_act_utt in zip(range(N), buffers_exp, buffers_act):
+        assert len(buffers_exp_utt) == len(buffers_act_utt) == 3
+        buffer_exp, buffer_act = buffers_exp_utt[-1], buffers_act_utt[-1]
+        assert buffer_exp == buffer_act, (i, 2)  # json
+        for j, buffer_exp, buffer_act in zip(
+            range(3), buffers_exp_utt[:-1], buffers_act_utt[:-1]
+        ):
+            assert buffer_exp.shape == buffer_act.shape, (i, j)
+            assert (buffer_exp == buffer_act).all(), (i, j)

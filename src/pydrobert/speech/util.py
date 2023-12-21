@@ -14,15 +14,21 @@
 
 """Miscellaneous utility functions"""
 
+import os
 import warnings
+import tempfile
+import io
 
 from re import match
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING, BinaryIO, Union
 
 import pydrobert.speech.config as config
 import numpy as np
 
 from pydrobert.speech.alias import alias_factory_subclass_from_arg as _afsfa
+
+if TYPE_CHECKING:
+    import torch
 
 
 __all__ = [
@@ -31,6 +37,7 @@ __all__ = [
     "gauss_quant",
     "hertz_to_angular",
     "read_signal",
+    "wds_read_signal",
 ]
 
 
@@ -69,7 +76,6 @@ try:
 
     def gauss_quant(p: float, mu: float = 0, std: float = 1) -> float:
         return norm.ppf(p) * std + mu
-
 
 except ImportError:
     gauss_quant = _gauss_quant_odeh_evans
@@ -155,7 +161,13 @@ def circshift_fourier(
             * np.pi
             * shift
             / dft_size
-            * (np.arange(start_idx, start_idx + len(filt),) % dft_size)
+            * (
+                np.arange(
+                    start_idx,
+                    start_idx + len(filt),
+                )
+                % dft_size
+            )
         )
     else:
         filt *= np.exp(
@@ -163,13 +175,19 @@ def circshift_fourier(
             * np.pi
             * shift
             / dft_size
-            * (np.arange(start_idx, start_idx + len(filt),) % dft_size)
+            * (
+                np.arange(
+                    start_idx,
+                    start_idx + len(filt),
+                )
+                % dft_size
+            )
         )
         return filt
 
 
 def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
-    from pydrobert.kaldi.io import open as io_open  # type: ignore
+    from pydrobert.kaldi.io import open as io_open
 
     if key is None:
         key = 0
@@ -187,7 +205,7 @@ def _kaldi_table_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _scipy_io_read_signal(rfilename, dtype, key, **kwargs):
-    from scipy.io import wavfile  # type: ignore
+    from scipy.io import wavfile
 
     _, data = wavfile.read(rfilename, **kwargs)
     if dtype:
@@ -218,7 +236,7 @@ def _wave_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _hdf5_read_signal(rfilename, dtype, key, **kwargs):
-    import h5py  # type: ignore
+    import h5py
 
     with h5py.File(rfilename, "r", **kwargs) as h5py_file:
         if key:
@@ -264,7 +282,7 @@ def _numpy_archive_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _torch_read_signal(rfilename, dtype, key, **kwargs):
-    import torch  # type: ignore
+    import torch
 
     data = torch.load(rfilename, map_location="cpu", **kwargs).numpy()
     if dtype:
@@ -273,7 +291,7 @@ def _torch_read_signal(rfilename, dtype, key, **kwargs):
 
 
 def _kaldi_input_read_signal(rfilename, dtype, key, **kwargs):
-    from pydrobert.kaldi.io import open as io_open  # type: ignore
+    from pydrobert.kaldi.io import open as io_open
 
     if dtype is None:
         dtype = "bm"
@@ -293,22 +311,22 @@ def _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs):
 def _soundfile_read_signal(rfilename, dtype, key, **kwargs):
     import soundfile
 
-    fi = soundfile.info(rfilename)
-    if fi.subtype == "FLOAT":
-        dtype_ = np.float32
-    elif fi.subtype == "DOUBLE":
-        dtype_ = np.float64
-    elif fi.subtype == "PCM_S8":
-        dtype_ = np.int8
-    elif fi.subtype == {"PCM_U8"}:
-        dtype_ = np.uint8
-    elif fi.subtype in {"PCM_32", "PCM_24"}:
-        dtype_ = np.int32
-    else:
-        # FIXME(sdrobert): PCM_16 is a decent guess for the remainder of types, but
-        # it's definitely not complete
-        dtype_ = np.int16
-    data = soundfile.read(rfilename, dtype=dtype_, **kwargs)[0]
+    with soundfile.SoundFile(rfilename, **kwargs) as sf:
+        if sf.subtype == "FLOAT":
+            dtype_ = np.float32
+        elif sf.subtype == "DOUBLE":
+            dtype_ = np.float64
+        elif sf.subtype == "PCM_S8":
+            dtype_ = np.int8
+        elif sf.subtype == {"PCM_U8"}:
+            dtype_ = np.uint8
+        elif sf.subtype in {"PCM_32", "PCM_24"}:
+            dtype_ = np.int32
+        else:
+            # FIXME(sdrobert): PCM_16 is a decent guess for the remainder of types, but
+            # it's definitely not complete
+            dtype_ = np.int16
+        data = sf.read(dtype=dtype_)
     if dtype is not None:
         # if you don't do this as a second stage and you want floats out the back,
         # soundfile will scale those to the range +/- 1. Other decoders are two-stage
@@ -317,8 +335,32 @@ def _soundfile_read_signal(rfilename, dtype, key, **kwargs):
     return data
 
 
+def _infer_force_as_from_rfilename(rfilename: str):
+    if match(r"^(ark|scp)(,\w+)*:", rfilename):
+        force_as = "table"
+    elif rfilename.rsplit(".", maxsplit=1)[-1] in config.SOUNDFILE_SUPPORTED_FILE_TYPES:
+        force_as = rfilename.rsplit(".", maxsplit=1)[-1]
+    elif rfilename.endswith(".wav"):
+        force_as = "wav"
+    elif rfilename.endswith(".hdf5"):
+        force_as = "hdf5"
+    elif rfilename.endswith(".npy"):
+        force_as = "npy"
+    elif rfilename.endswith(".npz"):
+        force_as = "npz"
+    elif rfilename.endswith(".pt"):
+        force_as = "pt"
+    elif rfilename.endswith(".sph"):
+        force_as = "sph"
+    elif rfilename.endswith("|"):
+        force_as = "kaldi"
+    else:
+        raise IOError(f"Unable to infer file type from {rfilename}. Set force_as.")
+    return force_as
+
+
 def read_signal(
-    rfilename: str,
+    rfilename: Union[str, BinaryIO],
     dtype: Optional[np.dtype] = None,
     key: Any = None,
     force_as: Optional[str] = None,
@@ -362,23 +404,26 @@ def read_signal(
         type `dtype` (defaults to :class:`BaseMatrix`) from a basic kaldi input stream.
     10. Otherwise, we throw an :class:`IOError`
 
-    Additional keyword arguments are passed along to the associated
-    open or read operation.
+    Additional keyword arguments are passed along to the associated open or read
+    operation.
 
     Parameters
     ----------
-    rfilename 
+    rfilename
+        Either a string or a binary file type. If a file, `force_as` must be specified,
+        and the Kaldi types are unsupported.
     dtype
+        If set, will cast the return type to it
     key
+        The key used in ``'hdf5'`` or ``'table'`` decoding.
     force_as
-        If not :obj:`None`, forces `rfilename` to be interpreted as a specific
-        file type, bypassing the above selection strategy. ``'tab'``: Kaldi
-        table; ``'wav'``: wave file; ``'hdf5'``: HDF5 file; ``'npy'``: Numpy
-        binary; ``'npz'``: Numpy archive; ``'pt'``: PyTorch binary; ``'sph'``:
-        NIST sphere; ``'kaldi'`` Kaldi object; ``'file'`` read via
-        :func:`numpy.fromfile`. The types in :obj:`SOUNDFILE_SUPPORTED_FILE_TYPES`
-        are also valid values. `'soundfile'` will use :mod:`soundfile` to read the file
-        regardless of the suffix.
+        If not :obj:`None`, forces `rfilename` to be interpreted as a specific file
+        type, bypassing the above selection strategy. ``'table'``: Kaldi table;
+        ``'wav'``: wave file; ``'hdf5'``: HDF5 file; ``'npy'``: Numpy binary; ``'npz'``:
+        Numpy archive; ``'pt'``: PyTorch binary; ``'sph'``: NIST sphere; ``'kaldi'``
+        Kaldi object; ``'file'`` read via :func:`numpy.fromfile`. The types in
+        :obj:`SOUNDFILE_SUPPORTED_FILE_TYPES` are also valid values. `'soundfile'` will
+        use :mod:`soundfile` to read the file regardless of the suffix.
     **kwargs
 
     Returns
@@ -402,30 +447,15 @@ def read_signal(
     <https://www.ldc.upenn.edu/language-resources/tools/sphere-conversion-tools>`__.
     That code can only suppport the "shorten" audio format up to version 2.
     """
-    if force_as is None:
-        if match(r"^(ark|scp)(,\w+)*:", rfilename):
-            force_as = "table"
-        elif (
-            rfilename.rsplit(".", maxsplit=1)[-1]
-            in config.SOUNDFILE_SUPPORTED_FILE_TYPES
-        ):
-            force_as = "soundfile"
-        elif rfilename.endswith(".wav"):
-            force_as = "wav"
-        elif rfilename.endswith(".hdf5"):
-            force_as = "hdf5"
-        elif rfilename.endswith(".npy"):
-            force_as = "npy"
-        elif rfilename.endswith(".npz"):
-            force_as = "npz"
-        elif rfilename.endswith(".pt"):
-            force_as = "pt"
-        elif rfilename.endswith(".sph"):
-            force_as = "sph"
-        elif rfilename.endswith("|"):
-            force_as = "kaldi"
-        else:
-            raise IOError(f"Unable to infer file type from {rfilename}. Set force_as.")
+    if not isinstance(rfilename, str):
+        if force_as is None:
+            raise ValueError("cannot infer type from IO stream. Set force_as")
+        if force_as in {"kaldi", "table"}:
+            raise ValueError(
+                "kaldi types can't be inferred without a string rspecifier"
+            )
+    elif force_as is None:
+        force_as = _infer_force_as_from_rfilename(rfilename)
     if force_as == "table":
         data = _kaldi_table_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "wav":
@@ -446,10 +476,11 @@ def read_signal(
 
         data = sphere_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "kaldi":
+        assert isinstance(rfilename, str)
         data = _kaldi_input_read_signal(rfilename, dtype, key, **kwargs)
     elif force_as == "file":
         data = _numpy_fromfile_read_signal(rfilename, dtype, key, **kwargs)
-    elif force_as == "soundfile":
+    elif force_as == "soundfile" or force_as in config.SOUNDFILE_SUPPORTED_FILE_TYPES:
         data = _soundfile_read_signal(rfilename, dtype, key, **kwargs)
     else:
         avail_force_as = {
@@ -478,3 +509,36 @@ def read_signal(
         raise ValueError(msg)
     return data
 
+
+def wds_read_signal(key: str, data: bytes) -> Optional[np.ndarray]:
+    """Wrapper around read_signal for webdataset
+
+    This method is intended for `Data Decoding
+    <https://github.com/webdataset/webdataset/tree/main#data-decoding>`_ in a
+    WebDataset. It uses :func:`read_signal` to read a file and returns it as a Numpy
+    array.
+
+    Examples
+    --------
+    >>> import webdataset as wds
+    >>> url = 'pipe:curl -L -s https://dl.fbaipublicfiles.com/librilight/data/small.tar'
+    >>> ds = (
+    ...     wds.WebDataset(url)
+    ...     .decode(wds_read_signal)
+    ...     .to_tuple('json', 'flac', handler=wds.ignore_and_continue)
+    ... )
+    >>> for info, signal in ds:
+    ...     # do something
+
+    Warnings
+    --------
+    Kaldi types are currently unsupported.
+
+    This decoder clobbers the default WebDataset decoder for "npy" and "pt" files.
+    """
+
+    try:
+        force_as = _infer_force_as_from_rfilename(key)
+        return read_signal(io.BytesIO(data), force_as=force_as)
+    except:
+        return None

@@ -371,19 +371,24 @@ def copy_samples(file_, header, dtype, error):
 
 
 def sphere_read_signal(rfilename, dtype, key):
-    with open(rfilename, "rb") as file_:
-        header = read_header(
-            file_, IOError("{} header could not be read as sphere".format(rfilename))
-        )
-        data = copy_samples(
-            file_,
-            header,
-            dtype,
-            IOError(
-                "{} data could not be read as sphere despite good header"
-                "".format(rfilename)
-            ),
-        )
+    if isinstance(rfilename, str):
+        with open(rfilename, "rb") as file_:
+            return sphere_read_signal(file_, dtype, key)
+    if hasattr(rfilename, 'name'):
+        name = rfilename.name
+    else:
+        name = 'file'
+    header = read_header(
+        rfilename, IOError(f"{name} header could not be read as sphere")
+    )
+    data = copy_samples(
+        rfilename,
+        header,
+        dtype,
+        IOError(
+            f"{name} data could not be read as sphere despite good header"
+        ),
+    )
     return data
 
 
