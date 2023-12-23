@@ -2,8 +2,9 @@
 
 ## v0.4.0
 
-- CLI now allows configs to be specified as YAML files. If JSON parsing fails,
-  will silently switch to YAML.
+- CLI now quietly reads configs as YAML 1.2 via
+  [ruamel.yaml](https://yaml.readthedocs.io/en/latest/) if installed. As JSON
+  is valid YAML 1.2, it shouldn't break anything.
 - [webdataset](https://github.com/webdataset) hook in `pydrobert.speech.util`.
 - Python 3.12 support.
 - `read_signal` can read from binary I/O.

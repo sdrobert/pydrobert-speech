@@ -5,22 +5,17 @@ import importlib
 import numpy as np
 import pytest
 
-from pydrobert.speech import command_line, config
+from pydrobert.speech import command_line
 
 
-@pytest.fixture(params=["ruamel.yaml", "pyyaml", "json"])
+@pytest.fixture(params=["yaml", "json"])
 def config_type(request):
-    if request.param.endswith("yaml"):
+    if request.param == "yaml":
         try:
-            importlib.util.find_spec(request.param)
-        except:
-            pytest.skip(f"{request.param} unavailable")
-        old_props = config.YAML_MODULE_PRIORITIES
-        config.YAML_MODULE_PRIORITIES = (request.param,)
-        yield "yaml"
-        config.YAML_MODULE_PRIORITIES = old_props
-    else:
-        yield request.param
+            import ruamel.yaml
+        except ImportError:
+            pytest.skip("cannot import ruamel.yaml")
+    yield request.param
 
 
 def test_compute_feats_from_kaldi_tables(temp_dir, config_type):

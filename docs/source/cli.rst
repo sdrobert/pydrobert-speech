@@ -7,9 +7,7 @@ compute-feats-from-kaldi-tables
 ::
 
   compute-feats-from-kaldi-tables -h
-  usage: compute-feats-from-kaldi-tables [-h] [-v VERBOSE] [--config CONFIG] [--print-args PRINT_ARGS] [--min-duration MIN_DURATION] [--channel CHANNEL]
-                                         [--preprocess PREPROCESS] [--postprocess POSTPROCESS] [--seed SEED]
-                                         wav_rspecifier feats_wspecifier computer_config
+  usage: compute-feats-from-kaldi-tables [-h] [-v VERBOSE] [--config CONFIG] [--print-args PRINT_ARGS] [--min-duration MIN_DURATION] [--channel CHANNEL] [--preprocess PREPROCESS] [--postprocess POSTPROCESS] [--seed SEED] wav_rspecifier feats_wspecifier computer_config
   
   Store features from a kaldi archive in a kaldi archive
   
@@ -34,17 +32,20 @@ compute-feats-from-kaldi-tables
     --preprocess PREPROCESS
                           JSON list of configurations for 'pydrobert.speech.pre.PreProcessor' objects. Audio will be preprocessed in the same order as the list
     --postprocess POSTPROCESS
-                          JSON List of configurations for 'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed in the same order as the list
+                          JSON list of configurations for 'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed in the same order as the list
     --seed SEED           A random seed used for determinism. This affects operations like dithering. If unset, a seed will be generated at the moment
+  
+  New in version 0.4.0: if ruamel.yaml is installed
+  (https://yaml.readthedocs.io/en/latest/), JSON arguments will be parsed as YAML 1.2
+  by default. As JSON is valid YAML 1.2, you can continue to use JSON for configurations.
 
 signals-to-torch-feat-dir
 -------------------------
 
 ::
 
-  usage: signals-to-torch-feat-dir [-h] [--channel CHANNEL] [--preprocess PREPROCESS] [--postprocess POSTPROCESS]
-                                   [--force-as {flac,npz,table,hdf5,soundfile,npy,ogg,wav,aiff,sph,file,kaldi,pt}] [--seed SEED] [--file-prefix FILE_PREFIX]
-                                   [--file-suffix FILE_SUFFIX] [--num-workers NUM_WORKERS] [--manifest MANIFEST]
+  usage: signals-to-torch-feat-dir [-h] [--channel CHANNEL] [--preprocess PREPROCESS] [--postprocess POSTPROCESS] [--force-as {aiff,npz,hdf5,table,kaldi,soundfile,pt,ogg,npy,file,flac,sph,wav}] [--seed SEED] [--file-prefix FILE_PREFIX] [--file-suffix FILE_SUFFIX] [--num-workers NUM_WORKERS]
+                                   [--manifest MANIFEST]
                                    map [computer_config] dir
   
   Convert a map of signals to a torch SpectDataSet
@@ -81,8 +82,7 @@ signals-to-torch-feat-dir
   
   positional arguments:
     map                   Path to the file containing (<utterance>, <path>) pairs
-    computer_config       JSON file or string to configure a pydrobert.speech.compute.FrameComputer object to calculate features with. If unspecified, the audio (with
-                          channels removed) will be stored directly with shape (S, 1), where S is the number of samples
+    computer_config       JSON file or string to configure a pydrobert.speech.compute.FrameComputer object to calculate features with. If unspecified, the audio (with channels removed) will be stored directly with shape (S, 1), where S is the number of samples
     dir                   Directory to output features to. If the directory does not exist, it will be created
   
   options:
@@ -91,19 +91,20 @@ signals-to-torch-feat-dir
     --preprocess PREPROCESS
                           JSON list of configurations for 'pydrobert.speech.pre.PreProcessor' objects. Audio will be preprocessed in the same order as the list
     --postprocess POSTPROCESS
-                          JSON List of configurations for 'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed in the same order as the list
-    --force-as {flac,npz,table,hdf5,soundfile,npy,ogg,wav,aiff,sph,file,kaldi,pt}
-                          Force the paths in 'map' to be interpreted as a specific type of data. table: kaldi table (key is utterance id); wav: wave file; hdf5: HDF5
-                          archive (key is utterance id); npy: Numpy binary; npz: numpy archive (key is utterance id); pt: PyTorch binary; sph: NIST SPHERE file; kaldi:
-                          kaldi object; file: numpy.fromfile binary. soundfile: force soundfile processing.
+                          JSON list of configurations for 'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed in the same order as the list
+    --force-as {aiff,npz,hdf5,table,kaldi,soundfile,pt,ogg,npy,file,flac,sph,wav}
+                          Force the paths in 'map' to be interpreted as a specific type of data. table: kaldi table (key is utterance id); wav: wave file; hdf5: HDF5 archive (key is utterance id); npy: Numpy binary; npz: numpy archive (key is utterance id); pt: PyTorch binary; sph: NIST
+                          SPHERE file; kaldi: kaldi object; file: numpy.fromfile binary. soundfile: force soundfile processing.
     --seed SEED           A random seed used for determinism. This affects operations like dithering. If unset, a seed will be generated at the moment
     --file-prefix FILE_PREFIX
                           The file prefix indicating a torch data file
     --file-suffix FILE_SUFFIX
                           The file suffix indicating a torch data file
     --num-workers NUM_WORKERS
-                          The number of workers simultaneously computing features. Should not affect determinism when used in tandem with --seed. '0' means all work is
-                          done on the main thread
-    --manifest MANIFEST   If specified, a list of utterances which have already been computed will be stored in this file. Utterances already listed in the file will be
-                          not be computed. Useful for resuming computations after an unexpected termination
+                          The number of workers simultaneously computing features. Should not affect determinism when used in tandem with --seed. '0' means all work is done on the main thread
+    --manifest MANIFEST   If specified, a list of utterances which have already been computed will be stored in this file. Utterances already listed in the file will be not be computed. Useful for resuming computations after an unexpected termination
+  
+  New in version 0.4.0: if ruamel.yaml is installed
+  (https://yaml.readthedocs.io/en/latest/), JSON arguments will be parsed as YAML 1.2
+  by default. As JSON is valid YAML 1.2, you can continue to use JSON for configurations.
 

@@ -17,11 +17,9 @@
 
 import os
 import argparse
-import json
 import logging
 import sys
 from typing import Optional, Sequence
-import warnings
 
 import numpy as np
 
@@ -45,6 +43,25 @@ except ImportError:
     def kaldi_logger_decorator(func):
         return func
 
+
+try:
+    from ruamel.yaml import YAML
+
+    def _load_config(string: str):
+        return YAML(typ="safe").load(string)
+
+    _HAVE_YAML = True
+
+except ImportError:
+    from json import loads
+
+    _load_config = loads
+    _HAVE_YAML = False
+
+_EPILOGUE = """New in version 0.4.0: if ruamel.yaml is installed
+(https://yaml.readthedocs.io/en/latest/), JSON arguments will be parsed as YAML 1.2
+by default. As JSON is valid YAML 1.2, you can continue to use JSON for configurations.
+"""
 
 try:
     import torch.utils.data
@@ -128,31 +145,23 @@ __all__ = [
 
 
 def _config_type(string: str):
-    """Convert JSON/YAML string (or path to file) to container hierarchy"""
+    """Convert JSON string (or path to file) to container hierarchy"""
+    name = string
     try:
         with open(string) as file_obj:
             string = file_obj.read()
     except IOError:
         pass
     try:
-        return json.loads(string)
-    except ValueError:
-        pass
-    for yaml_module in config.YAML_MODULE_PRIORITIES:
-        try:
-            if yaml_module == "ruamel.yaml":
-                from ruamel.yaml import YAML
-
-                return YAML(typ="safe").load(string)
-            elif yaml_module == "pyyaml":
-                from yaml import safe_load
-
-                return safe_load(string)
-            else:
-                warnings.warn(f"Unknown YAML parser: yaml_module")
-        except:
-            pass
-    raise argparse.ArgumentTypeError(f"Unable to parse sting/file as JSON/YAML")
+        return _load_config(string)
+    except Exception as e:
+        if _HAVE_YAML:
+            msg = f"Unable to parse '{name}' as JSON or YAML"
+        else:
+            msg = f"Unable to parse '{name}' as JSON"
+            if name.endswith(".yaml"):
+                msg += f". This could be a YAML file. Install ruamel.yaml to try it"
+        raise ValueError(msg) from e
 
 
 def _nonneg_int_type(string):
@@ -176,6 +185,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         logger=logger,
         version=speech.__version__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_EPILOGUE,
     )
     parser.add_argument(
         "wav_rspecifier", type="kaldi_rspecifier", help="Input wave table rspecifier"
@@ -188,7 +198,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
     parser.add_argument(
         "computer_config",
         type=_config_type,
-        help="JSON/YAML file or string to configure a "
+        help="JSON file or string to configure a "
         "'pydrobert.speech.compute.FrameComputer' object to calculate "
         "features with",
     )
@@ -208,7 +218,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         "--preprocess",
         type=_config_type,
         default=tuple(),
-        help="JSON/YAML list of configurations for "
+        help="JSON list of configurations for "
         "'pydrobert.speech.pre.PreProcessor' objects. Audio will be "
         "preprocessed in the same order as the list",
     )
@@ -216,7 +226,7 @@ def _compute_feats_from_kaldi_tables_parse_args(args, logger):
         "--postprocess",
         type=_config_type,
         default=tuple(),
-        help="JSON/YAML List of configurations for "
+        help="JSON list of configurations for "
         "'pydrobert.speech.post.PostProcessor' objects. Features will be "
         "postprocessed in the same order as the list",
     )
@@ -353,6 +363,7 @@ def _signals_to_torch_feat_dir_parse_args(args):
     parser = argparse.ArgumentParser(
         description=signals_to_torch_feat_dir.__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_EPILOGUE,
     )
     parser.add_argument(
         "map",
@@ -364,7 +375,7 @@ def _signals_to_torch_feat_dir_parse_args(args):
         type=_config_type,
         nargs="?",
         default=None,
-        help="JSON/YAML file or string to configure a "
+        help="JSON file or string to configure a "
         "pydrobert.speech.compute.FrameComputer object to calculate features with. If "
         "unspecified, the audio (with channels removed)  will be stored directly with "
         "shape (S, 1), where S is the number of samples",
@@ -384,7 +395,7 @@ def _signals_to_torch_feat_dir_parse_args(args):
         "--preprocess",
         type=_config_type,
         default=tuple(),
-        help="JSON/YAML list of configurations for "
+        help="JSON list of configurations for "
         "'pydrobert.speech.pre.PreProcessor' objects. Audio will be preprocessed in "
         "the same order as the list",
     )
@@ -392,7 +403,7 @@ def _signals_to_torch_feat_dir_parse_args(args):
         "--postprocess",
         type=_config_type,
         default=tuple(),
-        help="JSON/YAML List of configurations for "
+        help="JSON list of configurations for "
         "'pydrobert.speech.post.PostProcessor' objects. Features will be postprocessed "
         "in the same order as the list",
     )

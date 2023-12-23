@@ -14,18 +14,17 @@
 
 """Package constants used throughout pydrobert.speech"""
 
-from typing import Set, Tuple
+from typing import Set
 
 __all__ = [
     "EFFECTIVE_SUPPORT_THRESHOLD",
     "LOG_FLOOR_VALUE",
     "SOUNDFILE_SUPPORTED_FILE_TYPES",
     "USE_FFTPACK",
-    "YAML_MODULE_PRIORITIES",
 ]
 
 
-USE_FFTPACK = False
+USE_FFTPACK: bool = False
 """bool : Whether to use :mod:`scipy.fftpack`
 
 The scipy implementation of the FFT can be much faster than the numpy one. This is set
@@ -41,7 +40,7 @@ try:
 except ImportError:
     pass
 
-EFFECTIVE_SUPPORT_THRESHOLD = 5e-4
+EFFECTIVE_SUPPORT_THRESHOLD: float = 5e-4
 """float : Value considered roughly zero for support computations
 
 No function is compactly supported in both the time and Fourier domains, but large
@@ -50,7 +49,7 @@ zero. The higher it is, the more accurate computations will be, but the longer t
 take
 """
 
-LOG_FLOOR_VALUE = 1e-5
+LOG_FLOOR_VALUE: float = 1e-5
 """float : Value used as floor when taking log in computations"""
 
 
@@ -84,15 +83,3 @@ try:
 
 except ImportError:
     pass
-
-__all__ = [
-    "YAML_MODULE_PRIORITIES",
-]
-
-
-YAML_MODULE_PRIORITIES: Tuple[str] = ("ruamel.yaml", "yaml")
-"""Specifies the order with which to try YAML parser modules
-
-A number of different `YAML syntax <https://en.wikipedia.org/wiki/YAML>`__ parsers
-exist. This tuple specifies the order by which we attempt to import parsers.
-"""
