@@ -1,5 +1,6 @@
 import os
 import wave
+import importlib
 
 import numpy as np
 import pytest
@@ -7,7 +8,17 @@ import pytest
 from pydrobert.speech import command_line
 
 
-def test_compute_feats_from_kaldi_tables(temp_dir):
+@pytest.fixture(params=["yaml", "json"])
+def config_type(request):
+    if request.param == "yaml":
+        try:
+            import ruamel.yaml
+        except ImportError:
+            pytest.skip("cannot import ruamel.yaml")
+    yield request.param
+
+
+def test_compute_feats_from_kaldi_tables(temp_dir, config_type):
     kaldi_io = pytest.importorskip("pydrobert.kaldi.io")
     np.random.seed(5)
     wav_scp = os.path.join(temp_dir, "wav.scp")
@@ -19,14 +30,20 @@ def test_compute_feats_from_kaldi_tables(temp_dir):
     num_digits = int(np.log10(num_utts)) + 1
     utt_fmt = "utt{{:0{}d}}".format(num_digits)
     computer_json_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "data", "fbank.json"
+        os.path.dirname(os.path.realpath(__file__)), "data", f"fbank.{config_type}"
     )
-    preprocessor_json_path = os.path.join(temp_dir, "preprocess.json")
-    postprocessor_json_path = os.path.join(temp_dir, "unit.json")
+    preprocessor_json_path = os.path.join(temp_dir, f"preprocess.{config_type}")
+    postprocessor_json_path = os.path.join(temp_dir, f"unit.{config_type}")
     with open(preprocessor_json_path, "w") as f:
-        f.write('["dither"]\n')
+        if config_type == "yaml":
+            f.write("- name: dither\n")
+        else:
+            f.write('["dither"]\n')
     with open(postprocessor_json_path, "w") as f:
-        f.write('["unit"]\n')
+        if config_type == "yuaml":
+            f.write("- name: unit\n")
+        else:
+            f.write('["unit"]\n')
     if not os.path.isdir(wav_file_dir):
         os.makedirs(wav_file_dir)
     with open(wav_scp, "w") as scp:
@@ -35,7 +52,7 @@ def test_compute_feats_from_kaldi_tables(temp_dir):
             wav_path = os.path.join(wav_file_dir, utt_id + ".wav")
             num_samples = np.random.randint(max_samples)
             signal = np.random.randint(
-                -(2 ** 15), 2 ** 15 - 1, num_samples, dtype=np.int16
+                -(2**15), 2**15 - 1, num_samples, dtype=np.int16
             )
             wv = wave.open(wav_path, "wb")
             wv.setnchannels(1)
@@ -69,7 +86,7 @@ def test_compute_feats_from_kaldi_tables(temp_dir):
             assert np.allclose(act, exp)
 
 
-def test_signals_to_torch_feat_dir(temp_dir):
+def test_signals_to_torch_feat_dir(temp_dir, config_type):
     torch = pytest.importorskip("torch")
     torch.manual_seed(50)
     feat_dir = os.path.join(temp_dir, "feat")
@@ -77,7 +94,7 @@ def test_signals_to_torch_feat_dir(temp_dir):
     map_path = os.path.join(temp_dir, "map")
     manifest_path = os.path.join(temp_dir, "manifest.txt")
     computer_json_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "data", "fbank.json"
+        os.path.dirname(os.path.realpath(__file__)), "data", f"fbank.{config_type}"
     )
     preprocessor_json_path = os.path.join(temp_dir, "preprocess.json")
     with open(preprocessor_json_path, "w") as f:
@@ -96,7 +113,7 @@ def test_signals_to_torch_feat_dir(temp_dir):
             utt_ids.append(utt_id)
             num_samples = torch.randint(1, max_samples, (1,)).long().item()
             signal = torch.randint(
-                -(2 ** 15), 2 ** 15 - 1, (num_samples,), dtype=torch.float32
+                -(2**15), 2**15 - 1, (num_samples,), dtype=torch.float32
             )
             utt2signal[utt_id] = signal
             file_type = torch.randint(3, (1,)).long().item()

@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 
-USE_FFTPACK = False
+USE_FFTPACK: bool = False
 """bool : Whether to use :mod:`scipy.fftpack`
 
 The scipy implementation of the FFT can be much faster than the numpy one. This is set
@@ -40,7 +40,7 @@ try:
 except ImportError:
     pass
 
-EFFECTIVE_SUPPORT_THRESHOLD = 5e-4
+EFFECTIVE_SUPPORT_THRESHOLD: float = 5e-4
 """float : Value considered roughly zero for support computations
 
 No function is compactly supported in both the time and Fourier domains, but large
@@ -49,7 +49,7 @@ zero. The higher it is, the more accurate computations will be, but the longer t
 take
 """
 
-LOG_FLOOR_VALUE = 1e-5
+LOG_FLOOR_VALUE: float = 1e-5
 """float : Value used as floor when taking log in computations"""
 
 
@@ -83,4 +83,3 @@ try:
 
 except ImportError:
     pass
-

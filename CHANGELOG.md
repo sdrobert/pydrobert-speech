@@ -2,9 +2,12 @@
 
 ## v0.4.0
 
-- [webdataset](https://github.com/webdataset) hook in `pydrobert.speech.util`
-- Python 3.12 support
-- `read_signal` can read from binary I/O
+- CLI now quietly reads configs as YAML 1.2 via
+  [ruamel.yaml](https://yaml.readthedocs.io/en/latest/) if installed. As JSON
+  is valid YAML 1.2, it shouldn't break anything.
+- [webdataset](https://github.com/webdataset) hook in `pydrobert.speech.util`.
+- Python 3.12 support.
+- `read_signal` can read from binary I/O.
 - Added `--manifest` option to `signals-to-torch-feature-dir`.
 - The `axis` argument of `PreProcessor` is deprecated.
 - `Dither` adds normally-distributed noise rather than uniform noise.

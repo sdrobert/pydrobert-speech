@@ -14,5 +14,6 @@ dependencies:
   - pysoundfile
   - pytest
   - pytorch
+  - ruamel.yaml
   - scipy
   - webdataset
