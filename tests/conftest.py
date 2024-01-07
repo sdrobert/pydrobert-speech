@@ -3,8 +3,11 @@ import warnings
 
 from tempfile import NamedTemporaryFile, mkdtemp
 from shutil import rmtree
+from zlib import adler32
+
 
 import pytest
+import numpy as np
 
 try:
     from pydrobert.kaldi import KaldiLocaleWarning  # type: ignore
@@ -43,3 +46,8 @@ def temp_dir():
     dir_name = mkdtemp()
     yield dir_name
     rmtree(dir_name)
+
+
+def pytest_runtest_setup(item):
+    # implicitly seeds all tests for the sake of reproducibility
+    np.random.seed(abs(adler32(bytes(item.name, "utf-8"))))

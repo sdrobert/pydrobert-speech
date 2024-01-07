@@ -12,7 +12,8 @@ from pickle import load as pickle_load
 
 
 @pytest.fixture(
-    params=["causal", "centered"], scope="module",
+    params=["causal", "centered"],
+    scope="module",
 )
 def frame_style(request):
     return request.param
@@ -47,7 +48,7 @@ def computer(request, frame_style):
 
 
 @pytest.fixture(
-    params=[0, 1, 2 ** 8, 2 ** 10],
+    params=[0, 1, 2**8, 2**10],
     ids=["empty buffer", "length 1 buffer", "medium buffer", "large buffer"],
     scope="module",
 )
@@ -148,10 +149,14 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         coeffs = np.empty((num_frames, self.num_coeffs), dtype=signal.dtype)
         if not num_frames:
             return coeffs
+        if self._frame_style == "centered":
+            left_pad = max(0, frame_shift - self._translation)
+        else:
+            left_pad = self._translation
         signal = np.pad(
             signal,
             (
-                max(0, frame_shift - self._translation),
+                left_pad,
                 frame_length + self._translation,  # liberal
             ),
             "constant",
@@ -176,15 +181,16 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         return coeffs
 
 
-def test_overlap_save_convolve_the_same(buff):
-    os_computer = compute.SIFrameComputer({"name": "gabor", "scaling_function": "mel"})
+@pytest.mark.parametrize("filter", ["gammatone", "gabor"])
+def test_overlap_save_convolve_the_same(buff, filter):
+    os_computer = compute.SIFrameComputer({"name": filter, "scaling_function": "mel"})
     conv_computer = SIFrameComputerNpConvolve(
-        {"name": "gabor", "scaling_function": "mel"}
+        {"name": filter, "scaling_function": "mel"}
     )
     os_coeffs = os_computer.compute_full(buff)
     conv_coeffs = conv_computer.compute_full(buff)
     assert os_coeffs.shape == conv_coeffs.shape
-    assert np.allclose(os_coeffs, conv_coeffs)
+    assert np.allclose(os_coeffs, conv_coeffs), (os_coeffs[:5, 0], conv_coeffs[:5, 0])
 
 
 def test_kaldi_comp_matches_fbank_comp():
