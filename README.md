@@ -1,7 +1,7 @@
 # pydrobert-speech
 
 [![Documentation Status](https://readthedocs.org/projects/pydrobert-speech/badge/?version=latest)](https://pydrobert-speech.readthedocs.io/en/latest/?badge=latest)
-[![Build status](https://ci.appveyor.com/api/projects/status/abn39mww84fydxqe/branch/master?svg=true)](https://ci.appveyor.com/project/sdrobert/pydrobert-speech/branch/master)
+[![tox](https://github.com/sdrobert/pydrobert-speech/actions/workflows/tox.yml/badge.svg)](https://github.com/sdrobert/pydrobert-speech/actions/workflows/tox.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This pure-python library allows for flexible computation of speech features.
