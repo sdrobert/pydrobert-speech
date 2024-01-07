@@ -152,7 +152,7 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
         if self._frame_style == "centered":
             left_pad = max(0, frame_shift - self._translation)
         else:
-            left_pad = self._translation
+            left_pad = 0
         signal = np.pad(
             signal,
             (
@@ -170,7 +170,7 @@ class SIFrameComputerNpConvolve(compute.SIFrameComputer):
             if self._frame_style == "centered":
                 frame_start = max(0, self._translation - frame_shift)
             else:
-                frame_start = self._translation
+                frame_start = 0
             for frame_idx in range(num_frames):
                 frame_end = frame_start + 2 * self._frame_shift
                 frame = y[frame_start:frame_end]
